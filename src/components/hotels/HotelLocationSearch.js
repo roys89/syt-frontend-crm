@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import bookingService from '../../services/bookingService';
 
-const ALLOWED_TYPES = ['City', 'State', 'Airport', 'Neighborhood'];
-
 const HotelLocationSearch = ({ label, placeholder, selectedLocation, onChange, error }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -24,11 +22,8 @@ const HotelLocationSearch = ({ label, placeholder, selectedLocation, onChange, e
         const response = await bookingService.searchHotelLocations(searchTerm);
         
         if (response.success) {
-          // Filter locations by allowed types
-          const filteredLocations = (response.data.results || []).filter(
-            location => ALLOWED_TYPES.includes(location.type)
-          );
-          setLocations(filteredLocations);
+          // Show all locations without filtering
+          setLocations(response.data.results || []);
         } else {
           throw new Error(response.message || 'Failed to search locations');
         }
@@ -45,7 +40,20 @@ const HotelLocationSearch = ({ label, placeholder, selectedLocation, onChange, e
   }, [searchTerm]);
 
   const handleSelect = (location) => {
-    onChange(location);
+    // Create a processed location object
+    // For Hotel type: use id as locationId and set referenceId as hotelId
+    // For other types: just use id as locationId
+    const processedLocation = {
+      ...location,
+      locationId: location.id
+    };
+    
+    // If location type is Hotel, add hotelId property with referenceId value
+    if (location.type === 'Hotel') {
+      processedLocation.hotelId = location.referenceId;
+    }
+    
+    onChange(processedLocation);
     setSearchTerm(location.fullName);
     setShowDropdown(false);
     setLocations([]);
@@ -95,7 +103,7 @@ const HotelLocationSearch = ({ label, placeholder, selectedLocation, onChange, e
                   <span className="font-normal block truncate">
                     {location.fullName}
                   </span>
-                  <span className="ml-2 text-gray-500">
+                  <span className={`ml-2 ${location.type === 'Hotel' ? 'text-blue-500' : 'text-gray-500'}`}>
                     {location.type}
                   </span>
                 </div>

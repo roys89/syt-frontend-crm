@@ -1,7 +1,8 @@
 // src/pages/bookings/HotelBookingPage.js
-import { ArrowPathIcon, ChevronDownIcon, InformationCircleIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ChevronDownIcon, InformationCircleIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import RoomArrangementModal from '../../components/booking/RoomArrangementModal';
 import ProviderSelector from '../../components/common/ProviderSelector';
 import BookingVoucherModal from '../../components/hotels/BookingVoucherModal';
 import HotelItineraryModal from '../../components/hotels/HotelItineraryModal';
@@ -95,6 +96,7 @@ const HotelBookingPage = () => {
   const [voucherDetails, setVoucherDetails] = useState(null);
   const [isLoadingVoucher, setIsLoadingVoucher] = useState(false);
   const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -103,12 +105,7 @@ const HotelBookingPage = () => {
     checkOut: '',
     city: null,
     nationality: 'IN',
-    rooms: [
-      {
-        adults: 1,
-        children: []
-      }
-    ],
+    rooms: [{ adults: 1, children: [] }],
     filterBy: {
       freeBreakfast: false,
       isRefundable: false,
@@ -219,34 +216,26 @@ const HotelBookingPage = () => {
     });
   };
 
-  // Add room management functions
-  const addRoom = () => {
+  // Function to save rooms from modal
+  const handleSaveRooms = (updatedRooms) => {
     setFormData(prev => ({
       ...prev,
-      rooms: [
-        ...prev.rooms,
-        {
-          adults: 1,
-          children: []
-        }
-      ]
+      rooms: updatedRooms
     }));
   };
 
-  const removeRoom = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      rooms: prev.rooms.filter((_, i) => i !== index)
-    }));
-  };
-
-  const updateRoom = (index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      rooms: prev.rooms.map((room, i) => 
-        i === index ? { ...room, [field]: value } : room
-      )
-    }));
+  // Function to generate room summary string
+  const getRoomSummary = () => {
+    const rooms = formData.rooms || [];
+    if (rooms.length === 0) return 'No rooms configured';
+    const totalGuests = rooms.reduce((acc, room) => acc + room.adults + (room.children ? room.children.length : 0), 0);
+    return `${rooms.length} Room${rooms.length !== 1 ? 's' : ''}, ${totalGuests} Guest${totalGuests !== 1 ? 's' : ''}`;
+    // Alternatively, show more details:
+    // return rooms.map((room, index) => {
+    //   const adults = room.adults || 0;
+    //   const children = room.children ? room.children.length : 0;
+    //   return `Room ${index + 1}: ${adults}A${children > 0 ? `, ${children}C` : ''}`;
+    // }).join('; ');
   };
 
   // Handle search submission
@@ -280,10 +269,15 @@ const HotelBookingPage = () => {
           numOfAdults: room.adults,
           childAges: room.children
         })),
-        locationId: formData.city?.id,
+        locationId: formData.city?.locationId,
         page: 1,
-        limit: 10
+        limit: 20
       };
+      
+      // Add hotelId if present (for Hotel type locations)
+      if (formData.city?.hotelId) {
+        searchData.hotelId = formData.city.hotelId;
+      }
       
       if (Object.keys(cleanFilterBy).length > 0) {
         searchData.filterBy = cleanFilterBy;
@@ -331,11 +325,16 @@ const HotelBookingPage = () => {
           numOfAdults: room.adults,
           childAges: room.children
         })),
-        locationId: formData.city?.id,
+        locationId: formData.city?.locationId,
         page: nextPage,
-        limit: 10,
+        limit: 20,
         traceId: traceId // Include traceId for maintaining search context
       };
+      
+      // Add hotelId if present (for Hotel type locations)
+      if (formData.city?.hotelId) {
+        searchData.hotelId = formData.city.hotelId;
+      }
       
       // Add existing filters if any
       if (Object.keys(formData.filterBy).length > 0) {
@@ -452,10 +451,13 @@ const HotelBookingPage = () => {
       setIsLoadingVoucher(true);
       const bookingCode = bookingDetails.results[0].data[0].bookingRefId;
       
+      // Log the booking code to verify it's not undefined
+      console.log('Retrieved booking code:', bookingCode);
+      
       // Get hotel information for date and city (for logging)
       const hotelInfo = {
         date: formData.checkIn,
-        city: formData.city?.name
+        city: formData.city?.fullName
       };
       
       // Log the request parameters for debugging
@@ -465,19 +467,20 @@ const HotelBookingPage = () => {
         city: hotelInfo.city
       });
       
-      const response = await bookingService.getBookingDetails(
+      // Use the dedicated hotel booking details function
+      const voucherResponse = await bookingService.getHotelBookingDetails(
         bookingCode, 
         hotelInfo.date, 
         hotelInfo.city
       );
       
-      if (response.success) {
+      if (voucherResponse.success) {
         console.log('Voucher details retrieved successfully');
-        setVoucherDetails(response.data);
+        setVoucherDetails(voucherResponse.data);
         setShowVoucherModal(true);
         toast.success('Voucher details retrieved successfully');
       } else {
-        throw new Error(response.message || 'Failed to get voucher details');
+        throw new Error(voucherResponse.message || 'Failed to get voucher details');
       }
     } catch (error) {
       console.error('Error getting voucher details:', error);
@@ -680,104 +683,16 @@ const HotelBookingPage = () => {
                 )}
               </div>
 
-              {/* Replace TravelersForm with Room Arrangement */}
+              {/* Replace TravelersForm with Room Arrangement Summary & Button */}
               <div className="md:col-span-2">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Room Arrangement</h3>
-                  <button
-                    type="button"
-                    onClick={addRoom}
-                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-indigo-600 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Room
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  {formData.rooms.map((room, index) => (
-                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-sm font-medium text-gray-900">Room {index + 1}</h4>
-                        {index > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => removeRoom(index)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Adults
-                          </label>
-                          <select
-                            value={room.adults}
-                            onChange={(e) => updateRoom(index, 'adults', parseInt(e.target.value))}
-                            className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                          >
-                            {[1, 2, 3, 4].map(num => (
-                              <option key={num} value={num}>{num} Adult{num > 1 ? 's' : ''}</option>
-                            ))}
-                          </select>
-              </div>
-              
-              <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Children
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Guests & Rooms
                 </label>
-                          <select
-                            value={room.children.length}
-                            onChange={(e) => {
-                              const count = parseInt(e.target.value);
-                              const children = Array(count).fill(null);
-                              updateRoom(index, 'children', children);
-                            }}
-                            className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                          >
-                            {[0, 1, 2, 3, 4].map(num => (
-                              <option key={num} value={num}>{num} Child{num > 1 ? 'ren' : ''}</option>
-                            ))}
-                          </select>
-                        </div>
-                  </div>
-
-                      {room.children.length > 0 && (
-                        <div className="mt-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Children Ages
-                          </label>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            {room.children.map((_, childIndex) => (
-                              <div key={childIndex} className="relative">
-                  <input
-                    type="number"
-                    min="1"
-                                  max="17"
-                                  value={room.children[childIndex] || ''}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    if (value === '' || (parseInt(value) >= 1 && parseInt(value) <= 17)) {
-                                      const newChildren = [...room.children];
-                                      newChildren[childIndex] = value === '' ? null : parseInt(value);
-                                      updateRoom(index, 'children', newChildren);
-                                    }
-                                  }}
-                                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                  placeholder="Age"
-                                />
-                                <span className="absolute right-2 top-2 text-gray-400 text-sm">yrs</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between p-3 border border-gray-300 rounded-lg bg-white cursor-pointer hover:border-indigo-500"
+                     onClick={() => setIsRoomModalOpen(true)}
+                >
+                  <span className="text-sm text-gray-800 truncate pr-4">{getRoomSummary()}</span>
+                  <PencilIcon className="h-5 w-5 text-gray-400" />
                 </div>
               </div>
               
@@ -1130,6 +1045,14 @@ const HotelBookingPage = () => {
           </div>
         </div>
       )}
+
+      {/* Room Arrangement Modal */}
+      <RoomArrangementModal 
+        isOpen={isRoomModalOpen}
+        onClose={() => setIsRoomModalOpen(false)}
+        initialRooms={formData.rooms}
+        onSave={handleSaveRooms}
+      />
 
       {/* Voucher Modal */}
       <BookingVoucherModal

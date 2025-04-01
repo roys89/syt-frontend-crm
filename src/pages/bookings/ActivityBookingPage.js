@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'react-toastify';
 import ActivityDestination from '../../components/activities/ActivityDestination';
 import ActivityDetailsModal from '../../components/activities/ActivityDetailsModal';
+import ActivityFilterPanel from '../../components/activities/ActivityFilterPanel';
 import ActivitySearchResult from '../../components/activities/ActivitySearchResult';
 import TravelerDetailsModal from '../../components/activities/TravelerDetailsModal';
 import ProviderSelector from '../../components/common/ProviderSelector';
@@ -19,6 +20,17 @@ const ActivityBookingPage = () => {
   const [selectedProvider, setSelectedProvider] = useState('GRNC'); // Default to GRNC
   const [bookingData, setBookingData] = useState(null);
   const [showTravelerModal, setShowTravelerModal] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  
+  // Filter state
+  const [activeFilters, setActiveFilters] = useState({
+    nameSearch: '',
+    priceRange: {
+      min: '',
+      max: '',
+    },
+    sortBy: 'relevance'
+  });
 
   // Form state
   const [formData, setFormData] = useState({
@@ -90,6 +102,11 @@ const ActivityBookingPage = () => {
     }));
   };
 
+  // Handle filter change
+  const handleFilterChange = (filters) => {
+    setActiveFilters(filters);
+  };
+
   // Handle search submission
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -140,6 +157,16 @@ const ActivityBookingPage = () => {
         toast.info('No activities found for the selected criteria');
         return;
       }
+
+      // Reset filters when performing a new search
+      setActiveFilters({
+        nameSearch: '',
+        priceRange: {
+          min: '',
+          max: '',
+        },
+        sortBy: 'relevance'
+      });
 
       setSearchResults(allActivities);
       setStep(2);
@@ -263,7 +290,7 @@ const ActivityBookingPage = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Activity Booking</h1>
         <p className="mt-2 text-gray-600">Search and book tours, attractions, and experiences</p>
@@ -415,13 +442,46 @@ const ActivityBookingPage = () => {
       {/* Step 2: Search Results */}
       {step === 2 && (
         <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <ActivitySearchResult
-            searchResults={searchResults}
-            formData={formData}
-            onSelectActivity={handleSelectActivity}
-            onBackToSearch={() => setStep(1)}
-            isLoading={isLoading}
-          />
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Search Results</h2>
+              <p className="text-gray-600 mt-1">
+                {searchResults.length} activities found
+                {formData.selectedCities.length > 0 && ` in ${formData.selectedCities.map(city => city.name).join(', ')}`}
+              </p>
+            </div>
+            <button
+              onClick={() => setStep(1)}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Modify Search
+            </button>
+          </div>
+
+          <div className="flex">
+            {/* Filter Section */}
+            <div className="w-80 mr-6 flex-shrink-0">
+              <ActivityFilterPanel 
+                onApplyFilters={handleFilterChange}
+                initialFilters={activeFilters}
+              />
+            </div>
+
+            {/* Results Section */}
+            <div className="flex-1">
+              <ActivitySearchResult
+                searchResults={searchResults}
+                formData={formData}
+                onSelectActivity={handleSelectActivity}
+                onBackToSearch={() => setStep(1)}
+                isLoading={isLoading}
+                activeFilters={activeFilters}
+              />
+            </div>
+          </div>
         </div>
       )}
 

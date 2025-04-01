@@ -1,6 +1,6 @@
-import { BriefcaseIcon, ChevronRightIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Helper functions
 const formatDuration = (duration) => {
@@ -32,74 +32,79 @@ const renderSegment = (segment, index) => {
   
   // For inbound flights that match our expected structure (from the API example)
   if (segment.departure && segment.arrival && segment.airline) {
-    // All data is available directly on the segment object
-  return (
-            <React.Fragment key={index}>
-              {index > 0 && (
-                <div className="py-2">
-                  <div className="border-t border-gray-200"></div>
-                  <div className="flex justify-center -mt-3">
-                    <span className="bg-white px-2 text-xs text-gray-500">
-                      Connection {formatDuration(segment.groundTime || 0)}
-                    </span>
-                  </div>
-                </div>
-              )}
-              <div className="flex items-center space-x-4">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-lg font-semibold">
+    // Calculate duration if not provided
+    const duration = segment.duration || 
+      (segment.departure.time && segment.arrival.time ? 
+        Math.round((new Date(segment.arrival.time) - new Date(segment.departure.time)) / (1000 * 60)) : 
+        0);
+    
+    return (
+      <React.Fragment key={index}>
+        {index > 0 && (
+          <div className="py-2">
+            <div className="border-t border-gray-200"></div>
+            <div className="flex justify-center -mt-3">
+              <span className="bg-white px-2 text-xs text-gray-500">
+                Connection {formatDuration(segment.groundTime || 0)}
+              </span>
+            </div>
+          </div>
+        )}
+        <div className="flex items-center space-x-4">
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-lg font-semibold">
                   {formatTime(segment.departure.time)}
-                      </span>
-                      <span className="text-gray-500">
+                </span>
+                <span className="text-gray-500">
                   {segment.departure.airport.code}
-                      </span>
+                </span>
                 {segment.departure.airport.terminal && (
-                        <span className="text-xs text-gray-400">
-                          T{segment.departure.airport.terminal}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-gray-500">
-                        {formatDuration(segment.duration)}
-                      </span>
-                      <ChevronRightIcon className="h-5 w-5 text-gray-400" />
-                      <span className="text-lg font-semibold">
+                  <span className="text-xs text-gray-400">
+                    T{segment.departure.airport.terminal}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-500">
+                  {formatDuration(duration)}
+                </span>
+                <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+                <span className="text-lg font-semibold">
                   {formatTime(segment.arrival.time)}
-                      </span>
-                      <span className="text-gray-500">
+                </span>
+                <span className="text-gray-500">
                   {segment.arrival.airport.code}
-                      </span>
+                </span>
                 {segment.arrival.airport.terminal && (
-                        <span className="text-xs text-gray-400">
-                          T{segment.arrival.airport.terminal}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-1 flex justify-between">
-                    <div className="text-sm text-gray-500">
+                  <span className="text-xs text-gray-400">
+                    T{segment.arrival.airport.terminal}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="mt-1 flex justify-between">
+              <div className="text-sm text-gray-500">
                 {segment.airline.name} {segment.airline.flightNumber}
                 {segment.airline.fareClass && (
-                        <span className="ml-1 text-xs text-gray-400">
-                          ({segment.airline.fareClass})
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {segment.baggage && (
-                        <span className="mr-2">Baggage: {segment.baggage}</span>
-                      )}
-                      {segment.cabinBaggage && (
-                        <span>Cabin: {segment.cabinBaggage}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  <span className="ml-1 text-xs text-gray-400">
+                    ({segment.airline.fareClass})
+                  </span>
+                )}
               </div>
-            </React.Fragment>
+              <div className="text-xs text-gray-400">
+                {segment.baggage && (
+                  <span className="mr-2">Baggage: {segment.baggage}</span>
+                )}
+                {segment.cabinBaggage && (
+                  <span>Cabin: {segment.cabinBaggage}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </React.Fragment>
     );
   }
   
@@ -255,12 +260,26 @@ const renderSegment = (segment, index) => {
 };
 
 // FlightCard for rendering flight information - Updated to remove inbound preview from outbound tab
-const FlightCard = ({ flight, onSelect, isSelected }) => {
-  // State for managing selected inbound option and expanded state
+const FlightCard = ({ 
+  flight, 
+  onSelect, 
+  isSelected, 
+  isOutbound, 
+  flightStructureType,
+  selectedOutboundFlight,
+  selectedInboundFlight
+}) => {
+  // State for managing selected inbound option, expanded state, and group expansion
   const [selectedInboundIndex, setSelectedInboundIndex] = useState(0);
   const [inboundExpanded, setInboundExpanded] = useState(false);
+  const [groupExpanded, setGroupExpanded] = useState(false);
+  const [selectedGroupFlightIndex, setSelectedGroupFlightIndex] = useState(null);
   
-  // Improved function to process inbound options safely
+  // Additional state for inbound option grouping
+  const [inboundGroupExpanded, setInboundGroupExpanded] = useState({});
+  const [selectedInboundGroupIndex, setSelectedInboundGroupIndex] = useState({});
+  
+  // Improved function to process inbound options safely with grouping support
   const processInboundOptions = (flight) => {
     let allInboundOptions = [];
     
@@ -275,7 +294,8 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
           fareClass: option.fareClass || flight.fareClass,
           segments: option.segments || [],
           provider: option.provider,
-          resultIndex: option.resultIndex
+          resultIndex: option.resultIndex,
+          groupId: option.groupId // Preserve groupId for grouping inbound options
         }));
       } 
       // Legacy format handling (array of arrays)
@@ -293,6 +313,9 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
               if (inboundOption.segments && Array.isArray(inboundOption.segments) && inboundOption.segments.length > 0) {
                 // If segments array exists and has values, use it directly
                 segmentsToUse = inboundOption.segments;
+              } else if (inboundOption.sg && Array.isArray(inboundOption.sg) && inboundOption.sg.length > 0) {
+                // If sg array exists, use it
+                segmentsToUse = inboundOption.sg;
               } else if (inboundOption.departure && inboundOption.arrival) {
                 // If the option itself is a segment-like object, use it as a segment
                 segmentsToUse = [inboundOption];
@@ -300,12 +323,13 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
               
               allInboundOptions.push({
                 index: i,
-                price: inboundOption.price || flight.price,
-                isRefundable: inboundOption.isRefundable !== undefined ? inboundOption.isRefundable : flight.isRefundable,
-                fareClass: inboundOption.fareClass || flight.fareClass,
+                price: inboundOption.price || { amount: inboundOption.pF, currency: inboundOption.cr },
+                isRefundable: inboundOption.isRefundable !== undefined ? inboundOption.isRefundable : inboundOption.iR,
+                fareClass: inboundOption.fareClass || inboundOption.pFC,
                 segments: segmentsToUse,
-                provider: inboundOption.provider,
-                resultIndex: inboundOption.resultIndex
+                provider: inboundOption.provider || inboundOption.pr,
+                resultIndex: inboundOption.resultIndex || inboundOption.rI,
+                groupId: inboundOption.groupId // Preserve groupId for grouping inbound options
               });
             }
           }
@@ -313,8 +337,83 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
       }
     }
     
-    console.log('Processed inbound options:', allInboundOptions.length, allInboundOptions[0]);
-    return allInboundOptions;
+    // Group inbound options by groupId
+    const groupedInboundOptions = groupInboundOptionsByGroupId(allInboundOptions);
+    
+    return groupedInboundOptions;
+  };
+  
+  // Function to group inbound options by groupId
+  const groupInboundOptionsByGroupId = (inboundOptions) => {
+    if (!inboundOptions || inboundOptions.length === 0) return [];
+    
+    // Create a map to store options by groupId
+    const groupMap = new Map();
+    
+    // Debug groupId presence
+    console.log('Inbound options group IDs:', inboundOptions.map(f => f.groupId));
+    
+    // First, group options by groupId
+    inboundOptions.forEach(option => {
+      const groupId = option.groupId;
+      
+      // Skip options without groupId - keep them as individual options
+      if (groupId === undefined || groupId === null) {
+        return;
+      }
+      
+      if (!groupMap.has(groupId)) {
+        groupMap.set(groupId, []);
+      }
+      
+      groupMap.get(groupId).push(option);
+    });
+    
+    // Debug how many options are in each group
+    console.log('Inbound group sizes:', Array.from(groupMap.entries()).map(([id, options]) => ({ 
+      groupId: id, 
+      count: options.length,
+      firstOptionId: options[0]?.resultIndex
+    })));
+    
+    // Create the final array with grouped options
+    let result = [];
+    
+    // Add options that belong to groups
+    groupMap.forEach((options, groupId) => {
+      if (options.length === 0) return;
+      
+      // Take the first option as primary
+      const firstOption = options[0];
+      
+      // Add debug info to option for UI visibility
+      firstOption._debugHasGroup = true;
+      firstOption._debugGroupSize = options.length;
+      
+      // If there are more options in the group, add them as groupOptions
+      if (options.length > 1) {
+        firstOption.groupOptions = options.slice(1);
+      }
+      
+      result.push(firstOption);
+    });
+    
+    // Add back all options that don't have a groupId or weren't grouped
+    inboundOptions.forEach(option => {
+      const groupId = option.groupId;
+      if (groupId === undefined || groupId === null) {
+        option._debugHasGroup = false;
+        result.push(option);
+      }
+    });
+    
+    console.log('Grouped inbound options result:', {
+      totalOriginal: inboundOptions.length,
+      totalGrouped: result.length,
+      withGroups: result.filter(f => f.groupOptions && f.groupOptions.length > 0).length
+    });
+    
+    return result;
   };
   
   // Emergency check for completely empty flight object
@@ -327,8 +426,9 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
     );
   }
 
-  // Log everything to debug
-  console.log('FlightCard received flight:', flight);
+  // Get group flights if available
+  const groupFlights = flight.groupFlights || [];
+  const hasGroupFlights = Array.isArray(groupFlights) && groupFlights.length > 0;
 
   // Price extraction with fallbacks for every format
   const displayPrice = {
@@ -338,6 +438,8 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
 
   // Get segments from flight (handle both normalized segments and raw sg format)
   const getSegments = (flight) => {
+    if (!flight) return [];
+
     if (flight.segments && Array.isArray(flight.segments)) {
       return flight.segments;
     }
@@ -358,16 +460,6 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
   const isInternationalRoundTrip = (hasOutboundSegments || hasOutboundFlight) && hasInboundOptions;
   const isOneWay = !isDomesticRoundTripCombined && !isInternationalRoundTrip;
 
-  // Show debug logs for flight structure detection
-  console.log('Flight structure detection:', {
-    isDomesticRoundTripCombined,
-    hasOutboundSegments,
-    hasOutboundFlight,
-    hasInboundOptions,
-    isInternationalRoundTrip,
-    isRoundTrip: flight.isRoundTrip
-  });
-
   // Get appropriate segments based on flight type
   let segments = [];
   let outboundSegments = [];
@@ -386,15 +478,6 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
     
     // For inbound, collect all options from the nested structure
     allInboundOptions = processInboundOptions(flight);
-    
-    // Add debugging to verify options are properly processed
-    console.log('Processed inbound options:', {
-      count: allInboundOptions.length,
-      firstOption: allInboundOptions[0],
-      hasSegments: allInboundOptions[0]?.segments?.length > 0
-    });
-    
-    // We no longer need to set initial inbound segments here since we're not showing them in outbound tab
   } else {
     // One-way flight
     segments = getSegments(flight);
@@ -416,176 +499,651 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
     setInboundExpanded(false); // Collapse after selection
   };
 
-  // For domestic round trip combined flights
-  if (isDomesticRoundTripCombined) {
+  // Function to toggle group expansion
+  const toggleGroupExpanded = () => {
+    setGroupExpanded(!groupExpanded);
+    // Reset selected group flight when collapsing
+    if (groupExpanded) {
+      setSelectedGroupFlightIndex(null);
+    }
+  };
+
+  // Handle selection of a flight from the group
+  const handleSelectGroupFlight = (groupFlight, index, event) => {
+    // Stop event propagation to prevent parent div click handler
+    event.stopPropagation();
+    
+    // Update the selected group flight index
+    setSelectedGroupFlightIndex(index);
+    
+    // For DOMESTIC_ROUND_TRIP, ensure we log selection details
+    if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+      console.log('Domestic round trip group flight selection:', {
+        flightId: groupFlight.resultIndex,
+        hasOutbound: !!groupFlight.outbound,
+        hasInbound: !!groupFlight.inbound,
+        isOutboundTab: isOutbound,
+        fromGroupIndex: index,
+        structure: groupFlight
+      });
+    }
+    
+    // Call the parent onSelect handler with the selected group flight
+    onSelect(groupFlight);
+  };
+
+  // Handle main flight selection
+  const handleMainFlightSelect = (event) => {
+    // If a group flight is selected, don't select the main flight
+    if (selectedGroupFlightIndex !== null) {
+      // Reset the selection instead
+      setSelectedGroupFlightIndex(null);
+    }
+    
+    // For domestic round trip, ensure we send the correct flight structure
+    if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+      // Log selection for debugging
+      console.log('Domestic round trip selection:', {
+        flightId: flight.rI,
+        isOutbound,
+        structure: flight
+      });
+      
+      // Call parent onSelect with the flight object containing rI
+      onSelect({
+        rI: flight.rI,
+        sg: flight.sg,
+        pF: flight.pF,
+        cr: flight.cr,
+        iR: flight.iR,
+        pFC: flight.pFC
+      });
+    } else {
+      // For other flight types, call parent onSelect with the original flight
+      onSelect(flight);
+    }
+  };
+
+  // Additional helper to check if this flight is selected
+  const isThisFlightSelected = () => {
+    // For DOMESTIC_ROUND_TRIP, ensure we're only highlighting the correct flight
+    // based on whether we're in the outbound or inbound tab
+    if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+      // We need to explicitly compare the resultIndex (flight ID)
+      if (isOutbound) {
+        // Check both resultIndex and rI properties for compatibility with all data structures
+        const flightId = flight.resultIndex || flight.rI;
+        const selectedId = selectedOutboundFlight?.resultIndex || selectedOutboundFlight?.rI;
+        return flightId === selectedId;
+      } else {
+        // Check both resultIndex and rI properties for compatibility with all data structures
+        const flightId = flight.resultIndex || flight.rI;
+        const selectedId = selectedInboundFlight?.resultIndex || selectedInboundFlight?.rI;
+        return flightId === selectedId;
+      }
+    }
+    
+    // For other flight types, just use isSelected prop as is
+    return isSelected;
+  };
+
+  // Function to toggle inbound group expansion
+  const handleToggleInboundGroup = (optionIndex) => {
+    setInboundGroupExpanded(prev => ({
+      ...prev,
+      [optionIndex]: !prev[optionIndex]
+    }));
+  };
+
+  // Function to handle selection of a grouped inbound option
+  const handleSelectGroupInboundOption = (option, groupIndex, optionIndex, event) => {
+    // Stop event propagation
+    event.stopPropagation();
+    
+    // Update the selected inbound group option index
+    setSelectedInboundGroupIndex(prev => ({
+      ...prev,
+      [optionIndex]: groupIndex
+    }));
+    
+    // Select this inbound option
+    selectInboundOption(optionIndex);
+  };
+
+  // Render inbound option with its group options
+  const renderInboundOptionWithGroups = (option, optionIndex) => {
+    // Check if this inbound option has grouped options
+    const hasGroupOptions = option.groupOptions && option.groupOptions.length > 0;
+    const isExpanded = inboundGroupExpanded[optionIndex] || false;
+    const selectedGroupIndex = selectedInboundGroupIndex[optionIndex] || null;
+    
+    // Check if this option is actually selected based on its resultIndex
+    const isOptionSelected = isOutbound 
+      ? selectedOutboundFlight?.resultIndex === option.resultIndex
+      : selectedInboundFlight?.resultIndex === option.resultIndex;
+    
     return (
-      <div 
-        className={`bg-white rounded-lg shadow-sm border p-4 ${
-          isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'
-        } hover:shadow-md transition-shadow cursor-pointer`}
-        onClick={() => onSelect(flight)}
-      >
-        <div className="space-y-6">
-          {/* Outbound section */}
-          <div>
-            <div className="text-sm font-semibold text-blue-600 mb-2">Outbound</div>
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                {outboundSegments.length > 0 ? (
-                  outboundSegments.map((segment, index) => renderSegment(segment, index))
-                ) : (
-                  <div className="text-red-500">No outbound segment data available</div>
-                )}
-              </div>
+      <div key={`inbound-option-${optionIndex}`} className="border border-gray-200 rounded-md mb-3">
+        {/* Main inbound option */}
+        <div 
+          className={`p-4 ${(selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null ? 'bg-blue-50' : 'bg-white'}`}
+          onClick={() => selectInboundOption(optionIndex)}
+        >
+          {/* Debug info */}
+          {option._debugHasGroup && (
+            <div className="mb-2 p-1 text-xs bg-yellow-100 text-yellow-800 rounded-sm">
+              Debug: This inbound option has {option._debugGroupSize} options in its group (groupId: {option.groupId})
             </div>
+          )}
+          
+          {/* Flight segments */}
+          <div className="mb-4">
+            {option.segments.length > 0 ? (
+              option.segments.map((segment, segIndex) => renderSegment(segment, segIndex))
+            ) : (
+              <div className="text-red-500">No segment data available</div>
+            )}
           </div>
           
-          {/* Inbound section */}
-          <div>
-            <div className="text-sm font-semibold text-blue-600 mb-2">Inbound</div>
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                {inboundSegments.length > 0 ? (
-                  inboundSegments.map((segment, index) => renderSegment(segment, index))
-                ) : (
-                  <div className="text-red-500">No inbound segment data available</div>
-                )}
+          {/* Price and selection */}
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-left">
+              <div className="text-lg font-semibold text-blue-600">
+                {option.price?.currency || 'INR'} {(option.price?.amount || 0).toLocaleString()}
+              </div>
+              <div className="text-sm text-gray-500">
+                {option.isRefundable ? 'Refundable' : 'Non-refundable'}
               </div>
             </div>
+            
+            <div className="flex items-center space-x-2">
+              {/* Group options button */}
+              {hasGroupOptions && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleInboundGroup(optionIndex);
+                  }}
+                  className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-sm font-medium flex items-center"
+                >
+                  {isExpanded ? 'Hide' : 'View'} {option.groupOptions.length} more
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className={`h-4 w-4 ml-1 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+                    viewBox="0 0 20 20" 
+                    fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 011.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              )}
+              
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Check if already selected to toggle selection
+                  if ((selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null) {
+                    // Deselect this option
+                    if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+                      if (isOutbound) {
+                        onSelect({ resultIndex: null, type: 'clear_outbound' });
+                      } else {
+                        onSelect({ resultIndex: null, type: 'clear_inbound' });
+                      }
+                    } else {
+                      onSelect({ resultIndex: null, type: 'clear_selection' });
+                    }
+                  } else {
+                    selectInboundOption(optionIndex);
+                  }
+                }}
+                className={`px-4 py-2 text-sm font-medium rounded-md ${
+                  (selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-blue-600 border border-blue-600'
+                }`}
+              >
+                {(selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null ? 'Selected' : 'Select'}
+              </button>
+            </div>
+          </div>
         </div>
         
-          {/* Price info */}
-          <div className="border-t border-gray-200 pt-4 mt-4">
-            <div className="text-right">
-          <div className="text-2xl font-bold text-blue-600">
-                {displayPrice.currency} {displayPrice.amount.toLocaleString()}
-              </div>
-              <div className="text-sm text-gray-500">
-                Round Trip {isRefundable ? ' • Refundable' : ' • Non-refundable'}
-              </div>
+        {/* Grouped inbound options */}
+        {hasGroupOptions && isExpanded && (
+          <div className="border-t border-gray-200 p-2 bg-gray-50">
+            <div className="space-y-3">
+              {option.groupOptions.map((groupOption, groupIndex) => {
+                // Check if this group option is actually selected by checking its ID
+                const isGroupOptionSelected = isOutbound 
+                  ? selectedOutboundFlight?.resultIndex === groupOption.resultIndex
+                  : selectedInboundFlight?.resultIndex === groupOption.resultIndex;
+                
+                return (
+                  <div 
+                    key={`group-option-${optionIndex}-${groupIndex}`}
+                    className={`p-3 border rounded-md ${
+                      (selectedInboundIndex === optionIndex && selectedGroupIndex === groupIndex) || isGroupOptionSelected
+                        ? 'border-blue-500 ring-2 ring-blue-200 bg-white'
+                        : 'border-gray-200 bg-white'
+                    }`}
+                    onClick={(e) => handleSelectGroupInboundOption(groupOption, groupIndex, optionIndex, e)}
+                  >
+                    {/* Flight segments */}
+                    <div className="mb-3">
+                      {groupOption.segments.length > 0 ? (
+                        groupOption.segments.map((segment, segIndex) => renderSegment(segment, segIndex))
+                      ) : (
+                        <div className="text-red-500">No segment data available</div>
+                      )}
+                    </div>
+                    
+                    {/* Price and selection */}
+                    <div className="flex justify-between items-center mt-3">
+                      <div className="text-left">
+                        <div className="text-lg font-semibold text-blue-600">
+                          {groupOption.price?.currency || 'INR'} {(groupOption.price?.amount || 0).toLocaleString()}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {groupOption.isRefundable ? 'Refundable' : 'Non-refundable'}
+                        </div>
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Toggle selection if already selected, otherwise select
+                          if ((selectedInboundIndex === optionIndex && selectedGroupIndex === groupIndex) || isGroupOptionSelected) {
+                            // Deselect this option
+                            if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+                              if (isOutbound) {
+                                onSelect({ resultIndex: null, type: 'clear_outbound' });
+                              } else {
+                                onSelect({ resultIndex: null, type: 'clear_inbound' });
+                              }
+                            } else {
+                              onSelect({ resultIndex: null, type: 'clear_selection' });
+                            }
+                          } else {
+                            handleSelectGroupInboundOption(groupOption, groupIndex, optionIndex, e);
+                          }
+                        }}
+                        className={`px-4 py-2 text-sm font-medium rounded-md ${
+                          (selectedInboundIndex === optionIndex && selectedGroupIndex === groupIndex) || isGroupOptionSelected
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white text-blue-600 border border-blue-600'
+                        }`}
+                      >
+                        {(selectedInboundIndex === optionIndex && selectedGroupIndex === groupIndex) || isGroupOptionSelected ? 'Selected' : 'Select'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render group flights if expanded
+  const renderGroupFlights = () => {
+    if (!hasGroupFlights || !groupExpanded) return null;
+    
+    return (
+      <div className="mt-3">
+        <h4 className="text-sm font-medium text-gray-700 mb-2">More options with this airline</h4>
+        <div className="space-y-3">
+          {groupFlights.map((groupFlight, index) => {
+            if (!groupFlight) return null;
+            
+            // Check if this group flight is selected
+            let isGroupFlightSelected = selectedGroupFlightIndex === index;
+            
+            // For DOMESTIC_ROUND_TRIP, verify against the actual selected flight by ID
+            if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+              if (isOutbound && selectedOutboundFlight) {
+                isGroupFlightSelected = selectedGroupFlightIndex === index && 
+                  selectedOutboundFlight.resultIndex === groupFlight.resultIndex;
+              } else if (!isOutbound && selectedInboundFlight) {
+                isGroupFlightSelected = selectedGroupFlightIndex === index && 
+                  selectedInboundFlight.resultIndex === groupFlight.resultIndex;
+              }
+            }
+            
+            // Handle different flight types for group flights
+            let groupSegments = [];
+            
+            if (isOneWay) {
+              groupSegments = getSegments(groupFlight);
+            } else if (isDomesticRoundTripCombined) {
+              // Skip rendering if either outbound or inbound is missing
+              if (!groupFlight.outbound || !groupFlight.inbound) return null;
+            } else if (isInternationalRoundTrip) {
+              if (hasOutboundSegments) {
+                if (!groupFlight.outboundSegments || groupFlight.outboundSegments.length === 0) return null;
+              } else if (hasOutboundFlight) {
+                if (!groupFlight.outboundFlight || groupFlight.outboundFlight.length === 0) return null;
+              } else {
+                return null;
+              }
+            }
+            
+            return (
+              <div 
+                key={`group-flight-${index}`}
+                className={`p-4 border rounded-md ${isGroupFlightSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'} bg-white shadow-sm hover:shadow-md transition-shadow`}
+                onClick={(e) => handleSelectGroupFlight(groupFlight, index, e)}
+              >
+                {/* One-way flight */}
+                {isOneWay && (
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      {groupSegments.length > 0 ? (
+                        groupSegments.map((segment, segIndex) => renderSegment(segment, segIndex))
+                      ) : (
+                        <div className="text-red-500">No segment data available</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Domestic round trip */}
+                {isDomesticRoundTripCombined && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-sm font-medium text-blue-600 mb-2">Outbound</div>
+                      <div className="flex-1">
+                        {getSegments(groupFlight.outbound).length > 0 ? (
+                          getSegments(groupFlight.outbound).map((segment, segIndex) => 
+                            renderSegment(segment, segIndex)
+                          )
+                        ) : (
+                          <div className="text-red-500">No outbound segment data available</div>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-blue-600 mb-2">Inbound</div>
+                      <div className="flex-1">
+                        {getSegments(groupFlight.inbound).length > 0 ? (
+                          getSegments(groupFlight.inbound).map((segment, segIndex) => 
+                            renderInboundOptionWithGroups(segment, segIndex)
+                          )
+                        ) : (
+                          <div className="text-red-500">No inbound segment data available</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* International round trip with outbound and inbound options */}
+                {isInternationalRoundTrip && (
+                  <div className="space-y-6">
+                    {/* Outbound section */}
+                    <div>
+                      <div className="text-sm font-semibold text-blue-600 mb-2">Outbound</div>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          {outboundSegments.length > 0 ? (
+                            outboundSegments.map((segment, index) => renderSegment(segment, index))
+                          ) : (
+                            <div className="text-red-500">No outbound segment data available</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Only show "Return options available" text for outbound tab */}
+                    {isOutbound && (
+                      <div className="text-sm text-gray-500 italic">
+                        {allInboundOptions.length} return options available
+                      </div>
+                    )}
+                    
+                    {/* Show inbound options if we're in the inbound tab */}
+                    {!isOutbound && renderInboundOptions()}
+                  </div>
+                )}
+                
+                {/* Price and select button for each group flight */}
+                <div className="mt-4 flex justify-between items-center">
+                  <div className="text-left">
+                    <div className="text-lg font-semibold text-blue-600">
+                      {groupFlight.price?.currency || displayPrice.currency} {(groupFlight.price?.amount || displayPrice.amount).toLocaleString()}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {groupFlight.isRefundable !== undefined ? (groupFlight.isRefundable ? 'Refundable' : 'Non-refundable') : isRefundable ? 'Refundable' : 'Non-refundable'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      
+                      // Toggle selection if already selected, otherwise select it
+                      if (isGroupFlightSelected) {
+                        setSelectedGroupFlightIndex(null);
+                        // For DOMESTIC_ROUND_TRIP mode, we need to clear the correct selection
+                        if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+                          // Notify parent component that selection should be cleared
+                          if (isOutbound) {
+                            onSelect({ resultIndex: null, type: 'clear_outbound' });
+                          } else {
+                            onSelect({ resultIndex: null, type: 'clear_inbound' });
+                          }
+                        } else {
+                          // For other flight types, use general clear_selection
+                          onSelect({ resultIndex: null, type: 'clear_selection' });
+                        }
+                      } else {
+                        handleSelectGroupFlight(groupFlight, index, e);
+                      }
+                    }}
+                    className={`px-4 py-2 text-sm font-medium rounded-md ${
+                      isGroupFlightSelected
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-blue-600 border border-blue-600'
+                    }`}
+                  >
+                    {isGroupFlightSelected ? 'Selected' : 'Select'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
-  }
-  
-  // For international round trips (OUTBOUND ONLY)
-  if (isInternationalRoundTrip) {
+  };
+
+  // For international round trips - render inbound options section
+  const renderInboundOptions = () => {
+    if (!isInternationalRoundTrip || !allInboundOptions || allInboundOptions.length === 0) {
+      return (
+        <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-600">No return flight options available.</p>
+        </div>
+      );
+    }
+    
     return (
+      <div className="space-y-4">
+        {allInboundOptions.map((option, index) => renderInboundOptionWithGroups(option, index))}
+      </div>
+    );
+  };
+
+  return (
+    <>
       <div 
         className={`bg-white rounded-lg shadow-sm border p-4 ${
-          isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'
+          isThisFlightSelected() ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'
         } hover:shadow-md transition-shadow cursor-pointer`}
-        onClick={() => onSelect(flight)}
+        onClick={handleMainFlightSelect}
       >
+        {/* Debug info */}
+        {flight._debugHasGroup && (
+          <div className="mb-2 p-1 text-xs bg-yellow-100 text-yellow-800 rounded-sm">
+            Debug: This flight has {flight._debugGroupSize} flights in its group (groupId: {flight.groupId})
+          </div>
+        )}
+        
+        {/* Main content area */}
         <div className="space-y-6">
-          {/* Outbound section only - no inbound preview */}
-          <div>
-            <div className="text-sm font-semibold text-blue-600 mb-2">Outbound Flight</div>
+          {/* One-way flight */}
+          {isOneWay && (
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                {outboundSegments.length > 0 ? (
-                  outboundSegments.map((segment, index) => renderSegment(segment, index))
+                {segments.length > 0 ? (
+                  segments.map((segment, index) => renderSegment(segment, index))
                 ) : (
-                  <div className="text-red-500">No outbound segment data available</div>
+                  <div className="text-red-500">No segment data available</div>
                 )}
               </div>
             </div>
-          </div>
+          )}
           
-          {/* Price info - with return options text on the same row */}
-          <div className="border-t border-gray-200 pt-4 mt-4 flex justify-between items-center">
-            {/* Return flight options count */}
-            {allInboundOptions.length > 0 && (
-              <div className="text-sm text-gray-600">
-                {allInboundOptions.length} return flight option{allInboundOptions.length !== 1 ? 's' : ''}
+          {/* Display outbound and inbound for domestic round trip */}
+          {isDomesticRoundTripCombined && (
+            <div className="space-y-6">
+              {/* Outbound section */}
+              <div>
+                <div className="text-sm font-semibold text-blue-600 mb-2">Outbound</div>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    {outboundSegments.length > 0 ? (
+                      outboundSegments.map((segment, index) => renderSegment(segment, index))
+                    ) : (
+                      <div className="text-red-500">No outbound segment data available</div>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
-            
-            {/* Price */}
-            <div className="text-right">
-              <div className="text-2xl font-bold text-blue-600">
-                {displayPrice.currency} {displayPrice.amount.toLocaleString()}
-              </div>
-              <div className="text-sm text-gray-500">
-                {isRefundable ? 'Refundable' : 'Non-refundable'}
+              
+              {/* Inbound section */}
+              <div>
+                <div className="text-sm font-semibold text-blue-600 mb-2">Inbound</div>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    {inboundSegments.length > 0 ? (
+                      inboundSegments.map((segment, index) => renderSegment(segment, index))
+                    ) : (
+                      <div className="text-red-500">No inbound segment data available</div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  // For one-way flights (unchanged)
-  return (
-    <div 
-      className={`bg-white rounded-lg shadow-sm border p-4 ${
-        isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'
-      } hover:shadow-md transition-shadow cursor-pointer`}
-      onClick={() => onSelect(flight)}
-    >
-      <div className="flex justify-between items-start">
-        {/* Segments */}
-        <div className="flex-1">
-          {segments.length > 0 ? (
-            segments.map((segment, index) => renderSegment(segment, index))
-          ) : (
-            <div className="text-red-500">No segment data available</div>
           )}
+          
+          {/* International round trip with outbound and inbound options */}
+          {isInternationalRoundTrip && (
+            <div className="space-y-6">
+              {/* Outbound section */}
+              <div>
+                <div className="text-sm font-semibold text-blue-600 mb-2">Outbound</div>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    {outboundSegments.length > 0 ? (
+                      outboundSegments.map((segment, index) => renderSegment(segment, index))
+                    ) : (
+                      <div className="text-red-500">No outbound segment data available</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Only show "Return options available" text for outbound tab */}
+              {isOutbound && (
+                <div className="text-sm text-gray-500 italic">
+                  {allInboundOptions.length} return options available
+                </div>
+              )}
+              
+              {/* Show inbound options if we're in the inbound tab */}
+              {!isOutbound && renderInboundOptions()}
+            </div>
+          )}
+        </div>
+        
+        <div className="mt-4 flex justify-between items-center">
+          <div className="text-left">
+            <div className="text-2xl font-bold text-blue-600">
+              {displayPrice.currency} {displayPrice.amount.toLocaleString()}
+            </div>
+            <div className="text-sm text-gray-500">
+              {isRefundable ? 'Refundable' : 'Non-refundable'}
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            {/* Group flights button */}
+            {hasGroupFlights && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleGroupExpanded();
+                }}
+                className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-sm font-medium flex items-center"
+              >
+                {groupExpanded ? 'Hide' : 'View'} {groupFlights.length} more
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className={`h-4 w-4 ml-1 transition-transform ${groupExpanded ? 'rotate-180' : ''}`} 
+                  viewBox="0 0 20 20" 
+                  fill="currentColor"
+                >
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 011.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+            
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                
+                // Toggle selection - if already selected, clear the selection
+                if (isThisFlightSelected()) {
+                  // Check which flight structure we're dealing with
+                  if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+                    // Notify parent component that selection should be cleared
+                    if (isOutbound) {
+                      onSelect({ resultIndex: null, type: 'clear_outbound' });
+                    } else {
+                      onSelect({ resultIndex: null, type: 'clear_inbound' });
+                    }
+                  } else {
+                    // For other flight types, just pass a clear action
+                    onSelect({ resultIndex: null, type: 'clear_selection' });
+                  }
+                } else {
+                  // Select this flight
+                  handleMainFlightSelect(e);
+                }
+              }}
+              className={`px-4 py-2 text-sm font-medium rounded-md ${
+                isThisFlightSelected()
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-blue-600 border border-blue-600'
+              }`}
+            >
+              {isThisFlightSelected() ? 'Selected' : 'Select'}
+            </button>
+          </div>
         </div>
       </div>
       
-      {/* Flight details, price and select button in same row */}
-      <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Baggage Info */}
-          {segments[0] && (
-          <div className="flex items-center space-x-1">
-              <BriefcaseIcon className="h-4 w-4 text-gray-500 mr-1" />
-            <span className="text-sm text-gray-500">
-                {segments[0].baggage || segments[0].bg || 'No baggage'}
-            </span>
-          </div>
-          )}
-          
-          {/* Duration Info */}
-          {segments.length > 0 && (
-          <div className="flex items-center space-x-1">
-              <ClockIcon className="h-4 w-4 text-gray-500 mr-1" />
-            <span className="text-sm text-gray-500">
-              {formatDuration(
-                  segments.reduce((total, segment) => total + (segment.duration || segment.dr || 0), 0)
-              )}
-            </span>
-          </div>
-          )}
-          
-          {/* Stops Info */}
-          <div className="flex items-center space-x-1">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M6 10a2 2 0 012-2h4a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4z" />
-            </svg>
-            <span className="text-sm text-gray-500">
-              {segments.length <= 1 
-                ? 'Non-stop' 
-                : `${segments.length - 1} stop${segments.length !== 2 ? 's' : ''}`
-              }
-            </span>
-          </div>
-        </div>
-        
-        <div className="text-right">
-          <div className="text-2xl font-bold text-blue-600">
-            {displayPrice.currency} {displayPrice.amount.toLocaleString()}
-          </div>
-          <div className="text-sm text-gray-500">
-            {isRefundable ? 'Refundable' : 'Non-refundable'}
-          </div>
-        </div>
-      </div>
-    </div>
+      {/* Group flights section - moved outside the main card */}
+      {renderGroupFlights()}
+    </>
   );
 };
 
@@ -597,39 +1155,125 @@ const FlightSummaryPanel = ({
   selectedInboundOptionIndex = 0,
   onCreateItinerary 
 }) => {
+  // Debug log for component inputs
+  useEffect(() => {
+    console.log('FlightSummaryPanel received props:', {
+      flightStructureType,
+      outboundFlightId: selectedOutboundFlight?.resultIndex,
+      inboundFlightId: selectedInboundFlight?.resultIndex,
+      selectedInboundOptionIndex
+    });
+    
+    if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+      console.log('Domestic RT Flight Structure:', {
+        outbound: selectedOutboundFlight ? {
+          hasOutbound: !!selectedOutboundFlight.outbound,
+          hasInbound: !!selectedOutboundFlight.inbound,
+          structure: selectedOutboundFlight
+        } : 'No outbound flight selected',
+        inbound: selectedInboundFlight ? {
+          hasOutbound: !!selectedInboundFlight.outbound,
+          hasInbound: !!selectedInboundFlight.inbound,
+          structure: selectedInboundFlight
+        } : 'No inbound flight selected'
+      });
+    }
+  }, [selectedOutboundFlight, selectedInboundFlight, flightStructureType, selectedInboundOptionIndex]);
+
   // Function to calculate total price with correct logic for each flight type
   const calculateTotalPrice = () => {
     let total = 0;
     let currency = 'INR';
     
-    if (selectedOutboundFlight) {
-      // Add outbound flight price (same for all flight types)
-      total += selectedOutboundFlight.price?.amount || 0;
-      currency = selectedOutboundFlight.price?.currency || 'INR';
-      
-      // Add inbound flight price based on flight type
-      if (flightStructureType === 'DOMESTIC_ROUND_TRIP' && selectedInboundFlight) {
-        // For domestic round trip, add the selected inbound flight price
-        total += selectedInboundFlight.price?.amount || 0;
-      } 
-      else if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && 
-               selectedInboundOptionIndex !== null && 
-               selectedOutboundFlight.inboundOptions && 
-               selectedOutboundFlight.inboundOptions.length > selectedInboundOptionIndex) {
+    if (!selectedOutboundFlight) {
+      return { amount: 0, currency };
+    }
+    
+    if (flightStructureType === 'ONE_WAY') {
+      // For one-way flights, use direct price
+      if (selectedOutboundFlight.price?.amount !== undefined) {
+        total = selectedOutboundFlight.price.amount;
+        currency = selectedOutboundFlight.price.currency || currency;
+      } else if (typeof selectedOutboundFlight.pF === 'number') {
+        // Legacy format
+        total = selectedOutboundFlight.pF;
+        currency = selectedOutboundFlight.cr || currency;
+      }
+      return { amount: total, currency };
+    }
+    
+    // For round trips (domestic or international)
+    
+    // Add outbound flight price
+    let outboundPrice = 0;
+    
+    // Check all possible price formats
+    if (selectedOutboundFlight.price?.amount !== undefined) {
+      outboundPrice = selectedOutboundFlight.price.amount;
+      currency = selectedOutboundFlight.price.currency || currency;
+    } else if (selectedOutboundFlight.outbound?.price?.amount !== undefined) {
+      outboundPrice = selectedOutboundFlight.outbound.price.amount;
+      currency = selectedOutboundFlight.outbound.price.currency || currency;
+    } else if (typeof selectedOutboundFlight.pF === 'number') {
+      // Legacy format
+      outboundPrice = selectedOutboundFlight.pF;
+      currency = selectedOutboundFlight.cr || currency;
+    }
+    
+    total += outboundPrice;
+    console.log('Outbound price added:', outboundPrice);
+    
+    // Add inbound flight price based on flight type
+    if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+      if (selectedOutboundFlight.inbound?.price?.amount !== undefined) {
+        // For combined structure in single flight object
+        total += selectedOutboundFlight.inbound.price.amount;
+        console.log('Inbound price from outbound flight:', selectedOutboundFlight.inbound.price.amount);
+      } else if (selectedInboundFlight) {
+        // For separate outbound and inbound flights
+        let inboundPrice = 0;
         
-        // For international round trip, add the selected inbound option price
-        // Handle array of arrays format
-        if (Array.isArray(selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex])) {
-          const inboundOption = selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex][0];
-          if (inboundOption && inboundOption.price) {
-            total += inboundOption.price.amount || 0;
-          }
-        } 
-        // Handle direct object format
-        else if (selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex] && 
-                 selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex].price) {
-          total += selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex].price.amount || 0;
+        // Check all possible price formats for inbound
+        if (selectedInboundFlight.price?.amount !== undefined) {
+          inboundPrice = selectedInboundFlight.price.amount;
+        } else if (selectedInboundFlight.inbound?.price?.amount !== undefined) {
+          inboundPrice = selectedInboundFlight.inbound.price.amount;
+        } else if (typeof selectedInboundFlight.pF === 'number') {
+          // Legacy format
+          inboundPrice = selectedInboundFlight.pF;
         }
+        
+        total += inboundPrice;
+        console.log('Inbound price from separate flight:', inboundPrice);
+      }
+    } else if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && 
+              selectedOutboundFlight.inboundOptions && 
+              selectedInboundOptionIndex !== null) {
+      // For international round trips, get price from the selected inbound option
+      const selectedOption = selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex];
+      
+      if (selectedOption) {
+        let inboundPrice = 0;
+        
+        // Check if it's an array (some API formats nest it)
+        if (Array.isArray(selectedOption) && selectedOption.length > 0) {
+          const option = selectedOption[0];
+          if (option.price?.amount !== undefined) {
+            inboundPrice = option.price.amount;
+          } else if (typeof option.pF === 'number') {
+            inboundPrice = option.pF;
+          }
+        } else {
+          // Direct option object
+          if (selectedOption.price?.amount !== undefined) {
+            inboundPrice = selectedOption.price.amount;
+          } else if (typeof selectedOption.pF === 'number') {
+            inboundPrice = selectedOption.pF;
+          }
+        }
+        
+        total += inboundPrice;
+        console.log('International inbound option price:', inboundPrice);
       }
     }
     
@@ -645,33 +1289,91 @@ const FlightSummaryPanel = ({
     let flightNumber = '';
     let departure = {};
     let arrival = {};
+    let price = { amount: 0, currency: 'INR' };
     let baseFare = 0;
     let tax = 0;
-    let price = { amount: 0, currency: 'INR' };
+    let duration = 0;
+    let stops = 0;
+    let fareClass = '';
+    let baggage = '';
+    let cabinBaggage = '';
+    
+    // Extra logging for debugging
+    console.log('Extracting outbound data from:', {
+      resultIndex: selectedOutboundFlight.rI,
+      segments: selectedOutboundFlight.sg,
+      price: selectedOutboundFlight.pF,
+      currency: selectedOutboundFlight.cr
+    });
     
     if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+      // For domestic round trip, use the direct structure
+      segments = selectedOutboundFlight.sg || [];
+      if (segments.length > 0) {
+        airline = segments[0].al?.alN || '';
+        flightNumber = segments[0].al?.fN || '';
+        fareClass = segments[0].al?.fC || '';
+        departure = {
+          airport: {
+            code: segments[0].or?.aC || '',
+            terminal: segments[0].or?.tr || ''
+          },
+          time: segments[0].or?.dT
+        };
+        arrival = {
+          airport: {
+            code: segments[segments.length - 1].ds?.aC || '',
+            terminal: segments[segments.length - 1].ds?.tr || ''
+          },
+          time: segments[segments.length - 1].ds?.aT
+        };
+        baggage = segments[0].bg || '';
+        cabinBaggage = segments[0].cBg || '';
+        
+        // Calculate total duration and stops
+        duration = segments.reduce((total, segment) => total + (segment.dr || 0), 0);
+        stops = segments.length > 1 ? segments.length - 1 : 0;
+      }
+      
+      // Price extraction with fallbacks
+      if (selectedOutboundFlight.pF) {
+        price = { 
+          amount: selectedOutboundFlight.pF, 
+          currency: selectedOutboundFlight.cr || 'INR' 
+        };
+      }
+      
+      baseFare = selectedOutboundFlight.bF || Math.round(price.amount * 0.85) || 0;
+      tax = price.amount - baseFare;
+    }
+    else if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP') {
       segments = selectedOutboundFlight.segments || [];
       if (segments.length > 0) {
         airline = segments[0].airline?.name || '';
         flightNumber = segments[0].airline?.flightNumber || '';
+        fareClass = segments[0].airline?.fareClass || '';
         departure = segments[0].departure || {};
         arrival = segments[segments.length - 1].arrival || {};
+        baggage = segments[0].baggage || '';
+        cabinBaggage = segments[0].cabinBaggage || '';
+        
+        // Calculate total duration and stops
+        duration = segments.reduce((total, segment) => total + (segment.duration || 0), 0);
+        stops = segments.length > 1 ? segments.length - 1 : 0;
       }
-      baseFare = selectedOutboundFlight.price?.baseFare || 0;
-      tax = selectedOutboundFlight.price?.tax || 0;
-      price = selectedOutboundFlight.price || { amount: 0, currency: 'INR' };
-    } 
-    else if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP') {
-      segments = selectedOutboundFlight.outboundSegments || [];
-      if (segments.length > 0) {
-        airline = segments[0].airline?.name || '';
-        flightNumber = segments[0].airline?.flightNumber || '';
-        departure = segments[0].departure || {};
-        arrival = segments[segments.length - 1].arrival || {};
+      
+      // Price extraction with fallbacks
+      if (selectedOutboundFlight.price?.amount) {
+        price = selectedOutboundFlight.price;
+      } else if (typeof selectedOutboundFlight.pF === 'number') {
+        price = { 
+          amount: selectedOutboundFlight.pF, 
+          currency: selectedOutboundFlight.cr || 'INR' 
+        };
       }
-      baseFare = selectedOutboundFlight.price?.baseFare || 0;
-      tax = selectedOutboundFlight.price?.tax || 0;
-      price = selectedOutboundFlight.price || { amount: 0, currency: 'INR' };
+      
+      baseFare = price.baseFare || Math.round(price.amount * 0.85) || 0;
+      tax = price.tax || Math.round(price.amount * 0.15) || 0;
     }
     else {
       // ONE_WAY
@@ -679,13 +1381,32 @@ const FlightSummaryPanel = ({
       if (segments.length > 0) {
         airline = segments[0].airline?.name || '';
         flightNumber = segments[0].airline?.flightNumber || '';
+        fareClass = segments[0].airline?.fareClass || '';
         departure = segments[0].departure || {};
         arrival = segments[segments.length - 1].arrival || {};
+        baggage = segments[0].baggage || '';
+        cabinBaggage = segments[0].cabinBaggage || '';
+        
+        // Calculate total duration and stops
+        duration = segments.reduce((total, segment) => total + (segment.duration || 0), 0);
+        stops = segments.length > 1 ? segments.length - 1 : 0;
       }
-      baseFare = selectedOutboundFlight.price?.baseFare || 0;
-      tax = selectedOutboundFlight.price?.tax || 0;
-      price = selectedOutboundFlight.price || { amount: 0, currency: 'INR' };
+      
+      // Price extraction with fallbacks
+      if (selectedOutboundFlight.price?.amount) {
+        price = selectedOutboundFlight.price;
+      } else if (typeof selectedOutboundFlight.pF === 'number') {
+        price = { 
+          amount: selectedOutboundFlight.pF, 
+          currency: selectedOutboundFlight.cr || 'INR' 
+        };
+      }
+      
+      baseFare = price.baseFare || Math.round(price.amount * 0.85) || 0;
+      tax = price.tax || Math.round(price.amount * 0.15) || 0;
     }
+    
+    console.log('Extracted outbound data:', { airline, flightNumber, price, duration, stops });
     
     return {
       airline,
@@ -694,37 +1415,91 @@ const FlightSummaryPanel = ({
       arrival,
       baseFare,
       tax,
-      price
+      price,
+      duration,
+      stops,
+      fareClass,
+      baggage,
+      cabinBaggage
     };
   };
   
   // Extract relevant data for inbound flight
   const getInboundFlightData = () => {
-    if (flightStructureType === 'DOMESTIC_ROUND_TRIP' && selectedInboundFlight) {
-      // For domestic round trip
-      const segments = selectedInboundFlight.segments || [];
-      let airline = '';
-      let flightNumber = '';
-      let departure = {};
-      let arrival = {};
+    if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+      console.log('Getting domestic inbound data:', {
+        fromInbound: !!selectedInboundFlight,
+        inboundPrice: selectedInboundFlight?.pF,
+        inboundCurrency: selectedInboundFlight?.cr
+      });
       
-      if (segments.length > 0) {
-        airline = segments[0].airline?.name || '';
-        flightNumber = segments[0].airline?.flightNumber || '';
-        departure = segments[0].departure || {};
-        arrival = segments[segments.length - 1].arrival || {};
+      if (selectedInboundFlight) {
+        const segments = selectedInboundFlight.sg || [];
+        let airline = '';
+        let flightNumber = '';
+        let departure = {};
+        let arrival = {};
+        let price = { amount: 0, currency: 'INR' };
+        let duration = 0;
+        let stops = 0;
+        let fareClass = '';
+        let baggage = '';
+        let cabinBaggage = '';
+        
+        if (segments.length > 0) {
+          airline = segments[0].al?.alN || '';
+          flightNumber = segments[0].al?.fN || '';
+          fareClass = segments[0].al?.fC || '';
+          departure = {
+            airport: {
+              code: segments[0].or?.aC || '',
+              terminal: segments[0].or?.tr || ''
+            },
+            time: segments[0].or?.dT
+          };
+          arrival = {
+            airport: {
+              code: segments[segments.length - 1].ds?.aC || '',
+              terminal: segments[segments.length - 1].ds?.tr || ''
+            },
+            time: segments[segments.length - 1].ds?.aT
+          };
+          baggage = segments[0].bg || '';
+          cabinBaggage = segments[0].cBg || '';
+          
+          // Calculate total duration and stops
+          duration = segments.reduce((total, segment) => total + (segment.dr || 0), 0);
+          stops = segments.length > 1 ? segments.length - 1 : 0;
+        }
+        
+        // Price extraction with fallbacks
+        if (selectedInboundFlight.pF) {
+          price = { 
+            amount: selectedInboundFlight.pF, 
+            currency: selectedInboundFlight.cr || 'INR' 
+          };
+        }
+        
+        console.log('Extracted inbound price:', price);
+        
+        return {
+          airline,
+          flightNumber,
+          departure,
+          arrival,
+          baseFare: selectedInboundFlight.bF || Math.round(price.amount * 0.85) || 0,
+          tax: price.amount - (selectedInboundFlight.bF || Math.round(price.amount * 0.85) || 0),
+          price,
+          duration,
+          stops,
+          fareClass,
+          baggage,
+          cabinBaggage
+        };
       }
       
-      return {
-        airline,
-        flightNumber,
-        departure,
-        arrival,
-        baseFare: selectedInboundFlight.price?.baseFare || 0,
-        tax: selectedInboundFlight.price?.tax || 0,
-        price: selectedInboundFlight.price || { amount: 0, currency: 'INR' }
-      };
-    } 
+      return null;
+    }
     else if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && 
              selectedInboundOptionIndex !== null && 
              selectedOutboundFlight?.inboundOptions) {
@@ -748,12 +1523,35 @@ const FlightSummaryPanel = ({
       let flightNumber = '';
       let departure = {};
       let arrival = {};
+      let price = { amount: 0, currency: 'INR' };
+      let duration = 0;
+      let stops = 0;
+      let fareClass = '';
+      let baggage = '';
+      let cabinBaggage = '';
       
       if (segments.length > 0) {
         airline = segments[0].airline?.name || '';
         flightNumber = segments[0].airline?.flightNumber || '';
+        fareClass = segments[0].airline?.fareClass || '';
         departure = segments[0].departure || {};
         arrival = segments[segments.length - 1].arrival || {};
+        baggage = segments[0].baggage || '';
+        cabinBaggage = segments[0].cabinBaggage || '';
+        
+        // Calculate total duration and stops
+        duration = segments.reduce((total, segment) => total + (segment.duration || 0), 0);
+        stops = segments.length > 1 ? segments.length - 1 : 0;
+      }
+      
+      // Price extraction with fallbacks
+      if (inboundOption.price?.amount) {
+        price = inboundOption.price;
+      } else if (typeof inboundOption.pF === 'number') {
+        price = { 
+          amount: inboundOption.pF, 
+          currency: inboundOption.cr || 'INR' 
+        };
       }
       
       return {
@@ -761,9 +1559,14 @@ const FlightSummaryPanel = ({
         flightNumber,
         departure,
         arrival,
-        baseFare: inboundOption.price?.baseFare || 0,
-        tax: inboundOption.price?.tax || 0,
-        price: inboundOption.price || { amount: 0, currency: 'INR' }
+        baseFare: price.baseFare || Math.round(price.amount * 0.85) || 0,
+        tax: price.tax || Math.round(price.amount * 0.15) || 0,
+        price,
+        duration,
+        stops,
+        fareClass,
+        baggage,
+        cabinBaggage
       };
     }
     
@@ -797,6 +1600,11 @@ const FlightSummaryPanel = ({
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="font-medium">{outboundData.airline} {outboundData.flightNumber}</span>
+              {outboundData.stops > 0 && (
+                <span className="text-xs py-1 px-2 bg-gray-100 rounded-full">
+                  {outboundData.stops} {outboundData.stops === 1 ? 'stop' : 'stops'}
+                </span>
+              )}
             </div>
             {outboundData.departure && outboundData.arrival && (
               <div className="text-sm text-gray-600">
@@ -814,6 +1622,33 @@ const FlightSummaryPanel = ({
                 </div>
               </div>
             )}
+            
+            {/* Additional flight details */}
+            <div className="bg-gray-50 p-2 rounded-md text-sm text-gray-600">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="block text-xs font-medium">Duration:</span>
+                  <span>{formatDuration(outboundData.duration || 0)}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-medium">Class:</span>
+                  <span>{outboundData.fareClass || 'Economy'}</span>
+                </div>
+                {outboundData.baggage && (
+                  <div>
+                    <span className="block text-xs font-medium">Baggage:</span>
+                    <span>{outboundData.baggage}</span>
+                  </div>
+                )}
+                {outboundData.cabinBaggage && (
+                  <div>
+                    <span className="block text-xs font-medium">Cabin:</span>
+                    <span>{outboundData.cabinBaggage}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
             <div className="text-sm">
               <div className="flex justify-between font-medium mt-1">
                 <span>Fare:</span>
@@ -831,6 +1666,11 @@ const FlightSummaryPanel = ({
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="font-medium">{inboundData.airline} {inboundData.flightNumber}</span>
+              {inboundData.stops > 0 && (
+                <span className="text-xs py-1 px-2 bg-gray-100 rounded-full">
+                  {inboundData.stops} {inboundData.stops === 1 ? 'stop' : 'stops'}
+                </span>
+              )}
             </div>
             {inboundData.departure && inboundData.arrival && (
               <div className="text-sm text-gray-600">
@@ -848,6 +1688,33 @@ const FlightSummaryPanel = ({
                 </div>
               </div>
             )}
+            
+            {/* Additional flight details */}
+            <div className="bg-gray-50 p-2 rounded-md text-sm text-gray-600">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="block text-xs font-medium">Duration:</span>
+                  <span>{formatDuration(inboundData.duration || 0)}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-medium">Class:</span>
+                  <span>{inboundData.fareClass || 'Economy'}</span>
+                </div>
+                {inboundData.baggage && (
+                  <div>
+                    <span className="block text-xs font-medium">Baggage:</span>
+                    <span>{inboundData.baggage}</span>
+                  </div>
+                )}
+                {inboundData.cabinBaggage && (
+                  <div>
+                    <span className="block text-xs font-medium">Cabin:</span>
+                    <span>{inboundData.cabinBaggage}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
             <div className="text-sm">
               <div className="flex justify-between font-medium mt-1">
                 <span>Fare:</span>
@@ -867,6 +1734,18 @@ const FlightSummaryPanel = ({
           <span>Total:</span>
           <span>{totalPrice.currency} {totalPrice.amount.toLocaleString()}</span>
         </div>
+        
+        {/* Fare breakdown */}
+        <div className="mt-2 text-sm text-gray-600">
+          <div className="flex justify-between">
+            <span>Base fare:</span>
+            <span>{totalPrice.currency} {(outboundData?.baseFare + (inboundData?.baseFare || 0)).toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Taxes & fees:</span>
+            <span>{totalPrice.currency} {(outboundData?.tax + (inboundData?.tax || 0)).toLocaleString()}</span>
+          </div>
+        </div>
       </div>
       
       {/* CTA Button */}
@@ -883,14 +1762,21 @@ const FlightSummaryPanel = ({
         </button>
       )}
       
+      {/* Messages for incomplete selection */}
       {flightStructureType === 'DOMESTIC_ROUND_TRIP' && !selectedInboundFlight && (
-        <div className="text-sm text-gray-500 text-center p-3 bg-blue-50 rounded-md">
+        <div className="text-sm text-gray-600 text-center p-3 bg-blue-50 rounded-md mt-4">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mx-auto mb-1 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+          </svg>
           Please select an inbound flight to continue
         </div>
       )}
       
       {flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && selectedInboundOptionIndex === null && (
-        <div className="text-sm text-gray-500 text-center p-3 bg-blue-50 rounded-md">
+        <div className="text-sm text-gray-600 text-center p-3 bg-blue-50 rounded-md mt-4">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mx-auto mb-1 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+          </svg>
           Please select an inbound option to continue
         </div>
       )}
@@ -901,46 +1787,25 @@ const FlightSummaryPanel = ({
 const FlightSearchResults = ({ 
   flights = [], 
   traceId, 
-  pagination,
   onSelectFlight,
   selectedFlight,
-  onLoadMore,
-  loadMoreManually,
   loading,
   isRoundTrip = false,
   isDomestic = false,
   isOutbound = true,
-  isLoadingMore = false,
-  allChunksLoaded = false,
-  loadingProgress = 0,
   selectedAirline = null,
-  // New props for the summary panel
+  // Props for the summary panel
   selectedOutboundFlight = null,
   selectedInboundFlight = null,
   flightStructureType = 'ONE_WAY',
   selectedInboundOptionIndex = null,
   onCreateItinerary = null
 }) => {
-  // Debug logs
-  console.log('╔════════════════════ FLIGHT SEARCH RESULTS COMPONENT ════════════════════╗');
-  console.log('PROPS: ', {
-    flightsLength: flights?.length || 0,
-    isDomestic,
-    isRoundTrip,
-    isOutbound,
-    paginationTotal: pagination?.total,
-    hasCallback: !!onSelectFlight,
-    firstFlight: flights?.[0],
-    flightType: isDomestic ? 'domestic' : 'non-domestic',
-    tripType: isRoundTrip ? 'round-trip' : 'one-way',
-    isLoadingMore,
-    allChunksLoaded,
-    loadingProgress
-  });
-  
   const [sortBy, setSortBy] = useState('priceAsc');
   const [sortedFlights, setSortedFlights] = useState([]);
-  const [expandedFlightId, setExpandedFlightId] = useState(null);
+  const [visibleFlights, setVisibleFlights] = useState([]);
+  const [visibleCount, setVisibleCount] = useState(100);
+  const loadingRef = useRef(null);
 
   // Filter flights by airline if selected
   const filteredFlights = selectedAirline
@@ -972,56 +1837,151 @@ const FlightSearchResults = ({
       })
     : flights;
 
-  // Use filteredFlights for sorting and display
-  useEffect(() => {
-    if (filteredFlights && filteredFlights.length > 0) {
-      console.log('Setting initial sorted flights', { count: filteredFlights.length });
-      setSortedFlights(filteredFlights);
-    }
-  }, [filteredFlights]);
+  // Group flights by groupId
+  const groupFlightsByGroupId = (flightsToGroup) => {
+    if (!flightsToGroup || flightsToGroup.length === 0) return [];
+    
+    // Create a map to store flights by groupId
+    const groupMap = new Map();
+    
+    // Debug groupId presence
+    console.log('Flight group IDs:', flightsToGroup.map(f => f.groupId));
+    
+    // First, group flights by groupId
+    flightsToGroup.forEach(flight => {
+      const groupId = flight.groupId;
+      
+      // Skip flights without groupId - keep them as individual flights
+      if (groupId === undefined || groupId === null) {
+        return;
+      }
+      
+      if (!groupMap.has(groupId)) {
+        groupMap.set(groupId, []);
+      }
+      
+      groupMap.get(groupId).push(flight);
+    });
+    
+    // Debug how many flights are in each group
+    console.log('Group sizes:', Array.from(groupMap.entries()).map(([id, flights]) => ({ 
+      groupId: id, 
+      count: flights.length,
+      firstFlightId: flights[0]?.resultIndex || flights[0]?.rI
+    })));
+    
+    // Create the final array with grouped flights
+    let result = [];
+    
+    // Add flights that belong to groups
+    groupMap.forEach((flights, groupId) => {
+      if (flights.length === 0) return;
+      
+      // Take the first flight as primary
+      const firstFlight = flights[0];
+      
+      // Add debug info to flight for UI visibility
+      firstFlight._debugHasGroup = true;
+      firstFlight._debugGroupSize = flights.length;
+      
+      // If there are more flights in the group, add them as groupFlights
+      if (flights.length > 1) {
+        firstFlight.groupFlights = flights.slice(1);
+      }
+      
+      // Special handling for international round trip inbound options
+      if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && 
+          firstFlight.inboundOptions && 
+          Array.isArray(firstFlight.inboundOptions)) {
+        // Keep the original inbound options structure intact
+        console.log('Preserving international round trip inbound options');
+      }
+      
+      result.push(firstFlight);
+    });
+    
+    // Add back all flights that don't have a groupId or weren't grouped
+    flightsToGroup.forEach(flight => {
+      const groupId = flight.groupId;
+      if (groupId === undefined || groupId === null) {
+        flight._debugHasGroup = false;
+        result.push(flight);
+      }
+    });
+    
+    console.log('Grouped flights result:', {
+      totalOriginal: flightsToGroup.length,
+      totalGrouped: result.length,
+      withGroups: result.filter(f => f.groupFlights && f.groupFlights.length > 0).length
+    });
+    
+    // Sort the result array
+    result.sort((a, b) => {
+      // Use the same sorting logic as the current sortBy state
+      switch (sortBy) {
+        case 'priceAsc':
+          return (a.price?.amount || a.pF || 0) - (b.price?.amount || b.pF || 0);
+        case 'priceDesc':
+          return (b.price?.amount || b.pF || 0) - (a.price?.amount || a.pF || 0);
+        default:
+          return (a.price?.amount || a.pF || 0) - (b.price?.amount || b.pF || 0);
+      }
+    });
+    
+    return result;
+  };
 
-  // Apply sorting to filtered flights
+  // Use filteredFlights for grouping, sorting and display
   useEffect(() => {
     if (filteredFlights && filteredFlights.length > 0) {
-      console.log('Sorting flights:', { count: filteredFlights.length, sortBy });
-      let sorted = [...filteredFlights];
+      // First group the flights by groupId
+      const groupedFlights = groupFlightsByGroupId(filteredFlights);
+      console.log('Setting grouped flights', { 
+        originalCount: filteredFlights.length,
+        groupedCount: groupedFlights.length
+      });
+      
+      // Now sort the grouped flights
+      let sorted = [...groupedFlights];
       
       switch (sortBy) {
         case 'priceAsc':
           sorted = sorted.sort((a, b) => 
-            (a.price?.amount || 0) - (b.price?.amount || 0)
+            (a.price?.amount || a.pF || 0) - (b.price?.amount || b.pF || 0)
           );
           break;
         case 'priceDesc':
           sorted = sorted.sort((a, b) => 
-            (b.price?.amount || 0) - (a.price?.amount || 0)
+            (b.price?.amount || b.pF || 0) - (a.price?.amount || a.pF || 0)
           );
           break;
         case 'durationAsc':
           sorted = sorted.sort((a, b) => {
-            // Function to calculate total duration based on flight type
             const getFlightDuration = (flight) => {
-              // For domestic round trip combined flights
               if (flight.outbound && flight.inbound) {
-                const outboundDuration = (flight.outbound.segments || []).reduce(
-                  (total, segment) => total + (segment.duration || 0), 0
+                const outboundDuration = (flight.outbound.segments || flight.outbound.sg || []).reduce(
+                  (total, segment) => total + (segment.duration || segment.dr || 0), 0
                 );
-                const inboundDuration = (flight.inbound.segments || []).reduce(
-                  (total, segment) => total + (segment.duration || 0), 0
+                const inboundDuration = (flight.inbound.segments || flight.inbound.sg || []).reduce(
+                  (total, segment) => total + (segment.duration || segment.dr || 0), 0
                 );
                 return outboundDuration + inboundDuration;
               }
               
-              // For international round trips
               if (flight.outboundSegments) {
                 return (flight.outboundSegments || []).reduce(
-                  (total, segment) => total + (segment.duration || 0), 0
+                  (total, segment) => total + (segment.duration || segment.dr || 0), 0
                 );
               }
               
-              // For one-way flights
-              return (flight.segments || []).reduce(
-                (total, segment) => total + (segment.duration || 0), 0
+              if (flight.outboundFlight) {
+                return (flight.outboundFlight || []).reduce(
+                  (total, segment) => total + (segment.duration || segment.dr || 0), 0
+                );
+              }
+              
+              return (flight.segments || flight.sg || []).reduce(
+                (total, segment) => total + (segment.duration || segment.dr || 0), 0
               );
             };
             
@@ -1030,29 +1990,31 @@ const FlightSearchResults = ({
           break;
         case 'durationDesc':
           sorted = sorted.sort((a, b) => {
-            // Function to calculate total duration based on flight type
             const getFlightDuration = (flight) => {
-              // For domestic round trip combined flights
               if (flight.outbound && flight.inbound) {
-                const outboundDuration = (flight.outbound.segments || []).reduce(
-                  (total, segment) => total + (segment.duration || 0), 0
+                const outboundDuration = (flight.outbound.segments || flight.outbound.sg || []).reduce(
+                  (total, segment) => total + (segment.duration || segment.dr || 0), 0
                 );
-                const inboundDuration = (flight.inbound.segments || []).reduce(
-                  (total, segment) => total + (segment.duration || 0), 0
+                const inboundDuration = (flight.inbound.segments || flight.inbound.sg || []).reduce(
+                  (total, segment) => total + (segment.duration || segment.dr || 0), 0
                 );
                 return outboundDuration + inboundDuration;
               }
               
-              // For international round trips
               if (flight.outboundSegments) {
                 return (flight.outboundSegments || []).reduce(
-                  (total, segment) => total + (segment.duration || 0), 0
+                  (total, segment) => total + (segment.duration || segment.dr || 0), 0
                 );
               }
               
-              // For one-way flights
-              return (flight.segments || []).reduce(
-                (total, segment) => total + (segment.duration || 0), 0
+              if (flight.outboundFlight) {
+                return (flight.outboundFlight || []).reduce(
+                  (total, segment) => total + (segment.duration || segment.dr || 0), 0
+                );
+              }
+              
+              return (flight.segments || flight.sg || []).reduce(
+                (total, segment) => total + (segment.duration || segment.dr || 0), 0
               );
             };
             
@@ -1063,37 +2025,48 @@ const FlightSearchResults = ({
           break;
       }
       
-      console.log('Finished sorting flights:', { 
-        original: filteredFlights.length,
-        sorted: sorted.length,
-        firstSortedPrice: sorted[0]?.price?.amount
-      });
       setSortedFlights(sorted);
-    } else {
-      console.log('No flights to sort');
-      setSortedFlights([]);
     }
   }, [filteredFlights, sortBy]);
+
+  // Apply sorting to grouped flights
+  useEffect(() => {
+    if (sortedFlights && sortedFlights.length > 0) {
+      console.log('Setting visible flights:', { count: sortedFlights.length, sortBy });
+      setVisibleFlights(sortedFlights.slice(0, visibleCount));
+    } else {
+      setVisibleFlights([]);
+    }
+  }, [sortedFlights, visibleCount]);
+
+  // Handle intersection observer for infinite scroll
+  useEffect(() => {
+    const options = {
+      root: null,
+      rootMargin: '20px',
+      threshold: 1.0
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      const [entry] = entries;
+      if (entry.isIntersecting && visibleFlights.length < sortedFlights.length) {
+        setVisibleCount(prev => Math.min(prev + 100, sortedFlights.length));
+      }
+    }, options);
+
+    if (loadingRef.current) {
+      observer.observe(loadingRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [sortedFlights.length, visibleFlights.length]);
 
   const handleSortChange = (newSortBy) => {
     setSortBy(newSortBy);
   };
 
-  const toggleFlightDetails = (flightId) => {
-    setExpandedFlightId(expandedFlightId === flightId ? null : flightId);
-  };
-
   // Check if we have any flights to display
   if (!flights || flights.length === 0) {
-    console.log('❌ NO FLIGHTS TO DISPLAY:', {
-      flights,
-      flightsLength: flights?.length || 0,
-      isDomestic,
-      isRoundTrip,
-      isOutbound,
-      flightType: isDomestic ? 'domestic' : 'non-domestic',
-      tripType: isRoundTrip ? 'round-trip' : 'one-way'
-    });
     return (
       <div className="bg-white shadow rounded-lg p-6 text-center">
         <p className="text-gray-500 font-bold text-lg mb-4">No flights found. Try different search criteria.</p>
@@ -1106,88 +2079,72 @@ const FlightSearchResults = ({
     );
   }
 
-  console.log('✅ RENDERING FLIGHTS:', {
-    flightsCount: flights.length,
-    sortedFlightsCount: sortedFlights.length,
-    firstFlight: flights[0],
-    isDomestic,
-    isRoundTrip,
-    isOutbound
-  });
-
   return (
     <div className="space-y-4">
       {/* Sort options */}
       <div className="flex flex-wrap items-center justify-between bg-white rounded-lg shadow-sm p-3 mb-4">
         <div className="text-sm text-gray-600 font-medium">
-          {flights.length} {isRoundTrip ? 'round trip' : 'one-way'} flight{flights.length !== 1 ? 's' : ''} found
+          {flights.length} {isRoundTrip ? 'round trip' : 'one-way'} flight{flights.length !== 1 ? 's' : ''} found ({sortedFlights.length} unique options)
         </div>
         <div className="flex items-center mt-2 md:mt-0">
           <span className="text-sm text-gray-600 mr-2">Sort by:</span>
-        <select
-          value={sortBy}
-          onChange={(e) => handleSortChange(e.target.value)}
-          className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-        >
-          <option value="priceAsc">Price: Low to High</option>
-          <option value="priceDesc">Price: High to Low</option>
-          <option value="durationAsc">Duration: Shortest</option>
-          <option value="durationDesc">Duration: Longest</option>
-        </select>
+          <select
+            value={sortBy}
+            onChange={(e) => handleSortChange(e.target.value)}
+            className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          >
+            <option value="priceAsc">Price: Low to High</option>
+            <option value="priceDesc">Price: High to Low</option>
+            <option value="durationAsc">Duration: Shortest</option>
+            <option value="durationDesc">Duration: Longest</option>
+          </select>
         </div>
       </div>
 
       {/* Flight results */}
       <div className="space-y-4">
-        {flights.length > 0 && sortedFlights.length === 0 ? (
-          <>
-            <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-3"></div>
-              <p className="text-gray-600 font-medium">Sorting flights...</p>
-            </div>
-          </>
+        {loading ? (
+          <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-3"></div>
+            <p className="text-gray-600 font-medium">Loading flights...</p>
+          </div>
         ) : (
-          sortedFlights.map((flight, index) => (
-            <FlightCard
-              key={flight.resultIndex || index}
-              flight={flight}
-              onSelect={onSelectFlight}
-              isSelected={selectedFlight?.resultIndex === flight.resultIndex}
-            />
-          ))
+          <>
+            {visibleFlights.map((flight, index) => (
+              <FlightCard
+                key={flight.resultIndex || index}
+                flight={flight}
+                onSelect={onSelectFlight}
+                isSelected={
+                  // For DOMESTIC_ROUND_TRIP, we need to check the correct flight structure
+                  flightStructureType === 'DOMESTIC_ROUND_TRIP'
+                    ? isOutbound
+                      ? selectedOutboundFlight?.resultIndex === flight.resultIndex && 
+                        selectedOutboundFlight?.outbound?.segments?.length > 0
+                      : selectedInboundFlight?.resultIndex === flight.resultIndex && 
+                        selectedInboundFlight?.inbound?.segments?.length > 0
+                    : selectedFlight?.resultIndex === flight.resultIndex
+                }
+                isOutbound={isOutbound}
+                flightStructureType={flightStructureType}
+                selectedOutboundFlight={selectedOutboundFlight}
+                selectedInboundFlight={selectedInboundFlight}
+              />
+            ))}
+            
+            {/* Loading indicator for infinite scroll */}
+            {visibleFlights.length < sortedFlights.length && (
+              <div ref={loadingRef} className="flex justify-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+              </div>
+            )}
+          </>
         )}
       </div>
-
-      {/* Loading and Load more UI */}
-      {isLoadingMore ? (
-        <div className="flex justify-center mt-6 mb-2">
-          <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
-            <span className="mt-2 text-sm text-gray-600">Loading more flights...</span>
-          </div>
-        </div>
-      ) : allChunksLoaded ? (
-        <div className="flex justify-center mt-6">
-          <div className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md text-sm">
-            All available flights loaded
-          </div>
-        </div>
-      ) : pagination && loadMoreManually && (
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={loadMoreManually}
-            className="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
-          >
-            <svg className="h-5 w-5 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-            Continue Loading ({loadingProgress}% complete)
-          </button>
-        </div>
-      )}
     </div>
   );
 };
 
-export default FlightSearchResults; 
+export default FlightSearchResults;
 export { FlightSummaryPanel };
+

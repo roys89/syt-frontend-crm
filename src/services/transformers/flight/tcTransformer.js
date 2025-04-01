@@ -3,270 +3,267 @@
  * This standardizes the provider's response format for the frontend components
  */
 
+// Flight structure type constants
+const ONE_WAY = 'ONE_WAY';
+const DOMESTIC_ROUND_TRIP = 'DOMESTIC_ROUND_TRIP';
+const INTERNATIONAL_ROUND_TRIP = 'INTERNATIONAL_ROUND_TRIP';
+
+/**
+ * Add this debug log function at the top of the file, near the imports
+ * @param {Array} flightsArray - Array of flight objects
+ * @param {String} label - Label for the log
+ */
+const logGroupIdsInFlights = (flightsArray, label) => {
+  if (!Array.isArray(flightsArray)) {
+    console.log(`${label}: Not an array`);
+    return;
+  }
+  
+  const groupIds = flightsArray.map(f => f.groupId);
+  const withGroupId = groupIds.filter(id => id !== undefined).length;
+  console.log(`${label}: ${flightsArray.length} flights, ${withGroupId} have groupId`);
+  console.log(`Sample groupIds:`, groupIds.slice(0, 5));
+};
+
 /**
  * Transform TC flight search response to standard format
  * @param {Object} response - Original TC flight search response
  * @returns {Object} - Standardized flight search response
  */
-export const transformTCFlightSearchResponse = (response) => {
-  console.log('TC Transformer received response:', response);
-  
-  // Early validation
-  if (!response || !response.success || !response.data) {
-    console.error('Invalid TC flight search response:', response);
-    return {
-      success: false,
-      message: 'Invalid response format from flight provider'
-    };
-  }
-  
-  // DOMESTIC ROUND TRIP FORMAT:
-  // If response contains separate outboundFlights and inboundFlights arrays at top level
-  if (response.data.outboundFlights && response.data.inboundFlights) {
-    console.log('DOMESTIC ROUND TRIP detected with separate outbound/inbound arrays');
+export const transformTCFlightSearchResponse = (response, flightStructureType = '') => {
+  try {
+    if (!response || !response.data) {
+      console.error('Invalid response object for flight transformation');
+      return { success: false, message: 'Invalid response' };
+    }
     
-    // Transform the outbound flights
-    const transformedOutboundFlights = response.data.outboundFlights.map(flight => {
-      const segmentsArray = flight.segments || flight.sg || [];
+    // Extract flights array from response
+    let flightsData = response.data.flights || [];
+    
+    // Debug log for incoming flights
+    logGroupIdsInFlights(flightsData, 'INCOMING FLIGHTS BEFORE TRANSFORM');
+    
+    let transformedFlights = [];
+    let isRoundTrip = response.data.isRoundTrip === true || flightStructureType === INTERNATIONAL_ROUND_TRIP;
+    let isDomestic = response.data.isDomestic === true;
+    
+    console.log('TC Transformer received response:', response);
+    
+    if (!response.data.flights) {
+      console.log('No flights data in response');
+      flightsData = [];
       
-      return {
-        ...flight,
-        price: {
-          amount: parseFloat(flight.price?.amount || flight.pF || 0),
-          currency: flight.price?.currency || flight.cr || 'INR',
-          baseFare: flight.price?.baseFare || flight.bF || 0, 
-          tax: flight.price?.tax || flight.tAS || 0
-        },
-        isRefundable: flight.isRefundable !== undefined ? flight.isRefundable : flight.iR,
-        isLowCost: flight.isLowCost !== undefined ? flight.isLowCost : flight.iL,
-        fareClass: flight.fareClass || flight.pFC,
-        availableSeats: flight.availableSeats || flight.sA,
-        resultIndex: flight.resultIndex || flight.rI,
-        segments: segmentsArray.map(segment => extractSegment(segment))
-      };
-    });
+      // For backward compatibility with older API response format
+      if (response.data.outboundFlights && response.data.inboundFlights) {
+        console.log('Found separate outbound/inbound arrays');
+        flightsData = [...response.data.outboundFlights, ...response.data.inboundFlights];
+        isRoundTrip = true;
+        isDomestic = true;
+      }
+    }
     
-    // Transform the inbound flights
-    const transformedInboundFlights = response.data.inboundFlights.map(flight => {
-      const segmentsArray = flight.segments || flight.sg || [];
+    // ONE WAY FORMAT:
+    if (response.data.flightStructureType === ONE_WAY || (!response.data.isRoundTrip && !isRoundTrip)) {
+      console.log('Transforming one-way flights');
       
-      return {
-        ...flight,
-        price: {
-          amount: parseFloat(flight.price?.amount || flight.pF || 0),
-          currency: flight.price?.currency || flight.cr || 'INR',
-          baseFare: flight.price?.baseFare || flight.bF || 0, 
-          tax: flight.price?.tax || flight.tAS || 0
-        },
-        isRefundable: flight.isRefundable !== undefined ? flight.isRefundable : flight.iR,
-        isLowCost: flight.isLowCost !== undefined ? flight.isLowCost : flight.iL,
-        fareClass: flight.fareClass || flight.pFC,
-        availableSeats: flight.availableSeats || flight.sA,
-        resultIndex: flight.resultIndex || flight.rI,
-        segments: segmentsArray.map(segment => extractSegment(segment))
-      };
-    });
+      transformedFlights = flightsData.map(flight => {
+        try {
+          // Check if already transformed
+          if (flight.segments && Array.isArray(flight.segments) && flight.segments.length > 0 && flight.segments[0].departure) {
+            // Make sure groupId is preserved for already transformed flights
+            return {
+              ...flight,
+              isRoundTrip: false,
+              groupId: flight.groupId  // Preserve groupId from original flight
+            };
+          }
+          
+          // Extract and transform segments
+          const segments = (flight.sg || flight.segments || []).map(segment => extractSegment(segment));
+          
+          return {
+            resultIndex: flight.resultIndex || flight.rI,
+            segments,
+            price: {
+              amount: parseFloat(flight.price?.amount || flight.pF || 0),
+              currency: flight.price?.currency || flight.cr || 'INR',
+              baseFare: parseFloat(flight.price?.baseFare || flight.bF || 0),
+              tax: parseFloat(flight.price?.tax || flight.tAS || 0)
+            },
+            isRefundable: flight.isRefundable !== undefined ? flight.isRefundable : flight.iR,
+            isLowCost: flight.isLowCost !== undefined ? flight.isLowCost : flight.iL,
+            fareClass: flight.fareClass || flight.pFC,
+            provider: flight.provider || flight.pr,
+            availableSeats: flight.availableSeats || flight.sA,
+            stopCount: flight.stopCount || flight.sC || 0,
+            isRoundTrip: false,
+            groupId: flight.groupId // Add groupId
+          };
+        } catch (err) {
+          console.error('Error transforming one-way flight:', err);
+          return null;
+        }
+      }).filter(Boolean); // Remove any nulls from failed transforms
+    }
+    // INTERNATIONAL ROUND TRIP FORMAT:
+    else if (response.data.flightStructureType === INTERNATIONAL_ROUND_TRIP || isRoundTrip) {
+      console.log('Transforming international round trip flights');
+      
+      transformedFlights = flightsData.map(flight => {
+        try {
+          // Check if flight is already transformed
+          if (flight.outboundSegments && Array.isArray(flight.outboundSegments)) {
+            return {
+              ...flight,
+              isRoundTrip: true,
+              groupId: flight.groupId // Preserve groupId
+            };
+          }
+          
+          // Transform outbound segments
+          const outboundSegments = (flight.outboundFlight || []).map(segment => extractSegment(segment));
+          let inboundOptions = [];
+          
+          // Handle different inbound options formats
+          if (flight.inboundOptions && Array.isArray(flight.inboundOptions)) {
+            // Handle pre-transformed options
+            inboundOptions = flight.inboundOptions;
+          } 
+          else if (flight.inboundFlights && Array.isArray(flight.inboundFlights) && flight.inboundFlights.length > 0) {
+            // Handle alternative format
+            inboundOptions = flight.inboundFlights.map(option => {
+              if (Array.isArray(option) && option.length > 0) {
+                const inboundFlight = option[0];
+                if (inboundFlight) {
+                  return {
+                    resultIndex: inboundFlight.resultIndex || inboundFlight.rI,
+                    price: {
+                      amount: parseFloat(inboundFlight.price?.amount || inboundFlight.pF || 0),
+                      currency: inboundFlight.price?.currency || inboundFlight.cr || 'INR',
+                      baseFare: parseFloat(inboundFlight.price?.baseFare || inboundFlight.bF || 0),
+                      tax: parseFloat(inboundFlight.price?.tax || inboundFlight.tAS || 0)
+                    },
+                    isRefundable: inboundFlight.isRefundable !== undefined ? inboundFlight.isRefundable : inboundFlight.iR,
+                    isLowCost: inboundFlight.isLowCost !== undefined ? inboundFlight.isLowCost : inboundFlight.iL,
+                    fareClass: inboundFlight.fareClass || inboundFlight.pFC,
+                    provider: inboundFlight.provider || inboundFlight.pr,
+                    availableSeats: inboundFlight.availableSeats || inboundFlight.sA,
+                    groupId: inboundFlight.groupId, // Preserve groupId for inbound flights
+                    
+                    segments: (inboundFlight.sg || inboundFlight.segments || []).map(segment => 
+                      extractSegment(segment)
+                    )
+                  };
+                }
+              }
+              return null;
+            }).filter(Boolean); // Filter out nulls
+          }
+          
+          return {
+            resultIndex: flight.resultIndex || flight.rI,
+            outboundSegments,
+            inboundOptions,
+            price: {
+              amount: parseFloat(flight.price?.amount || flight.pF || 0),
+              currency: flight.price?.currency || flight.cr || 'INR',
+              baseFare: parseFloat(flight.price?.baseFare || flight.bF || 0),
+              tax: parseFloat(flight.price?.tax || flight.tAS || 0)
+            },
+            isRefundable: flight.isRefundable !== undefined ? flight.isRefundable : flight.iR,
+            isLowCost: flight.isLowCost !== undefined ? flight.isLowCost : flight.iL,
+            fareClass: flight.fareClass || flight.pFC,
+            provider: flight.provider || flight.pr,
+            availableSeats: flight.availableSeats || flight.sA,
+            isRoundTrip: true,
+            stopCount: flight.stopCount || flight.sC || 0,
+            groupId: flight.groupId // Preserve groupId
+          };
+        } catch (err) {
+          console.error('Error transforming round trip flight:', err);
+          return null;
+        }
+      }).filter(Boolean); // Remove any nulls from failed transforms
+    }
+    // DOMESTIC ROUND TRIP FORMAT:
+    else if (response.data.flightStructureType === DOMESTIC_ROUND_TRIP) {
+      console.log('Transforming domestic round trip flights');
+      
+      transformedFlights = flightsData.map(flight => {
+        try {
+          // Check if already transformed
+          if (flight.outboundSegments && Array.isArray(flight.outboundSegments) && 
+              flight.inboundSegments && Array.isArray(flight.inboundSegments)) {
+            return {
+              ...flight,
+              isRoundTrip: true,
+              groupId: flight.groupId // Preserve groupId
+            };
+          }
+          
+          // Process outbound segments
+          const outboundSegments = (flight.outboundSegments || flight.outboundFlight || []).map(segment => 
+            extractSegment(segment)
+          );
+          
+          // Process inbound segments
+          const inboundSegments = (flight.inboundSegments || flight.inboundFlight || []).map(segment => 
+            extractSegment(segment)
+          );
+          
+          return {
+            resultIndex: flight.resultIndex || flight.rI,
+            outboundSegments,
+            inboundSegments,
+            price: {
+              amount: parseFloat(flight.price?.amount || flight.pF || 0),
+              currency: flight.price?.currency || flight.cr || 'INR',
+              baseFare: parseFloat(flight.price?.baseFare || flight.bF || 0),
+              tax: parseFloat(flight.price?.tax || flight.tAS || 0)
+            },
+            isRefundable: flight.isRefundable !== undefined ? flight.isRefundable : flight.iR,
+            isLowCost: flight.isLowCost !== undefined ? flight.isLowCost : flight.iL,
+            fareClass: flight.fareClass || flight.pFC,
+            provider: flight.provider || flight.pr,
+            availableSeats: flight.availableSeats || flight.sA,
+            stopCount: flight.stopCount || flight.sC || 0,
+            isRoundTrip: true,
+            groupId: flight.groupId // Add groupId
+          };
+        } catch (err) {
+          console.error('Error transforming domestic round trip flight:', err);
+          return null;
+        }
+      }).filter(Boolean); // Remove any nulls from failed transforms
+    }
     
+    // Extract pagination, filters and other metadata
+    const pagination = response.data.pagination || {};
+    const priceRange = response.data.priceRange || { min: 0, max: 0 };
+    const availableFilters = response.data.availableFilters || {};
+    const traceId = response.data.traceId;
+    
+    // Debug log for outgoing flights
+    logGroupIdsInFlights(transformedFlights, 'OUTGOING FLIGHTS BEFORE RETURN');
+
     return {
       success: true,
       provider: response.provider || 'TC',
       data: {
-        outboundFlights: transformedOutboundFlights,
-        inboundFlights: transformedInboundFlights,
-        pagination: response.data.pagination || {},
-        priceRange: response.data.priceRange || { min: 0, max: 0 },
-        availableFilters: response.data.availableFilters || {},
-        traceId: response.data.traceId,
-        isDomestic: true,
-        isRoundTrip: true,
-        totalTravelers: response.data.totalTravelers
+        flights: transformedFlights,
+        pagination,
+        priceRange,
+        availableFilters,
+        traceId,
+        isDomestic,
+        isRoundTrip,
+        totalTravelers: response.data.totalTravelers || response.data.paxCount
       }
     };
+  } catch (err) {
+    console.error('Error transforming flight search response:', err);
+    return { success: false, message: 'Error transforming flight search response' };
   }
-  
-  // Extract flight data for ONE WAY and INTERNATIONAL ROUND TRIP
-  let flightsData = [];
-  let isRoundTrip = false;
-  
-  // Determine the source of the flight data
-  if (response.data.flights && Array.isArray(response.data.flights)) {
-    flightsData = response.data.flights;
-    isRoundTrip = flightsData.length > 0 && (
-      flightsData[0].outboundSegments || 
-      flightsData[0].isRoundTrip || 
-      (response.data.isRoundTrip === true)
-    );
-  } else if (response.data.results && response.data.results.outboundFlights) {
-    flightsData = response.data.results.outboundFlights;
-    isRoundTrip = response.data.isRoundTrip === true || response.data.results.inboundFlights !== undefined;
-  }
-  
-  console.log(`Found ${flightsData.length} flights, detected as ${isRoundTrip ? 'ROUND TRIP' : 'ONE WAY'}`);
-  
-  // Transform flight data to standard format
-  let transformedFlights = [];
-  
-  if (isRoundTrip) {
-    // INTERNATIONAL ROUND TRIP FORMAT:
-    // Flights with outboundSegments and inboundOptions/inboundFlights
-    console.log('Transforming international round trip flights');
-    
-    transformedFlights = flightsData.map(flight => {
-      try {
-        // Get outbound segments
-        const outboundSegments = (flight.outboundSegments || flight.outboundFlight || []).map(segment => {
-          return extractSegment(segment);
-        });
-        
-        // Get inbound segments (potentially nested structure)
-        let inboundOptions = [];
-        
-        if (flight.inboundOptions && Array.isArray(flight.inboundOptions) && flight.inboundOptions.length > 0) {
-          // Transform each inbound option, preserving its structure
-          inboundOptions = flight.inboundOptions.map(optionArray => {
-            if (Array.isArray(optionArray) && optionArray.length > 0) {
-              const inboundFlight = optionArray[0]; // Get the first flight in the option
-              
-              // Only proceed if we have a valid flight object
-              if (inboundFlight) {
-                return {
-                  // Preserve the flight-level metadata
-                  resultIndex: inboundFlight.resultIndex,
-                  price: {
-                    amount: parseFloat(inboundFlight.price?.amount || 0),
-                    currency: inboundFlight.price?.currency || 'INR',
-                    baseFare: parseFloat(inboundFlight.price?.baseFare || 0),
-                    tax: parseFloat(inboundFlight.price?.tax || 0)
-                  },
-                  isRefundable: inboundFlight.isRefundable,
-                  isLowCost: inboundFlight.isLowCost,
-                  fareClass: inboundFlight.fareClass,
-                  provider: inboundFlight.provider,
-                  airlineRemark: inboundFlight.airlineRemark,
-                  availableSeats: inboundFlight.availableSeats,
-                  
-                  // Transform the segments properly
-                  segments: (inboundFlight.segments || []).map(segment => extractSegment(segment))
-                };
-              }
-            }
-            // Return an empty object if option doesn't match expected structure
-            return {};
-          });
-        } else if (flight.inboundFlights && Array.isArray(flight.inboundFlights) && flight.inboundFlights.length > 0) {
-          // Handle alternative format
-          inboundOptions = flight.inboundFlights.map(option => {
-            if (Array.isArray(option) && option.length > 0) {
-              const inboundFlight = option[0];
-              if (inboundFlight) {
-                return {
-                  resultIndex: inboundFlight.resultIndex,
-                  price: {
-                    amount: parseFloat(inboundFlight.price?.amount || inboundFlight.pF || 0),
-                    currency: inboundFlight.price?.currency || inboundFlight.cr || 'INR',
-                    baseFare: parseFloat(inboundFlight.price?.baseFare || inboundFlight.bF || 0),
-                    tax: parseFloat(inboundFlight.price?.tax || inboundFlight.tAS || 0)
-                  },
-                  isRefundable: inboundFlight.isRefundable !== undefined ? inboundFlight.isRefundable : inboundFlight.iR,
-                  isLowCost: inboundFlight.isLowCost !== undefined ? inboundFlight.isLowCost : inboundFlight.iL,
-                  fareClass: inboundFlight.fareClass || inboundFlight.pFC,
-                  provider: inboundFlight.provider,
-                  availableSeats: inboundFlight.availableSeats || inboundFlight.sA,
-                  
-                  segments: (inboundFlight.sg || inboundFlight.segments || []).map(segment => 
-                    extractSegment(segment)
-                  )
-                };
-              }
-            }
-            return {};
-          }).filter(option => Object.keys(option).length > 0);
-        }
-        
-        return {
-          resultIndex: flight.resultIndex || flight.rI,
-          outboundSegments,
-          inboundOptions,
-          price: {
-            amount: parseFloat(flight.price?.amount || flight.pF || 0),
-            currency: flight.price?.currency || flight.cr || 'INR',
-            baseFare: flight.price?.baseFare || flight.bF || 0, 
-            tax: flight.price?.tax || flight.tAS || 0
-          },
-          isRefundable: flight.isRefundable !== undefined ? flight.isRefundable : flight.iR,
-          isLowCost: flight.isLowCost !== undefined ? flight.isLowCost : flight.iL,
-          fareClass: flight.fareClass || flight.pFC,
-          availableSeats: flight.availableSeats || flight.sA,
-          stopCount: flight.stopCount || flight.sC || 0,
-          isRoundTrip: true
-        };
-      } catch (err) {
-        console.error('Error transforming international round trip flight:', err, flight);
-        return null;
-      }
-    }).filter(Boolean); // Remove any nulls from failed transforms
-  } else {
-    // ONE WAY FORMAT:
-    // Flights with segments array
-    console.log('Transforming one-way flights');
-    
-    transformedFlights = flightsData.map(flight => {
-      try {
-        // If the data is already transformed
-        if (flight.segments && Array.isArray(flight.segments) && flight.segments.length > 0 && flight.segments[0].departure) {
-          return {
-            ...flight,
-            isRoundTrip: false
-          };
-        }
-        
-        // Transform from TC format
-        const segmentsArray = flight.segments || flight.sg || [];
-        
-        return {
-          resultIndex: flight.resultIndex || flight.rI,
-          segments: segmentsArray.map(segment => extractSegment(segment)),
-          price: {
-            amount: parseFloat(flight.price?.amount || flight.pF || 0),
-            currency: flight.price?.currency || flight.cr || 'INR',
-            baseFare: flight.price?.baseFare || flight.bF || 0, 
-            tax: flight.price?.tax || flight.tAS || 0
-          },
-          isRefundable: flight.isRefundable !== undefined ? flight.isRefundable : flight.iR,
-          isLowCost: flight.isLowCost !== undefined ? flight.isLowCost : flight.iL,
-          fareClass: flight.fareClass || flight.pFC,
-          availableSeats: flight.availableSeats || flight.sA,
-          stopCount: flight.stopCount || flight.sC || 0,
-          isRoundTrip: false
-        };
-      } catch (err) {
-        console.error('Error transforming one-way flight:', err);
-        return null;
-      }
-    }).filter(Boolean); // Remove any nulls from failed transforms
-  }
-  
-  // Extract pagination, filters and other metadata
-  const pagination = response.data.pagination || {};
-  const priceRange = response.data.priceRange || { min: 0, max: 0 };
-  const availableFilters = response.data.availableFilters || {};
-  const traceId = response.data.traceId;
-  const isDomestic = response.data.isDomestic === true;
-  
-  return {
-    success: true,
-    provider: response.provider || 'TC',
-    data: {
-      flights: transformedFlights,
-      pagination,
-      priceRange,
-      availableFilters,
-      traceId,
-      isDomestic,
-      isRoundTrip,
-      totalTravelers: response.data.totalTravelers || response.data.paxCount
-    }
-  };
 };
 
 /**

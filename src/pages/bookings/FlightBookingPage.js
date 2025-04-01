@@ -43,10 +43,9 @@ const FlightBookingPage = () => {
   const [selectedFlight, setSelectedFlight] = useState(null);
   const [itineraryDetails, setItineraryDetails] = useState(null);
   const [fareRules, setFareRules] = useState(null);
-  const [pagination, setPagination] = useState(null);
   const [traceId, setTraceId] = useState(null);
-  const [selectedProvider, setSelectedProvider] = useState('TC'); // Default provider
-  const [isRoundTrip, setIsRoundTrip] = useState(false); // Add isRoundTrip state
+  const [selectedProvider, setSelectedProvider] = useState('TC');
+  const [isRoundTrip, setIsRoundTrip] = useState(false);
   const [bookingDetails, setBookingDetails] = useState(null);
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [voucherDetails, setVoucherDetails] = useState(null);
@@ -113,7 +112,7 @@ const FlightBookingPage = () => {
   const [activeTab, setActiveTab] = useState('outbound');
 
   // Add state to determine flight structure type
-  const [flightStructureType, setFlightStructureType] = useState('ONE_WAY');  // 'ONE_WAY', 'INTERNATIONAL_ROUND_TRIP', or 'DOMESTIC_ROUND_TRIP'
+  const [flightStructureType, setFlightStructureType] = useState('ONE_WAY');
 
   // New state for international round trip inbound option
   const [selectedInboundOptionIndex, setSelectedInboundOptionIndex] = useState(null);
@@ -124,6 +123,14 @@ const FlightBookingPage = () => {
   const [allChunksLoaded, setAllChunksLoaded] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isCancellingLoad, setIsCancellingLoad] = useState(false);
+
+  // Inbound options expansion state for INTERNATIONAL_ROUND_TRIP
+  const [expandedStates, setExpandedStates] = useState([]);
+
+  // Function to load more flights
+  const loadMoreItems = () => {
+    setVisibleCount(prev => Math.min(prev + 100, filteredFlights.length));
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -240,10 +247,6 @@ const FlightBookingPage = () => {
     setSelectedInboundOptionIndex(null);
     setShowInboundSelection(false);
     setActiveTab('outbound');
-    setCurrentChunkIndex(0);
-    setAllChunksLoaded(false);
-    setLoadingProgress(0);
-    resetAutoLoad();
   };
 
   // Handle search submission
@@ -259,261 +262,165 @@ const FlightBookingPage = () => {
       setIsLoading(true);
       resetSearchState();
       
-      // Initial search for first batch of flights
-      await loadFlightChunk(0, []);
+      // Call the search API
+      const response = await bookingService.searchFlights(formData);
       
-      // Set step to results view
+      if (!response.success) {
+        throw new Error(response.message || 'Search failed');
+      }
+
+      // Handle different flight structures
+      if (response.data.outboundFlights && response.data.inboundFlights) {
+        // Domestic round trip
+        setIsDomesticRoundTrip(true);
+        setFlightStructureType('DOMESTIC_ROUND_TRIP');
+        setOutboundFlights(response.data.outboundFlights);
+        setInboundFlights(response.data.inboundFlights);
+        setFilteredFlights(response.data.outboundFlights);
+      } else {
+        // One-way or international round trip
+        setAllFlights(response.data.flights);
+        setFilteredFlights(response.data.flights);
+        setFlightStructureType(formData.isRoundTrip ? 'INTERNATIONAL_ROUND_TRIP' : 'ONE_WAY');
+      }
+
+      // Set metadata
+      setTraceId(response.data.traceId);
+      setPriceRange(response.data.priceRange);
+      setAvailableAirlines(response.data.availableFilters.airlines);
+      setStopCounts(response.data.availableFilters.stopCounts);
+      
+      // Move to results view
       setStep(2);
     } catch (error) {
       console.error('Error searching flights:', error);
-      if (error.response) {
-        console.error('Error response:', {
-          status: error.response.status,
-          headers: error.response.headers,
-          data: error.response.data
-        });
-        toast.error(`Error ${error.response.status}: ${error.response.data?.message || 'Unknown server error'}`);
-      } else if (error.request) {
-        console.error('Error request (no response received):', error.request);
-        toast.error('No response from server. Please check your connection and try again.');
-      } else {
-        console.error('Error details:', error.message);
-        toast.error(error.message || 'Failed to search flights. Please try again.');
-      }
+      toast.error(error.message || 'Failed to search flights');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Enhanced loadFlightChunk function with auto-loading capability
-  const loadFlightChunk = async (chunkIndex, previousFlights = []) => {
-    try {
-      // Skip if we're cancelling or filtering
-      if (!autoLoadRef.current || isFiltering) {
-        return;
-      }
-
-      setIsLoadingMore(chunkIndex > 0); // Only show loading indicator for subsequent chunks
-      
-      // Prepare search data for the API
-      const searchData = {
-        provider: formData.provider,
-        origin: formData.origin,
-        destination: formData.destination,
-        departureDate: formData.departureDate,
-        departureTime: formData.departureTime,
-        returnDate: formData.returnDate,
-        returnTime: formData.returnTime,
-        isRoundTrip: formData.isRoundTrip,
-        travelersDetails: formData.travelersDetails,
-        cabinClass: formData.cabinClass,
-        chunkIndex: chunkIndex,
-        chunkSize: 100  // Changed from 20 to 100
-      };
-      
-      console.log('Form Data:', formData);
-      console.log('Search Data being sent:', searchData);
-      
-      // Call the flight search API
-      const response = await bookingService.searchFlights(searchData);
-      
-      console.log(`Chunk ${chunkIndex} response:`, response);
-      
-      if (!response || !response.success) {
-        throw new Error(response?.message || 'Invalid response from flight search API');
-      }
-      
-      // Update current chunk index
-      setCurrentChunkIndex(chunkIndex);
-      
-      // Check for domestic round trip structure (direct structure from server)
-      if (response.data && response.data.outboundFlights && response.data.inboundFlights) {
-        // Domestic round trip structure
-        console.log('Detected DOMESTIC_ROUND_TRIP structure with separate outboundFlights and inboundFlights arrays');
-        setFlightStructureType('DOMESTIC_ROUND_TRIP');
-        setIsDomesticRoundTrip(true);
-        
-        // Get the original flight arrays
-        const outboundFlights = response.data.outboundFlights || [];
-        const inboundFlights = response.data.inboundFlights || [];
-        
-        console.log('Original outbound flights:', outboundFlights.length);
-        console.log('Original inbound flights:', inboundFlights.length);
-        
-        // Combine with any previous flights if we're paginating
-        if (chunkIndex > 0) {
-          setOutboundFlights(prev => [...prev, ...outboundFlights]);
-          setInboundFlights(prev => [...prev, ...inboundFlights]);
-        } else {
-          setOutboundFlights(outboundFlights);
-          setInboundFlights(inboundFlights);
-        }
-        
-        // Show outbound flights first
-        setActiveTab('outbound');
-        setFilteredFlights(activeTab === 'outbound' ? 
-          (chunkIndex > 0 ? [...outboundFlights, ...outboundFlights] : outboundFlights) : 
-          (chunkIndex > 0 ? [...inboundFlights, ...inboundFlights] : inboundFlights));
-        
-        setPagination(response.data.pagination);
-        setTraceId(response.data.traceId);
-        setIsRoundTrip(true);
-        
-        // Update loading progress
-        const totalFlights = response.data.pagination.total.outbound + response.data.pagination.total.inbound;
-        const loadedFlights = outboundFlights.length + inboundFlights.length;
-        setLoadingProgress(Math.min(100, Math.floor((loadedFlights / totalFlights) * 100)));
-        
-        // Check if we should load more 
-        const hasMoreOutbound = outboundFlights.length < response.data.pagination.total.outbound;
-        const hasMoreInbound = inboundFlights.length < response.data.pagination.total.inbound;
-        
-        if ((hasMoreOutbound || hasMoreInbound) && autoLoadRef.current && !isFiltering) {
-          // Delay to prevent UI freeze
-          setTimeout(() => {
-            loadFlightChunk(chunkIndex + 1, []);
-          }, 300);
-        } else {
-          setAllChunksLoaded(true);
-        }
-      } 
-      else if (formData.isRoundTrip && response.data.flights && response.data.flights.length > 0 && 
-               (response.data.flights[0].outboundSegments || response.data.flights[0].outboundFlight)) {
-        // International round trip structure
-        console.log('Detected INTERNATIONAL_ROUND_TRIP structure with outboundSegments and inboundOptions');
-        setFlightStructureType('INTERNATIONAL_ROUND_TRIP');
-        
-        const newFlights = response.data.flights;
-        const combinedFlights = [...previousFlights, ...newFlights];
-        setAllFlights(combinedFlights);
-        setFilteredFlights(combinedFlights);
-        setPagination(response.data.pagination);
-        setTraceId(response.data.traceId);
-        setIsRoundTrip(true);
-        
-        // Apply filters
-        if (activeFilters) {
-          applyFlightFilters(activeFilters, combinedFlights, 'INTERNATIONAL_ROUND_TRIP');
-        }
-        
-        // Update loading progress
-        if (response.data.pagination.total) {
-          setLoadingProgress(Math.min(100, Math.floor((combinedFlights.length / response.data.pagination.total) * 100)));
-        }
-        
-        // Check if we should load more
-        if (response.data.pagination.hasMore && autoLoadRef.current && !isFiltering) {
-          // Delay to prevent UI freeze and allow rendering
-          setTimeout(() => {
-            loadFlightChunk(chunkIndex + 1, combinedFlights);
-          }, 300);
-        } else {
-          setAllChunksLoaded(true);
-        }
-      } 
-      else if (response.data.flights) {
-        // One-way structure
-        console.log('Detected ONE_WAY structure with segments array');
-        setFlightStructureType('ONE_WAY');
-        
-        const newFlights = response.data.flights;
-        const combinedFlights = [...previousFlights, ...newFlights];
-        setAllFlights(combinedFlights);
-        setFilteredFlights(combinedFlights);
-        setPagination(response.data.pagination);
-        setTraceId(response.data.traceId);
-        setIsRoundTrip(false);
-        
-        // Apply filters
-        if (activeFilters) {
-          applyFlightFilters(activeFilters, combinedFlights, 'ONE_WAY');
-        }
-        
-        // Update loading progress
-        if (response.data.pagination.total) {
-          setLoadingProgress(Math.min(100, Math.floor((combinedFlights.length / response.data.pagination.total) * 100)));
-        }
-        
-        // Check if we should load more
-        if (response.data.pagination.hasMore && autoLoadRef.current && !isFiltering) {
-          // Delay to prevent UI freeze
-          setTimeout(() => {
-            loadFlightChunk(chunkIndex + 1, combinedFlights);
-          }, 300);
-        } else {
-          setAllChunksLoaded(true);
-        }
-      }
-      else {
-        console.error('Unknown flight data structure:', response.data);
-        setError('Invalid flight data structure returned from server');
-        setAllChunksLoaded(true);
-      }
-      
-      // Update trace ID for later use
-      const chunkTraceId = response.data.traceId;
-      if (chunkTraceId) {
-        setTraceId(chunkTraceId);
-      }
-      
-      // Update filter metadata
-      if (response.data.priceRange) {
-        setPriceRange(response.data.priceRange);
-      }
-      if (response.data.availableFilters?.airlines) {
-        setAvailableAirlines(response.data.availableFilters.airlines);
-      }
-      if (response.data.availableFilters?.stopCounts) {
-        setStopCounts(response.data.availableFilters.stopCounts);
-      }
-      
-    } catch (error) {
-      console.error('Error loading flight chunk:', error);
-      setAllChunksLoaded(true);
-      throw error;
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
-
-  // Handle manual loading of more flights
-  const handleLoadMore = () => {
-    if (allChunksLoaded || isLoadingMore) return;
-    
-    // Reset auto-load capability
-    autoLoadRef.current = true;
-    
-    // Load the next chunk
-    loadFlightChunk(currentChunkIndex + 1, allFlights);
-  };
-
   // Handle flight selection based on structure type
   const handleSelectFlight = (flight) => {
-    switch (flightStructureType) {
-      case 'DOMESTIC_ROUND_TRIP':
+    // Debug log for flight selection
+    console.log('Flight selected:', {
+      flightId: flight.resultIndex || flight.rI,
+      activeTab,
+      flightStructureType,
+      flightDetails: flight,
+      currentOutbound: selectedOutboundFlight?.resultIndex || selectedOutboundFlight?.rI,
+      currentInbound: selectedInboundFlight?.resultIndex || selectedInboundFlight?.rI
+    });
+
+    // Handle special "clear" actions from group flight selection
+    if (flight.type === 'clear_outbound') {
+      console.log('Clearing outbound flight selection');
+      setSelectedOutboundFlight(null);
+      return;
+    } else if (flight.type === 'clear_inbound') {
+      console.log('Clearing inbound flight selection');
+      setSelectedInboundFlight(null);
+      return;
+    } else if (flight.type === 'clear_selection') {
+      console.log('Clearing flight selection');
+      if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP') {
         if (activeTab === 'outbound') {
-          // First step: selecting outbound flight
-          setSelectedOutboundFlight(flight);
-          // Switch to inbound tab automatically
-          setActiveTab('inbound');
+          setSelectedOutboundFlight(null);
+          setSelectedInboundOptionIndex(null);
         } else {
-          // Second step: selecting inbound flight
-          setSelectedInboundFlight(flight);
+          setSelectedInboundOptionIndex(null);
         }
-        break;
+      } else {
+        // ONE_WAY
+        setSelectedFlight(null);
+        setSelectedOutboundFlight(null);
+      }
+      return;
+    }
+
+    // Store selection based on active tab and flight structure
+    if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
+      if (activeTab === 'outbound') {
+        console.log('Setting selected outbound flight for DOMESTIC_ROUND_TRIP');
+        // Ensure flight has resultIndex for consistency
+        const processedFlight = {
+          ...flight,
+          resultIndex: flight.resultIndex || flight.rI
+        };
+        setSelectedOutboundFlight(processedFlight);
         
-      case 'INTERNATIONAL_ROUND_TRIP':
-        // For international round trips, selectedFlight refers to the outbound
-        // The inbound is tracked with selectedInboundOptionIndex
-        setSelectedOutboundFlight(flight);
-        setSelectedInboundOptionIndex(0); // Default to first inbound option
-        break;
+        // Log price data for debugging
+        console.log('Domestic outbound price data:', {
+          directPrice: flight.price,
+          nestedPrice: flight.outbound?.price,
+          legacyPrice: flight.pF
+        });
         
-      case 'ONE_WAY':
-      default:
-        // Handle one-way selection
+        // If this is a combined structure (outbound+inbound), handle differently
+        if (flight.outbound && flight.inbound) {
+          console.log('Combined flight structure detected');
+        }
+        
+        // Always move to inbound tab for selection if needed
+        if (!selectedInboundFlight) {
+          console.log('Switching to inbound tab');
+          setActiveTab('inbound');
+        }
+      } else {
+        console.log('Setting selected inbound flight for DOMESTIC_ROUND_TRIP');
+        // Ensure flight has resultIndex for consistency
+        const processedFlight = {
+          ...flight,
+          resultIndex: flight.resultIndex || flight.rI
+        };
+        setSelectedInboundFlight(processedFlight);
+        
+        // Log price data for debugging
+        console.log('Domestic inbound price data:', {
+          directPrice: flight.price,
+          nestedPrice: flight.inbound?.price,
+          legacyPrice: flight.pF
+        });
+      }
+      
+      // Debug summary of flights after selection
+      setTimeout(() => {
+        console.log('DOMESTIC_ROUND_TRIP flight selection summary:', {
+          outbound: selectedOutboundFlight ? {
+            id: selectedOutboundFlight.resultIndex || selectedOutboundFlight.rI,
+            hasOutbound: !!selectedOutboundFlight.outbound,
+            hasInbound: !!selectedOutboundFlight.inbound,
+            directPrice: selectedOutboundFlight.price,
+            outboundPrice: selectedOutboundFlight.outbound?.price,
+            pF: selectedOutboundFlight.pF
+          } : 'No outbound flight selected',
+          inbound: selectedInboundFlight ? {
+            id: selectedInboundFlight.resultIndex || selectedInboundFlight.rI,
+            hasOutbound: !!selectedInboundFlight.outbound,
+            hasInbound: !!selectedInboundFlight.inbound,
+            directPrice: selectedInboundFlight.price,
+            inboundPrice: selectedInboundFlight.inbound?.price,
+            pF: selectedInboundFlight.pF
+          } : 'No inbound flight selected yet'
+        });
+      }, 100);
+    } else if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP') {
+      if (activeTab === 'outbound') {
+        // For outbound flight in international round trip
+        console.log('Setting outbound flight for international RT:', flight);
         setSelectedOutboundFlight(flight);
-        break;
+        setSelectedInboundOptionIndex(null);
+        setActiveTab('inbound');
+      } else {
+        // For inbound option in international round trip
+        console.log('Setting inbound option for international RT:', flight);
+        setSelectedInboundOptionIndex(flight.index);
+      }
+    } else {
+      // ONE_WAY
+      console.log('Setting selected flight for ONE_WAY');
+      setSelectedFlight(flight);
+      setSelectedOutboundFlight(flight);
     }
   };
 
@@ -537,28 +444,41 @@ const FlightBookingPage = () => {
       switch (flightStructureType) {
         case 'DOMESTIC_ROUND_TRIP':
           // For domestic round trips, add both outbound and inbound flights
+          // Ensure we use either resultIndex or rI property, whichever is available
           itineraryData.items = [
             {
               type: 'FLIGHT',
-              resultIndex: selectedOutboundFlight.resultIndex,
+              resultIndex: selectedOutboundFlight.resultIndex || selectedOutboundFlight.rI,
               flightType: 'OUTBOUND'
             },
             {
               type: 'FLIGHT',
-              resultIndex: selectedInboundFlight.resultIndex,
+              resultIndex: selectedInboundFlight.resultIndex || selectedInboundFlight.rI,
               flightType: 'INBOUND'
             }
           ];
+          
+          // Debug logging for the resultIndex values being used
+          console.log('DOMESTIC_ROUND_TRIP itinerary data:', {
+            outboundResultIndex: selectedOutboundFlight.resultIndex || selectedOutboundFlight.rI,
+            inboundResultIndex: selectedInboundFlight.resultIndex || selectedInboundFlight.rI
+          });
           break;
 
         case 'INTERNATIONAL_ROUND_TRIP':
           // For international round trips, send the resultIndex of the selected inbound option
+          const selectedInboundOption = selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex];
           itineraryData.items = [
             {
               type: 'FLIGHT',
-              resultIndex: selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex].resultIndex
+              resultIndex: selectedInboundOption.resultIndex || selectedInboundOption.rI
             }
           ];
+          
+          // Debug logging for the resultIndex values being used
+          console.log('INTERNATIONAL_ROUND_TRIP itinerary data:', {
+            selectedInboundResultIndex: selectedInboundOption.resultIndex || selectedInboundOption.rI
+          });
           break;
 
         case 'ONE_WAY':
@@ -567,9 +487,14 @@ const FlightBookingPage = () => {
           itineraryData.items = [
             {
               type: 'FLIGHT',
-              resultIndex: selectedOutboundFlight.resultIndex
+              resultIndex: selectedOutboundFlight.resultIndex || selectedOutboundFlight.rI
             }
           ];
+          
+          // Debug logging for the resultIndex values being used
+          console.log('ONE_WAY itinerary data:', {
+            resultIndex: selectedOutboundFlight.resultIndex || selectedOutboundFlight.rI
+          });
           break;
       }
 
@@ -693,10 +618,29 @@ const FlightBookingPage = () => {
           break;
       }
       
-      // Apply price filter
+      // Apply price filter - handle all possible price formats
       if (filters.price) {
         filtered = filtered.filter(flight => {
-          const price = flight.price?.amount || 0;
+          // Get price based on all possible formats
+          let price = 0;
+          
+          // Direct price.amount format
+          if (flight.price?.amount !== undefined) {
+            price = flight.price.amount;
+          } 
+          // Nested outbound price format
+          else if (flight.outbound?.price?.amount !== undefined) {
+            price = flight.outbound.price.amount;
+          }
+          // Nested inbound price format
+          else if (flight.inbound?.price?.amount !== undefined) {
+            price = flight.inbound.price.amount;
+          }
+          // Legacy pF format
+          else if (typeof flight.pF === 'number') {
+            price = flight.pF;
+          }
+          
           return price >= filters.price.min && price <= filters.price.max;
         });
       }
@@ -704,46 +648,207 @@ const FlightBookingPage = () => {
       // Apply airline filter
       if (filters.airlines && filters.airlines.length > 0) {
         filtered = filtered.filter(flight => {
-          // For domestic flights
+          // Check airline based on flight structure
+          let airlineName = null;
+          
+          // For domestic flights and one-way
           if (structureType === 'DOMESTIC_ROUND_TRIP' || structureType === 'ONE_WAY') {
+            // Check for segments array
             if (flight.segments && flight.segments.length > 0) {
-              return filters.airlines.includes(flight.segments[0].airline?.name);
+              airlineName = flight.segments[0].airline?.name;
             }
-            return false;
+            // Check for outbound segments in case of mixed structures
+            else if (flight.outboundSegments && flight.outboundSegments.length > 0) {
+              airlineName = flight.outboundSegments[0].airline?.name;
+            }
           }
           
           // For international round trips
-          if (structureType === 'INTERNATIONAL_ROUND_TRIP') {
+          else if (structureType === 'INTERNATIONAL_ROUND_TRIP') {
+            // Check for outbound segments
             if (flight.outboundSegments && flight.outboundSegments.length > 0) {
-              return filters.airlines.includes(flight.outboundSegments[0].airline?.name);
+              airlineName = flight.outboundSegments[0].airline?.name;
             }
-            return false;
+            // Fallback to regular segments if available
+            else if (flight.segments && flight.segments.length > 0) {
+              airlineName = flight.segments[0].airline?.name;
+            }
           }
           
-          return false;
+          return airlineName && filters.airlines.includes(airlineName);
         });
       }
       
       // Apply stops filter
       if (filters.stops && filters.stops.length > 0) {
         filtered = filtered.filter(flight => {
-          let stopCount;
+          let stopCount = null;
           
-          // For domestic flights
-          if (structureType === 'DOMESTIC_ROUND_TRIP' || structureType === 'ONE_WAY') {
-            stopCount = (flight.segments?.length || 1) - 1;
+          // Different handling based on flight structure
+          if (structureType === 'DOMESTIC_ROUND_TRIP') {
+            // For domestic round trips, use segments or the active tab segments
+            if (activeTab === 'outbound' && flight.outboundSegments) {
+              stopCount = flight.outboundSegments.length - 1;
+            } else if (activeTab === 'inbound' && flight.inboundSegments) {
+              stopCount = flight.inboundSegments.length - 1;
+            } else if (flight.segments) {
+              stopCount = flight.segments.length - 1;
+            } else {
+              stopCount = 0;
+            }
+          }
+          // For one-way flights
+          else if (structureType === 'ONE_WAY') {
+            if (flight.segments) {
+              stopCount = flight.segments.length - 1;
+            } else if (flight.outboundSegments) {
+              stopCount = flight.outboundSegments.length - 1;
+            } else {
+              stopCount = flight.stopCount || 0;
+            }
           }
           // For international round trips
           else if (structureType === 'INTERNATIONAL_ROUND_TRIP') {
-            stopCount = (flight.outboundSegments?.length || 1) - 1;
+            if (flight.outboundSegments) {
+              stopCount = flight.outboundSegments.length - 1;
+            } else if (flight.segments) {
+              stopCount = flight.segments.length - 1;
+            } else {
+              stopCount = flight.stopCount || 0;
+            }
           }
-          else {
-            return false;
+          
+          // Fallback to flight.stopCount if segments aren't available
+          if (stopCount === null && flight.stopCount !== undefined) {
+            stopCount = flight.stopCount;
+          } else if (stopCount === null) {
+            stopCount = 0;
           }
           
           // Handle "2+" stops case
           const stopValue = stopCount >= 2 ? '2+' : String(stopCount);
           return filters.stops.includes(stopValue);
+        });
+      }
+      
+      // Apply departure time filter
+      if (filters.departureTime && filters.departureTime.length > 0) {
+        // Define time ranges for each slab
+        const timeRanges = {
+          'early-morning': [0, 6],   // 12:00 AM - 6:00 AM
+          'morning': [6, 12],        // 6:00 AM - 12:00 PM
+          'afternoon': [12, 18],     // 12:00 PM - 6:00 PM
+          'evening': [18, 24]        // 6:00 PM - 12:00 AM
+        };
+        
+        filtered = filtered.filter(flight => {
+          // Extract departure time based on flight structure
+          let departureTimeStr = null;
+          
+          if (structureType === 'DOMESTIC_ROUND_TRIP') {
+            if (activeTab === 'outbound') {
+              if (flight.outboundSegments && flight.outboundSegments.length > 0) {
+                departureTimeStr = flight.outboundSegments[0].departure?.time;
+              } else if (flight.segments && flight.segments.length > 0) {
+                departureTimeStr = flight.segments[0].departure?.time;
+              }
+            } else { // inbound
+              if (flight.inboundSegments && flight.inboundSegments.length > 0) {
+                departureTimeStr = flight.inboundSegments[0].departure?.time;
+              } else if (flight.segments && flight.segments.length > 0) {
+                departureTimeStr = flight.segments[0].departure?.time;
+              }
+            }
+          } else {
+            // ONE_WAY or INTERNATIONAL_ROUND_TRIP
+            if (flight.segments && flight.segments.length > 0) {
+              departureTimeStr = flight.segments[0].departure?.time;
+            } else if (flight.outboundSegments && flight.outboundSegments.length > 0) {
+              departureTimeStr = flight.outboundSegments[0].departure?.time;
+            } else if (flight.sg && flight.sg.length > 0) {
+              departureTimeStr = flight.sg[0].or?.dT;
+            }
+          }
+          
+          if (!departureTimeStr) return false;
+          
+          try {
+            const date = new Date(departureTimeStr);
+            const hours = date.getHours();
+            
+            // Check if the flight's departure time is in any of the selected time slabs
+            return filters.departureTime.some(slabId => {
+              const range = timeRanges[slabId];
+              return range && hours >= range[0] && hours < range[1];
+            });
+          } catch (error) {
+            console.error('Error parsing departure time:', error);
+            return false;
+          }
+        });
+      }
+      
+      // Apply arrival time filter
+      if (filters.arrivalTime && filters.arrivalTime.length > 0) {
+        // Define time ranges for each slab
+        const timeRanges = {
+          'early-morning': [0, 6],   // 12:00 AM - 6:00 AM
+          'morning': [6, 12],        // 6:00 AM - 12:00 PM
+          'afternoon': [12, 18],     // 12:00 PM - 6:00 PM
+          'evening': [18, 24]        // 6:00 PM - 12:00 AM
+        };
+        
+        filtered = filtered.filter(flight => {
+          // Extract arrival time based on flight structure
+          let arrivalTimeStr = null;
+          
+          if (structureType === 'DOMESTIC_ROUND_TRIP') {
+            if (activeTab === 'outbound') {
+              if (flight.outboundSegments && flight.outboundSegments.length > 0) {
+                const lastSegment = flight.outboundSegments[flight.outboundSegments.length - 1];
+                arrivalTimeStr = lastSegment.arrival?.time;
+              } else if (flight.segments && flight.segments.length > 0) {
+                const lastSegment = flight.segments[flight.segments.length - 1];
+                arrivalTimeStr = lastSegment.arrival?.time;
+              }
+            } else { // inbound
+              if (flight.inboundSegments && flight.inboundSegments.length > 0) {
+                const lastSegment = flight.inboundSegments[flight.inboundSegments.length - 1];
+                arrivalTimeStr = lastSegment.arrival?.time;
+              } else if (flight.segments && flight.segments.length > 0) {
+                const lastSegment = flight.segments[flight.segments.length - 1];
+                arrivalTimeStr = lastSegment.arrival?.time;
+              }
+            }
+          } else {
+            // ONE_WAY or INTERNATIONAL_ROUND_TRIP
+            if (flight.segments && flight.segments.length > 0) {
+              const lastSegment = flight.segments[flight.segments.length - 1];
+              arrivalTimeStr = lastSegment.arrival?.time;
+            } else if (flight.outboundSegments && flight.outboundSegments.length > 0) {
+              const lastSegment = flight.outboundSegments[flight.outboundSegments.length - 1];
+              arrivalTimeStr = lastSegment.arrival?.time;
+            } else if (flight.sg && flight.sg.length > 0) {
+              const lastSegment = flight.sg[flight.sg.length - 1];
+              arrivalTimeStr = lastSegment.ds?.aT;
+            }
+          }
+          
+          if (!arrivalTimeStr) return false;
+          
+          try {
+            const date = new Date(arrivalTimeStr);
+            const hours = date.getHours();
+            
+            // Check if the flight's arrival time is in any of the selected time slabs
+            return filters.arrivalTime.some(slabId => {
+              const range = timeRanges[slabId];
+              return range && hours >= range[0] && hours < range[1];
+            });
+          } catch (error) {
+            console.error('Error parsing arrival time:', error);
+            return false;
+          }
         });
       }
       
@@ -825,6 +930,22 @@ const FlightBookingPage = () => {
     } finally {
       setIsLoadingVoucher(false);
     }
+  };
+
+  // Initialize expanded states when inbound options change
+  useEffect(() => {
+    if (selectedOutboundFlight?.inboundOptions) {
+      setExpandedStates(new Array(selectedOutboundFlight.inboundOptions.length).fill(false));
+    }
+  }, [selectedOutboundFlight?.inboundOptions]);
+  
+  // Toggle expanded state for specific index
+  const toggleExpanded = (index) => {
+    setExpandedStates(prev => {
+      const newStates = [...prev];
+      newStates[index] = !newStates[index];
+      return newStates;
+    });
   };
 
   // Render content based on current step
@@ -1034,49 +1155,10 @@ const FlightBookingPage = () => {
               </button>
             </div>
 
-            {/* Loading progress indicator */}
-            {pagination && !allChunksLoaded && (
-              <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center">
-                    <ArrowPathIcon className={`h-4 w-4 mr-2 ${isLoadingMore ? 'animate-spin' : ''} text-blue-600`} />
-                    <span className="text-sm font-medium text-gray-700">
-                      Loading flights...
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <span className="text-sm text-gray-600">
-                      {flightStructureType === 'DOMESTIC_ROUND_TRIP' 
-                        ? `${outboundFlights.length + inboundFlights.length} of ${pagination.total?.outbound + pagination.total?.inbound || 'many'} flights loaded`
-                        : `${allFlights.length} of ${pagination.total || 'many'} flights loaded`
-                      }
-                    </span>
-                    {!allChunksLoaded && !isCancellingLoad && (
-                      <button 
-                        onClick={cancelAutoLoading}
-                        className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md"
-                      >
-                        Stop loading
-                      </button>
-                    )}
-                    {isCancellingLoad && (
-                      <span className="text-xs text-gray-500">Stopping...</span>
-                    )}
-                  </div>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
-                    style={{ width: `${loadingProgress}%` }}
-                  ></div>
-                </div>
-              </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
               {/* Sidebar with filters */}
               <div className="md:col-span-3">
-                <div className="bg-white rounded-lg shadow-sm p-6 sticky top-6">
+                <div className="bg-white rounded-lg shadow-sm p-6">
                   <FlightFilters
                     flights={flightStructureType === 'DOMESTIC_ROUND_TRIP' 
                       ? (activeTab === 'outbound' ? outboundFlights : inboundFlights)
@@ -1097,7 +1179,7 @@ const FlightBookingPage = () => {
 
               {/* Flight summary panel */}
               <div className="md:col-span-3">
-                <div className="sticky top-6">
+                <div>
                   <FlightSummaryPanel
                     selectedOutboundFlight={selectedOutboundFlight}
                     selectedInboundFlight={
@@ -1221,28 +1303,30 @@ const FlightBookingPage = () => {
           {/* Flight list */}
           <FlightSearchResults
             flights={activeTab === 'outbound' ? outboundFlights : inboundFlights}
-            pagination={pagination}
             isRoundTrip={false}
             isDomestic={true}
             isOutbound={activeTab === 'outbound'}
             onSelectFlight={handleSelectFlight}
             selectedFlight={activeTab === 'outbound' ? selectedOutboundFlight : selectedInboundFlight}
-            onLoadMore={handleLoadMore}
             loading={isLoading}
-            isLoadingMore={isLoadingMore}
-            allChunksLoaded={allChunksLoaded}
-            loadingProgress={loadingProgress}
-            loadMoreManually={() => {
-              // Reset auto-loading capability 
-              autoLoadRef.current = true;
-              loadFlightChunk(currentChunkIndex + 1, allFlights);
-            }}
             // Props for summary panel
             selectedOutboundFlight={selectedOutboundFlight}
             selectedInboundFlight={selectedInboundFlight}
             flightStructureType={flightStructureType}
             onCreateItinerary={handleCreateItinerary}
           />
+          
+          {/* Load more button */}
+          {(activeTab === 'outbound' ? outboundFlights.length : inboundFlights.length) > visibleCount && (
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={loadMoreItems}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Load More Flights ({visibleCount} of {activeTab === 'outbound' ? outboundFlights.length : inboundFlights.length})
+              </button>
+            </div>
+          )}
         </div>
       );
     }
@@ -1300,7 +1384,6 @@ const FlightBookingPage = () => {
             // Show outbound flights list
             <FlightSearchResults
               flights={filteredFlights}
-              pagination={pagination}
               isRoundTrip={true}
               isDomestic={false}
               isOutbound={true}
@@ -1309,15 +1392,7 @@ const FlightBookingPage = () => {
                 setActiveTab('inbound'); // Auto-switch to inbound tab on selection
               }}
               selectedFlight={selectedOutboundFlight}
-              onLoadMore={handleLoadMore}
               loading={isLoading}
-              isLoadingMore={isLoadingMore}
-              allChunksLoaded={allChunksLoaded}
-              loadingProgress={loadingProgress}
-              loadMoreManually={() => {
-                autoLoadRef.current = true;
-                loadFlightChunk(currentChunkIndex + 1, allFlights);
-              }}
               // Props for summary panel
               selectedOutboundFlight={selectedOutboundFlight}
               flightStructureType={flightStructureType}
@@ -1329,14 +1404,25 @@ const FlightBookingPage = () => {
             <div className="space-y-4">
               {selectedOutboundFlight && selectedOutboundFlight.inboundOptions && 
                selectedOutboundFlight.inboundOptions.length > 0 ? (
-                <>
+                <div>
                   <div className="text-gray-600 font-medium mb-4">
                     Select your return flight from {selectedOutboundFlight.inboundOptions.length} available options
                   </div>
                   
                   {selectedOutboundFlight.inboundOptions.map((option, index) => {
+                    // Handle array of arrays structure
+                    const inboundOption = Array.isArray(option) && option.length > 0 ? option[0] : option;
+                    if (!inboundOption) return null;
+                    
+                    // Check if this option has group flights
+                    const groupFlights = inboundOption.groupFlights || [];
+                    const hasGroupFlights = Array.isArray(groupFlights) && groupFlights.length > 0;
+                    
+                    // Get expansion state from the array
+                    const isExpanded = expandedStates[index] || false;
+                    
                     // Get segments for this option
-                    const segments = option.segments || [];
+                    const segments = inboundOption.segments || [];
                     if (!segments.length) return null;
                     
                     // Extract key information
@@ -1350,57 +1436,174 @@ const FlightBookingPage = () => {
                     const stops = segments.length > 1 ? segments.length - 1 : 0;
                     const baggage = segments[0].baggage;
                     
+                    // Render the main inbound option card
                     return (
-                      <div 
-                        key={index}
-                        className={`bg-white rounded-lg shadow-sm border p-4 ${
-                          selectedInboundOptionIndex === index 
-                            ? 'border-blue-500 ring-2 ring-blue-200' 
-                            : 'border-gray-200'
-                        } hover:shadow-md transition-shadow cursor-pointer`}
-                        onClick={() => handleSelectInboundOption(index)}
-                      >
-                        <div className="flex justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-1">
-                              <span className="font-semibold">{airline} {flightNumber}</span>
-                              <span className="text-sm text-gray-500">
-                                {stops === 0 ? 'Non-stop' : `${stops} stop${stops !== 1 ? 's' : ''}`}
-                              </span>
-                            </div>
-                            
-                            <div className="flex items-center justify-between mt-2">
-                              <div className="flex items-center space-x-2">
-                                <span className="text-lg font-semibold">{formatTime(departureTime)}</span>
-                                <span className="text-gray-500">{departureCode}</span>
+                      <div key={index} className="space-y-4">
+                        <div 
+                          className={`bg-white rounded-lg shadow-sm border p-4 ${
+                            selectedInboundOptionIndex === index 
+                              ? 'border-blue-500 ring-2 ring-blue-200' 
+                              : 'border-gray-200'
+                          } hover:shadow-md transition-shadow cursor-pointer`}
+                          onClick={() => handleSelectInboundOption(index)}
+                        >
+                          <div className="flex justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <span className="font-semibold">{airline} {flightNumber}</span>
+                                <span className="text-sm text-gray-500">
+                                  {stops === 0 ? 'Non-stop' : `${stops} stop${stops !== 1 ? 's' : ''}`}
+                                </span>
                               </div>
                               
-                              <div className="flex items-center space-x-2">
-                                <span className="text-gray-500 text-sm">{formatDuration(duration)}</span>
-                                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-lg font-semibold">{formatTime(departureTime)}</span>
+                                  <span className="text-gray-500">{departureCode}</span>
+                                </div>
+                                
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-gray-500 text-sm">{formatDuration(duration)}</span>
+                                  <ChevronRightIcon className="h-4 w-4 text-gray-400" />
+                                </div>
+                                
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-lg font-semibold">{formatTime(arrivalTime)}</span>
+                                  <span className="text-gray-500">{arrivalCode}</span>
+                                </div>
                               </div>
                               
-                              <div className="flex items-center space-x-2">
-                                <span className="text-lg font-semibold">{formatTime(arrivalTime)}</span>
-                                <span className="text-gray-500">{arrivalCode}</span>
-                              </div>
-                            </div>
-                            
-                            <div className="mt-3 flex justify-between">
-                              <div className="text-sm text-gray-500">
-                                {baggage && <span>Baggage: {baggage}</span>}
-                              </div>
-                              
-                              <div className="text-lg font-semibold text-blue-600">
-                                {option.price?.currency || 'INR'} {(option.price?.amount || 0).toLocaleString()}
+                              <div className="mt-3 flex justify-between">
+                                <div className="flex items-center">
+                                  <div className="text-sm text-gray-500">
+                                    {baggage && <span>Baggage: {baggage}</span>}
+                                  </div>
+                                  
+                                  {/* Group flights indicator and toggle */}
+                                  {hasGroupFlights && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // Prevent card selection
+                                        toggleExpanded(index);
+                                      }}
+                                      className="text-blue-600 text-sm font-medium flex items-center ml-6"
+                                    >
+                                      {isExpanded ? 'Hide' : 'View'} {groupFlights.length} more option{groupFlights.length !== 1 ? 's' : ''}
+                                      <svg 
+                                        xmlns="http://www.w3.org/2000/svg" 
+                                        className={`h-4 w-4 ml-1 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+                                        viewBox="0 0 20 20" 
+                                        fill="currentColor"
+                                      >
+                                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 011.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                                
+                                <div className="text-lg font-semibold text-blue-600">
+                                  {inboundOption.price?.currency || 'INR'} {(inboundOption.price?.amount || inboundOption.pF || 0).toLocaleString()}
+                                </div>
                               </div>
                             </div>
                           </div>
+                          
+                          {/* Render group flights if expanded */}
+                          {isExpanded && hasGroupFlights && (
+                            <div className="space-y-4 pl-4 border-l-2 border-blue-100">
+                              <div className="text-sm font-medium text-gray-700 pb-2">More options with this airline</div>
+                              {groupFlights.map((groupFlight, groupIndex) => {
+                                // Get segments for this group flight
+                                const groupSegments = groupFlight.segments || [];
+                                if (!groupSegments.length) return null;
+                                
+                                // Extract key information for group flight
+                                const gDepartureTime = groupSegments[0].departure?.time;
+                                const gArrivalTime = groupSegments[groupSegments.length - 1].arrival?.time;
+                                const gDepartureCode = groupSegments[0].departure?.airport?.code;
+                                const gArrivalCode = groupSegments[groupSegments.length - 1].arrival?.airport?.code;
+                                const gAirline = groupSegments[0].airline?.name;
+                                const gFlightNumber = groupSegments[0].airline?.flightNumber;
+                                const gDuration = groupSegments.reduce((total, seg) => total + (seg.duration || 0), 0);
+                                const gStops = groupSegments.length > 1 ? groupSegments.length - 1 : 0;
+                                const gBaggage = groupSegments[0].baggage;
+                                
+                                return (
+                                  <div 
+                                    key={`group-${index}-${groupIndex}`}
+                                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                                  >
+                                    <div className="flex justify-between">
+                                      <div className="flex-1">
+                                        <div className="flex items-center space-x-2 mb-1">
+                                          <span className="font-semibold">{gAirline} {gFlightNumber}</span>
+                                          <span className="text-sm text-gray-500">
+                                            {gStops === 0 ? 'Non-stop' : `${gStops} stop${gStops !== 1 ? 's' : ''}`}
+                                          </span>
+                                        </div>
+                                        
+                                        <div className="flex items-center justify-between mt-2">
+                                          <div className="flex items-center space-x-2">
+                                            <span className="text-lg font-semibold">{formatTime(gDepartureTime)}</span>
+                                            <span className="text-gray-500">{gDepartureCode}</span>
+                                          </div>
+                                          
+                                          <div className="flex items-center space-x-2">
+                                            <span className="text-gray-500 text-sm">{formatDuration(gDuration)}</span>
+                                            <ChevronRightIcon className="h-4 w-4 text-gray-400" />
+                                          </div>
+                                          
+                                          <div className="flex items-center space-x-2">
+                                            <span className="text-lg font-semibold">{formatTime(gArrivalTime)}</span>
+                                            <span className="text-gray-500">{gArrivalCode}</span>
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="mt-3 flex justify-between items-center">
+                                          <div className="text-sm text-gray-500">
+                                            {gBaggage && <span>Baggage: {gBaggage}</span>}
+                                          </div>
+                                          
+                                          <div className="flex items-center space-x-3">
+                                            <div className="text-lg font-semibold text-blue-600">
+                                              {groupFlight.price?.currency || 'INR'} {(groupFlight.price?.amount || groupFlight.pF || 0).toLocaleString()}
+                                            </div>
+                                            
+                                            <button
+                                              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                // Create a copy of the selected outbound flight
+                                                const updatedOutboundFlight = {...selectedOutboundFlight};
+                                                
+                                                // Replace the selected inbound option with this group flight
+                                                if (Array.isArray(updatedOutboundFlight.inboundOptions[index])) {
+                                                  updatedOutboundFlight.inboundOptions[index] = [groupFlight];
+                                                } else {
+                                                  updatedOutboundFlight.inboundOptions[index] = groupFlight;
+                                                }
+                                                
+                                                // Update the selected outbound flight and select this inbound index
+                                                setSelectedOutboundFlight(updatedOutboundFlight);
+                                                handleSelectInboundOption(index);
+                                              }}
+                                            >
+                                              Select
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
                   })}
-                </>
+                </div>
               ) : (
                 <div className="bg-white rounded-lg shadow-sm p-6 text-center">
                   <p className="text-gray-600">
@@ -1412,33 +1615,48 @@ const FlightBookingPage = () => {
               )}
             </div>
           )}
+          
+          {/* Load more button for outbound tab */}
+          {activeTab === 'outbound' && filteredFlights.length > visibleCount && (
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={loadMoreItems}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Load More Flights ({visibleCount} of {filteredFlights.length})
+              </button>
+            </div>
+          )}
         </div>
       );
     }
     
     // For one-way flights
     return (
-      <FlightSearchResults
-        flights={filteredFlights}
-        pagination={pagination}
-        isRoundTrip={false}
-        isDomestic={false}
-        onSelectFlight={handleSelectFlight}
-        selectedFlight={selectedOutboundFlight}
-        onLoadMore={handleLoadMore}
-        loading={isLoading}
-        isLoadingMore={isLoadingMore}
-        allChunksLoaded={allChunksLoaded}
-        loadingProgress={loadingProgress}
-        loadMoreManually={() => {
-          autoLoadRef.current = true;
-          loadFlightChunk(currentChunkIndex + 1, allFlights);
-        }}
-        // Props for summary panel
-        selectedOutboundFlight={selectedOutboundFlight}
-        flightStructureType={flightStructureType}
-        onCreateItinerary={handleCreateItinerary}
-      />
+      <div className="space-y-6">
+        <FlightSearchResults
+          flights={filteredFlights}
+          onSelectFlight={handleSelectFlight}
+          selectedFlight={selectedOutboundFlight}
+          loading={isLoading}
+          // Props for summary panel
+          selectedOutboundFlight={selectedOutboundFlight}
+          flightStructureType={flightStructureType}
+          onCreateItinerary={handleCreateItinerary}
+        />
+        
+        {/* Load more button */}
+        {filteredFlights.length > visibleCount && (
+          <div className="flex justify-center mt-4">
+            <button
+              onClick={loadMoreItems}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+            >
+              Load More Flights ({visibleCount} of {filteredFlights.length})
+            </button>
+          </div>
+        )}
+      </div>
     );
   };
 

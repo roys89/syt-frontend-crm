@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
 import { Fragment, useEffect, useState } from 'react';
 import bookingService from '../../services/bookingService';
 
-const AirportSelector = ({ label, placeholder, value, onChange, error, fullWidth }) => {
+const AirportSelector = ({ label, placeholder, value, onChange, error, fullWidth, disabled }) => {
   const [airports, setAirports] = useState([]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -58,7 +58,7 @@ const AirportSelector = ({ label, placeholder, value, onChange, error, fullWidth
               <MapPinIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
             </div>
             <Combobox.Input
-              className="w-full border-none py-3 pl-10 pr-10 text-sm text-gray-900 focus:ring-0 focus:outline-none"
+              className="w-full border-none py-3 pl-10 pr-10 text-sm text-gray-900 focus:ring-0 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500"
               displayValue={(airport) => {
                 if (!airport || (!airport.city && !airport.name && !airport.code && !airport.iata)) {
                   return '';
@@ -67,6 +67,7 @@ const AirportSelector = ({ label, placeholder, value, onChange, error, fullWidth
               }}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={placeholder || "Search for a city or airport..."}
+              disabled={disabled}
             />
             <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
               <ChevronUpDownIcon
@@ -154,7 +155,8 @@ AirportSelector.propTypes = {
   value: PropTypes.object,
   onChange: PropTypes.func.isRequired,
   error: PropTypes.string,
-  fullWidth: PropTypes.bool
+  fullWidth: PropTypes.bool,
+  disabled: PropTypes.bool
 };
 
 export default AirportSelector;

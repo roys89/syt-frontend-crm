@@ -1,21 +1,68 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const ActivitySearchResult = ({ 
   searchResults, 
   formData, 
   onSelectActivity, 
   onBackToSearch, 
-  isLoading 
+  isLoading,
+  activeFilters = {}
 }) => {
   const [displayCount, setDisplayCount] = useState(50);
-  const displayedResults = searchResults.slice(0, displayCount);
+  const [filteredResults, setFilteredResults] = useState([]);
+
+  // Apply filters to search results
+  useEffect(() => {
+    let results = [...searchResults];
+
+    // Filter by name
+    if (activeFilters.nameSearch) {
+      const searchTerm = activeFilters.nameSearch.toLowerCase();
+      results = results.filter(activity => 
+        activity.title.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Filter by price range
+    if (activeFilters.priceRange) {
+      if (activeFilters.priceRange.min && !isNaN(activeFilters.priceRange.min)) {
+        results = results.filter(activity => 
+          activity.amount >= parseFloat(activeFilters.priceRange.min)
+        );
+      }
+      if (activeFilters.priceRange.max && !isNaN(activeFilters.priceRange.max)) {
+        results = results.filter(activity => 
+          activity.amount <= parseFloat(activeFilters.priceRange.max)
+        );
+      }
+    }
+
+    // Sort results
+    if (activeFilters.sortBy) {
+      switch (activeFilters.sortBy) {
+        case 'price_low_high':
+          results.sort((a, b) => a.amount - b.amount);
+          break;
+        case 'price_high_low':
+          results.sort((a, b) => b.amount - a.amount);
+          break;
+        // 'relevance' is default ordering, so we don't need to sort
+        default:
+          break;
+      }
+    }
+
+    setFilteredResults(results);
+  }, [searchResults, activeFilters]);
+
+  const displayedResults = filteredResults.slice(0, displayCount);
 
   const handleLoadMore = () => {
     setDisplayCount(prev => prev + 50);
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-gray-900">Search Results</h2>
         <button
@@ -26,7 +73,7 @@ const ActivitySearchResult = ({
         </button>
       </div>
 
-      <div className="mb-4 flex justify-between items-center">
+      <div className="mb-4">
         <div className="text-lg font-medium">
           {formData.selectedCities.map(city => city.name).join(', ')}
         </div>
@@ -39,7 +86,7 @@ const ActivitySearchResult = ({
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
         </div>
-      ) : searchResults.length === 0 ? (
+      ) : filteredResults.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500">No activities found for the selected criteria</p>
         </div>
@@ -79,7 +126,7 @@ const ActivitySearchResult = ({
             ))}
           </div>
 
-          {displayCount < searchResults.length && (
+          {displayCount < filteredResults.length && (
             <div className="mt-6 text-center">
               <button
                 onClick={handleLoadMore}
@@ -95,4 +142,4 @@ const ActivitySearchResult = ({
   );
 };
 
-export default ActivitySearchResult; 
+export default ActivitySearchResult;

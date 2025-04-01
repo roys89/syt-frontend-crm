@@ -86,15 +86,10 @@ const transformers = {
 };
 
 // FLIGHT BOOKING SERVICES
-const searchFlights = async ({ provider = 'TC', chunkIndex = 0, chunkSize = 100, ...flightSearchData }) => {
+const searchFlights = async ({ provider = 'TC', ...flightSearchData }) => {
   try {
-    // FORCE CHUNK SIZE TO 100 NO MATTER WHAT!
-    chunkSize = 100;
-    
     console.log('📡 API REQUEST: searchFlights', {
       provider,
-      chunkIndex,
-      chunkSize: 100,
       isRoundTrip: flightSearchData.isRoundTrip,
       from: flightSearchData.origin?.code,
       to: flightSearchData.destination?.code,
@@ -120,13 +115,11 @@ const searchFlights = async ({ provider = 'TC', chunkIndex = 0, chunkSize = 100,
       travelers: flightSearchData.travelersDetails,
       departureTime: flightSearchData.departureTime,
       returnTime: flightSearchData.returnTime,
-      cabinClass: flightSearchData.cabinClass || 1,
-      chunkIndex,
-      chunkSize: 100 // FORCE 100
+      cabinClass: flightSearchData.cabinClass || 1
     };
     
     const url = `${FLIGHT_API_URL}/${provider}/search`;
-    console.log(`📡 Sending POST to: ${url} with chunkSize=${chunkSize}, chunkIndex=${chunkIndex}`);
+    console.log(`📡 Sending POST to: ${url}`);
     
     // Make the API call
     const response = await authAxios.post(url, requestBody);
@@ -138,9 +131,6 @@ const searchFlights = async ({ provider = 'TC', chunkIndex = 0, chunkSize = 100,
       status: response.status,
       success: response.data?.success,
       flightsCount: response.data?.data?.flights?.length,
-      pagination: response.data?.data?.pagination,
-      hasMore: response.data?.data?.pagination?.hasMore,
-      chunkSize: response.data?.data?.pagination?.chunkSize,
       isDomestic: response.data?.data?.isDomestic,
       isRoundTrip: response.data?.data?.isRoundTrip,
       hasOutboundFlights: Boolean(response.data?.data?.outboundFlights),
@@ -177,8 +167,7 @@ const searchFlights = async ({ provider = 'TC', chunkIndex = 0, chunkSize = 100,
     
     console.log('📡 Transformed response:', {
       success: transformedResponse.success,
-      flightsCount: transformedResponse.data?.flights?.length,
-      pagination: transformedResponse.data?.pagination
+      flightsCount: transformedResponse.data?.flights?.length
     });
     
     return transformedResponse;
@@ -488,11 +477,6 @@ const getCitiesWithAirports = async () => {
   return response.data;
 };
 
-const searchCityById = async (cityName) => {
-  const response = await authAxios.post(`${API_BASE_URL}/search-city`, { cityName });
-  return response.data;
-};
-
 // ITINERARY SERVICES
 const createItinerary = async (itineraryData) => {
   const response = await authAxios.post(`${BOOKING_API_URL}/itinerary`, itineraryData);
@@ -653,6 +637,7 @@ const allocatePassengers = async (data) => {
   }
 };
 
+// Flight booking details
 const getBookingDetails = async ({ provider = 'TC', bmsBookingCode }) => {
   try {
     console.log('Calling getBookingDetails API with data:', { provider, bmsBookingCode });
@@ -677,6 +662,40 @@ const getBookingDetails = async ({ provider = 'TC', bmsBookingCode }) => {
     }
     
     throw new Error(error.response?.data?.message || 'Failed to get booking details');
+  }
+};
+
+// Hotel booking details
+const getHotelBookingDetails = async (bookingCode, date, city) => {
+  try {
+    console.log('Calling getHotelBookingDetails API with data:', { bookingCode, date, city });
+    
+    // Create query parameters for date and city
+    const params = {};
+    if (date) params.date = date;
+    if (city) params.city = city;
+    
+    const response = await authAxios.get(
+      `${HOTEL_API_URL}/TC/booking-details/${bookingCode}`,
+      { params }
+    );
+    
+    console.log('getHotelBookingDetails API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting hotel booking details:', error);
+    
+    // Enhanced error logging
+    if (error.response) {
+      console.error('Error response data:', error.response.data);
+      console.error('Error response status:', error.response.status);
+    } else if (error.request) {
+      console.error('Error request (no response received):', error.request);
+    } else {
+      console.error('Error setting up request:', error.message);
+    }
+    
+    throw new Error(error.response?.data?.message || 'Failed to get hotel booking details');
   }
 };
 
@@ -713,6 +732,7 @@ const bookingService = {
   bookHotel,
   createHotelItinerary,
   recheckPrice,
+  getHotelBookingDetails,
   
   // Activity services
   searchActivities,
@@ -728,7 +748,6 @@ const bookingService = {
   
   // Location services
   getCitiesWithAirports,
-  searchCityById,
   
   // Itinerary services
   createItinerary,
