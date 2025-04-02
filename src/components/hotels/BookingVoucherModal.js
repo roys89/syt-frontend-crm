@@ -76,7 +76,7 @@ const BookingVoucherModal = ({ isOpen, onClose, voucherDetails }) => {
       <div className="flex items-center justify-center min-h-screen p-4">
         <div className="bg-white w-full max-w-5xl rounded-lg shadow-xl p-6 relative overflow-y-auto max-h-[90vh]">
           {/* Header with Title and Close Button */}
-          <div className="flex items-center justify-between mb-6 border-b pb-4 sticky top-0 bg-white z-10">
+          <div className="flex items-center justify-between mb-6 border-b pb-4 bg-white z-10">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Booking Voucher</h2>
               <div className="flex flex-wrap gap-2">

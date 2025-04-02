@@ -764,16 +764,14 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
                               Title
                             </label>
                             <select
-                              value={guestInfo[roomKey]?.children[childIndex]?.title || 'Mr'}
+                              value={guestInfo[roomKey]?.children[childIndex]?.title || 'Master'}
                               onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'title', e.target.value)}
                               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                                 errors[`${roomKey}-children-${childIndex}-title`] ? 'border-red-500' : 'border-gray-300'
                               }`}
                             >
-                              <option value="Mr">Mr</option>
-                              <option value="Mrs">Mrs</option>
-                              <option value="Ms">Ms</option>
-                              <option value="Dr">Dr</option>
+                              <option value="Master">Master</option>
+                              <option value="Miss">Miss</option>
                             </select>
                             {errors[`${roomKey}-children-${childIndex}-title`] && (
                               <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-title`]}</p>

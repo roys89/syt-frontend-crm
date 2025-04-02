@@ -45,6 +45,7 @@ authAxios.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    config.baseURL = API_BASE_URL;
     return config;
   },
   error => {
@@ -716,6 +717,109 @@ const recheckRate = async (data) => {
   }
 };
 
+// --- New Customer Search Service --- 
+const searchCustomers = async (query) => {
+  try {
+    console.log('📡 API REQUEST: searchCustomers', { query });
+    const response = await authAxios.get('/users/search-b2c', { 
+      params: { query }
+    });
+    console.log('📡 API RESPONSE: searchCustomers', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('📡 API ERROR: searchCustomers', error);
+    if (error.response) {
+      console.error('📡 Error response:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+    }
+    throw new Error(error.response?.data?.message || 'Failed to search customers');
+  }
+};
+// ------------------------------------
+
+// --- New Itinerary Inquiry Submission Service --- 
+const submitItineraryInquiry = async (payload) => {
+  try {
+    console.log('📡 API REQUEST: submitItineraryInquiry to B2C', payload);
+    
+    // Target the B2C endpoint
+    const url = `${config.API_B2C_URL}/itineraryInquiry`; // Use API_B2C_URL
+    console.log(`📡 Using B2C URL: ${url}`);
+
+    // Manually get the CRM token (as the B2C endpoint seems to require it)
+    const token = localStorage.getItem('token');
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    } else {
+      // If no token, we know the B2C endpoint will reject, throw error early?
+      // Or let the API call fail as it did before.
+      console.warn('No CRM token found for B2C itineraryInquiry call');
+      // Depending on backend logic, this might still work if B2C auth is optional/different
+      // For now, we proceed and let the backend decide based on its config.
+    }
+
+    // Use standard axios, providing the full URL and manual headers
+    const response = await axios.post(url, payload, { headers });
+
+    console.log('📡 API RESPONSE: submitItineraryInquiry', response.data);
+    return response.data; // Return the full response data
+  } catch (error) {
+    console.error('📡 API ERROR: submitItineraryInquiry', error);
+    if (error.response) {
+      console.error('📡 Error response:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+      throw new Error(error.response?.data?.message || error.response?.data?.error || 'Failed to submit itinerary inquiry');
+    } else {
+      throw new Error('Network error or failed to submit itinerary inquiry');
+    }
+  }
+};
+// ---------------------------------------------
+
+// --- Create Itinerary from Inquiry (CRM) --- 
+const createCrmItinerary = async (inquiryToken) => {
+  try {
+    console.log('📡 API REQUEST: createCrmItinerary', { inquiryToken });
+    
+    // Target the B2C endpoint using API_B2C_URL
+    const url = `${config.API_B2C_URL}/itinerary/${inquiryToken}`; 
+    console.log(`📡 Using B2C URL for Itinerary Creation: ${url}`);
+
+    // Manually get the CRM token (as the B2C endpoint requires it)
+    const token = localStorage.getItem('token');
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    } else {
+      console.warn('No CRM token found for createCrmItinerary call');
+      // Let the backend handle the missing token error
+    }
+
+    // Use standard axios, providing the full URL and manual headers
+    const response = await axios.post(url, {}, { headers }); // POST request, empty body needed for axios.post signature
+
+    console.log('📡 API RESPONSE: createCrmItinerary', response.data);
+    return response.data; // Return the full itinerary object
+  } catch (error) {
+    console.error('📡 API ERROR: createCrmItinerary', error);
+    if (error.response) {
+      console.error('📡 Error response:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+      throw new Error(error.response?.data?.message || error.response?.data?.error || 'Failed to create itinerary from inquiry');
+    } else {
+      throw new Error('Network error or failed to create itinerary');
+    }
+  }
+};
+// -------------------------------------------
+
 const bookingService = {
   // Flight services
   searchFlights,
@@ -770,7 +874,16 @@ const bookingService = {
   allocateGuests,
 
   // New booking details service
-  getBookingDetails
+  getBookingDetails,
+
+  // Add the new search function
+  searchCustomers,
+
+  // Add the new inquiry submission function
+  submitItineraryInquiry,
+
+  // Add the new itinerary creation function
+  createCrmItinerary
 };
 
 export default bookingService;

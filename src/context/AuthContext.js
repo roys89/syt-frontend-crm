@@ -1,7 +1,32 @@
 // src/context/AuthContext.js
+import axios from 'axios'; // Import axios
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import config from '../config'; // Import config for API_URL
 import authService from '../services/authService';
+
+// --- Create a dedicated axios instance for authenticated requests ---
+const authAxios = axios.create({
+  baseURL: config.API_URL // CORRECTED: Use API_URL from config for CRM backend
+});
+
+// Add a request interceptor to attach the token
+authAxios.interceptors.request.use(
+  (axiosConfig) => {
+    const token = localStorage.getItem('token'); // Get token fresh from storage
+    console.log('[authAxios Interceptor] Attaching token:', token ? 'Token found' : 'No token');
+    if (token) {
+      axiosConfig.headers.Authorization = `Bearer ${token}`;
+    }
+    // Important: return the modified config
+    return axiosConfig;
+  },
+  (error) => {
+    console.error('[authAxios Interceptor] Error:', error);
+    return Promise.reject(error);
+  }
+);
+// ------------------------------------------------------------------
 
 export const AuthContext = createContext();
 
@@ -50,7 +75,9 @@ export const AuthProvider = ({ children }) => {
       
       try {
         console.log('Calling getCurrentUser with token');
-        const userData = await authService.getCurrentUser();
+        // Use the authAxios instance for internal calls too if appropriate
+        // Or ensure authService uses the token internally
+        const userData = await authService.getCurrentUser(); 
         console.log('User loaded successfully:', userData ? 'User data present' : 'No user data');
         
         if (userData) {
@@ -62,8 +89,6 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (err) {
         console.error('Error in loadUser effect:', err.message);
-        
-        // Handle 401/403 auth errors
         if (err.response && (err.response.status === 401 || err.response.status === 403)) {
           console.log('Authentication error detected, clearing token');
           clearToken();
@@ -72,7 +97,6 @@ export const AuthProvider = ({ children }) => {
           setError('Session expired, please login again');
           toast.error('Session expired, please login again');
         } else {
-          // Don't clear token for other types of errors
           console.log('Non-auth error, keeping token');
           setError('Error loading profile');
           toast.error('Could not load your profile. Please try again later.');
@@ -159,7 +183,8 @@ export const AuthProvider = ({ children }) => {
         register,
         login,
         logout,
-        clearErrors
+        clearErrors,
+        authAxios // Provide the configured instance
       }}
     >
       {children}
