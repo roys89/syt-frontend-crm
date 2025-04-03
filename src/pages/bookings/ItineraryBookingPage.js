@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import AirportSelector from '../../components/booking/AirportSelector';
 import RoomArrangementModal from '../../components/booking/RoomArrangementModal';
 import CustomerRegistrationModal from '../../components/itinerary/CustomerRegistrationModal'; // Import the modal
+import CrmItineraryDisplay from '../../components/itinerary/display/CrmItineraryDisplay'; // Import the display component
 import { AuthContext } from '../../context/AuthContext'; // Import AuthContext
 import bookingService from '../../services/bookingService'; // Import the service
 
@@ -240,18 +241,18 @@ const ItineraryBookingPage = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null); // Holds the selected customer object
   const [showRegisterModal, setShowRegisterModal] = useState(false); // State to control modal visibility
   
-  // Itinerary form state
+  // Itinerary form state - UPDATED INITIAL STATE
   const [formData, setFormData] = useState({
     agentCode: '',
     selectedCities: [],
     departureCity: null,
     departureDates: { 
-    startDate: '',
+      startDate: '',
       endDate: '' 
     },
     travelersDetails: {
       type: '',
-      rooms: [{ adults: 1, children: [] }]
+      rooms: [{ adults: [30], children: [] }] // Initial state uses adult array
     },
     preferences: {
       selectedInterests: [],
@@ -282,7 +283,7 @@ const ItineraryBookingPage = () => {
     { id: 'review', title: 'Review' }
   ];
   
-  // Validation function
+  // Validation function - UPDATED
   const validateStep = (step) => {
     const newErrors = {};
     
@@ -317,7 +318,6 @@ const ItineraryBookingPage = () => {
         if (!Array.isArray(formData.travelersDetails.rooms) || formData.travelersDetails.rooms.length === 0) {
              newErrors.rooms = 'Please configure room arrangements.';
         }
-        // Add validation for room contents (e.g., at least one adult per room) if needed
         break;
         
       case 3: // Preferences
@@ -330,24 +330,15 @@ const ItineraryBookingPage = () => {
         break;
         
       case 4: // Customer
-        // Validate if a customer is selected
-        if (!selectedCustomer || !selectedCustomer._id) {
-          newErrors.customer = 'Please select or register a customer.';
-        }
         if (!formData.agentCode || !formData.agentCode.trim()) {
           newErrors.agentCode = 'Agent code is required';
         }
         break;
         
       case 5: // Review - validate all (or specific final checks)
-        // Re-run validation for all previous steps if needed, or check final composite state
-        if (!selectedCustomer || !selectedCustomer._id) {
-          newErrors.customer = 'Customer information is missing.';
-        }
-         if (!formData.agentCode || !formData.agentCode.trim()) {
+        if (!formData.agentCode || !formData.agentCode.trim()) {
           newErrors.agentCode = 'Agent code is required';
         }
-        // Add checks for other critical fields like cities, dates etc. if desired
         break;
     }
     
@@ -464,7 +455,7 @@ const ItineraryBookingPage = () => {
       // Don't change step here, validation should handle showing errors on the review step
       return;
     }
-
+    
     if (!agent || !agent._id) {
       toast.error("Agent details not found. Please log in again.");
       return;
@@ -473,10 +464,22 @@ const ItineraryBookingPage = () => {
     setIsLoading(true); // Start initial loading (for inquiry submission)
     try {
       // --- Part 1: Submit Inquiry --- 
+      
+      // Normalize departureCity for the payload
+      let departureCityForPayload = { ...formData.departureCity }; // Create a copy
+      if (departureCityForPayload && !departureCityForPayload.iata && departureCityForPayload.code) {
+        console.warn('Frontend Normalization: Using departureCity.code as iata for payload.');
+        departureCityForPayload.iata = departureCityForPayload.code;
+        // Optionally remove the code field if the backend doesn't expect/use it
+        // delete departureCityForPayload.code; 
+      } else if (!departureCityForPayload || (!departureCityForPayload.iata && !departureCityForPayload.code)) {
+         // Handle missing identifier - throw error before API call
+         throw new Error("Departure city IATA/Code is missing.");
+      }
+
       const payload = {
-         // ... (construct payload as before)
          selectedCities: formData.selectedCities,
-         departureCity: formData.departureCity,
+         departureCity: departureCityForPayload, // Use the normalized object
          departureDates: formData.departureDates,
          travelersDetails: formData.travelersDetails,
          preferences: formData.preferences,
@@ -526,7 +529,7 @@ const ItineraryBookingPage = () => {
       // TODO: Decide what to do now? Reset form? Keep showing itinerary?
       // For now, we just store the data. Conditional rendering will show it.
 
-    } catch (error) { 
+    } catch (error) {
       console.error('Error during submission process:', error);
       setIsLoading(false);
       setIsCreatingItinerary(false); 
@@ -542,14 +545,14 @@ const ItineraryBookingPage = () => {
     handleChange('travelersDetails', 'rooms', updatedRooms);
   };
 
-  // Function to generate room summary string
+  // Function to generate room summary string - UPDATED
   const getRoomSummary = () => {
     const rooms = formData.travelersDetails.rooms || [];
     if (rooms.length === 0) return 'No rooms configured';
     return rooms.map((room, index) => {
-      const adults = room.adults || 0;
-      const children = room.children ? room.children.length : 0;
-      return `Room ${index + 1}: ${adults} Adult${adults !== 1 ? 's' : ''}${children > 0 ? `, ${children} Child${children !== 1 ? 'ren' : ''}` : ''}`;
+      const adultsCount = Array.isArray(room.adults) ? room.adults.length : 0; // Use length
+      const childrenCount = Array.isArray(room.children) ? room.children.length : 0;
+      return `Room ${index + 1}: ${adultsCount} Adult${adultsCount !== 1 ? 's' : ''}${childrenCount > 0 ? `, ${childrenCount} Child${childrenCount !== 1 ? 'ren' : ''}` : ''}`;
     }).join('; ');
   };
 
@@ -983,7 +986,7 @@ const ItineraryBookingPage = () => {
              {!selectedCustomer && (
                 <div className="flex items-center justify-center pt-4 border-t border-gray-200">
                    <span className="text-sm text-gray-500 mr-2">Can't find the customer?</span>
-                  <button
+            <button
                     type="button"
                     onClick={handleTriggerRegister}
                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
@@ -1182,7 +1185,6 @@ const ItineraryBookingPage = () => {
   
   // Conditional Rendering
   if (generatedItinerary) {
-    // TODO: Replace with actual CrmItineraryDisplay component
     return (
       <div className="max-w-5xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-4">Generated Itinerary</h1>
@@ -1191,10 +1193,10 @@ const ItineraryBookingPage = () => {
           className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
           Create New Inquiry
-        </button>
-        <pre className="bg-gray-100 p-4 rounded overflow-auto text-xs">
-          {JSON.stringify(generatedItinerary, null, 2)}
-        </pre>
+            </button>
+        <div className="mt-6 bg-white shadow rounded-lg p-4">
+          <CrmItineraryDisplay itinerary={generatedItinerary} />
+          </div>
       </div>
     );
   }

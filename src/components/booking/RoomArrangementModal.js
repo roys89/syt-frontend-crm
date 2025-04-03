@@ -1,23 +1,30 @@
 // src/components/booking/RoomArrangementModal.js
 import { Dialog, Transition } from '@headlessui/react';
-import { PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { MinusIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import PropTypes from 'prop-types';
 import { Fragment, useEffect, useState } from 'react';
 
-const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxRooms = 5 }) => {
+const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxRooms = 5, maxAdultsPerRoom = 6, maxChildrenPerRoom = 4 }) => {
   const [rooms, setRooms] = useState([]);
 
   // Initialize rooms when the modal opens or initialRooms change
   useEffect(() => {
     if (isOpen) {
-      // Create a deep copy to avoid modifying the original array directly
-      setRooms(JSON.parse(JSON.stringify(initialRooms.length > 0 ? initialRooms : [{ adults: 1, children: [] }])));
+      // Create a deep copy and ensure correct structure
+      const sanitizedInitialRooms = initialRooms.length > 0
+        ? initialRooms.map(room => ({
+            adults: Array.isArray(room.adults) ? room.adults : Array(room.adults || 1).fill(30), // Default age 30 if only count was provided
+            children: Array.isArray(room.children) ? room.children : []
+          }))
+        : [{ adults: [30], children: [] }]; // Default: 1 adult, age 30
+
+      setRooms(JSON.parse(JSON.stringify(sanitizedInitialRooms)));
     }
   }, [isOpen, initialRooms]);
 
   const addRoom = () => {
     if (rooms.length < maxRooms) {
-      setRooms(prev => [...prev, { adults: 1, children: [] }]);
+      setRooms(prev => [...prev, { adults: [30], children: [] }]); // Add room with 1 default adult
     }
   };
 
@@ -25,25 +32,71 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
     setRooms(prev => prev.filter((_, i) => i !== index));
   };
 
-  const updateRoom = (index, field, value) => {
+  // --- Adult Management ---
+  const addAdult = (roomIndex) => {
     setRooms(prev =>
-      prev.map((room, i) => (i === index ? { ...room, [field]: value } : room))
+      prev.map((room, i) => {
+        if (i === roomIndex && room.adults.length < maxAdultsPerRoom) {
+          return { ...room, adults: [...room.adults, null] }; // Add adult with null age initially
+        }
+        return room;
+      })
     );
   };
 
-  const handleChildCountChange = (roomIndex, count) => {
-    const currentChildren = rooms[roomIndex].children || [];
-    let newChildren;
-    if (count > currentChildren.length) {
-      // Add null placeholders for new children
-      newChildren = [...currentChildren, ...Array(count - currentChildren.length).fill(null)];
-    } else {
-      // Remove children from the end
-      newChildren = currentChildren.slice(0, count);
-    }
-     // Ensure children array always has the correct length even if ages are null
-    newChildren = newChildren.concat(Array(Math.max(0, count - newChildren.length)).fill(null));
-    updateRoom(roomIndex, 'children', newChildren);
+  const removeAdult = (roomIndex, adultIndex) => {
+    setRooms(prev =>
+      prev.map((room, i) => {
+        if (i === roomIndex) {
+          // Prevent removing the last adult
+          if (room.adults.length <= 1) return room;
+          const newAdults = room.adults.filter((_, aIndex) => aIndex !== adultIndex);
+          return { ...room, adults: newAdults };
+        }
+        return room;
+      })
+    );
+  };
+
+  const handleAdultAgeChange = (roomIndex, adultIndex, age) => {
+    const value = age === '' ? null : parseInt(age, 10);
+    // Basic validation for age (e.g., 18 to 99)
+    if (value === null || (value >= 18 && value <= 120)) {
+       const newRooms = rooms.map((room, rIndex) => {
+         if (rIndex === roomIndex) {
+           const newAdults = [...room.adults];
+           newAdults[adultIndex] = value;
+           return { ...room, adults: newAdults };
+         }
+         return room;
+       });
+       setRooms(newRooms);
+     }
+  };
+  // --- End Adult Management ---
+
+  // --- Child Management ---
+  const addChild = (roomIndex) => {
+    setRooms(prev =>
+      prev.map((room, i) => {
+        if (i === roomIndex && room.children.length < maxChildrenPerRoom) {
+          return { ...room, children: [...room.children, null] }; // Add child with null age initially
+        }
+        return room;
+      })
+    );
+  };
+
+  const removeChild = (roomIndex, childIndex) => {
+     setRooms(prev =>
+       prev.map((room, i) => {
+         if (i === roomIndex) {
+           const newChildren = room.children.filter((_, cIndex) => cIndex !== childIndex);
+           return { ...room, children: newChildren };
+         }
+         return room;
+       })
+     );
   };
 
   const handleChildAgeChange = (roomIndex, childIndex, age) => {
@@ -61,16 +114,26 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
        setRooms(newRooms);
      }
   };
-
+  // --- End Child Management ---
 
   const handleSave = () => {
-    // Add validation if needed before saving (e.g., ensure all child ages are filled if count > 0)
+    // Validation: Ensure all ages (adult and child) are filled
+    const hasNullAges = rooms.some(room =>
+      room.adults.some(age => age === null || age === undefined) ||
+      room.children.some(age => age === null || age === undefined)
+    );
+
+    if (hasNullAges) {
+      // Optionally show a more specific error message
+      alert("Please enter the age for all adults and children.");
+      return;
+    }
     onSave(rooms);
     onClose();
   };
 
   // Calculate total guests
-  const totalGuests = rooms.reduce((acc, room) => acc + room.adults + (room.children ? room.children.length : 0), 0);
+  const totalGuests = rooms.reduce((acc, room) => acc + (room.adults ? room.adults.length : 0) + (room.children ? room.children.length : 0), 0);
 
 
   return (
@@ -99,7 +162,7 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                 <Dialog.Title
                   as="h3"
                   className="text-lg font-medium leading-6 text-gray-900 flex justify-between items-center"
@@ -113,79 +176,125 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
                     <XMarkIcon className="h-6 w-6" />
                   </button>
                 </Dialog.Title>
-                <div className="mt-4 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                <div className="mt-4 max-h-[65vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   <div className="space-y-4">
                     {rooms.map((room, index) => (
                       <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="text-sm font-medium text-gray-900">Room {index + 1}</h4>
                           {rooms.length > 1 && (
-                            <button
+                             <button
                               type="button"
                               onClick={() => removeRoom(index)}
-                              className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100"
+                              className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
                               aria-label="Remove Room"
+                              disabled={rooms.length <= 1} // Disable if only one room
                             >
                               <TrashIcon className="h-5 w-5" />
                             </button>
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                        {/* Adult Section */}
+                        <div className="mb-4 pb-4 border-b border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                             <label className="block text-xs font-medium text-gray-600">
                               Adults (18+)
                             </label>
-                            <select
-                              value={room.adults}
-                              onChange={(e) => updateRoom(index, 'adults', parseInt(e.target.value))}
-                              className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            >
-                              {[1, 2, 3, 4, 5, 6].map(num => (
-                                <option key={num} value={num}>{num}</option>
-                              ))}
-                            </select>
+                             <div className="flex items-center space-x-2">
+                               <button
+                                type="button"
+                                onClick={() => addAdult(index)}
+                                disabled={room.adults.length >= maxAdultsPerRoom}
+                                className="p-1 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                aria-label="Add Adult"
+                              >
+                                <PlusIcon className="h-4 w-4" />
+                              </button>
+                              <span className="text-sm font-medium w-6 text-center">{room.adults.length}</span>
+                             </div>
                           </div>
-
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              Children (0-17)
-                            </label>
-                            <select
-                              value={room.children ? room.children.length : 0} // Ensure value is number
-                              onChange={(e) => handleChildCountChange(index, parseInt(e.target.value))}
-                              className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            >
-                              {[0, 1, 2, 3, 4].map(num => (
-                                <option key={num} value={num}>{num}</option>
-                              ))}
-                            </select>
+                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                            {room.adults.map((age, adultIndex) => (
+                              <div key={`adult-${adultIndex}`} className="relative flex items-center">
+                                <input
+                                  type="number"
+                                  min="18"
+                                  max="120"
+                                  value={age ?? ''} // Use ?? '' for null/undefined
+                                  onChange={(e) => handleAdultAgeChange(index, adultIndex, e.target.value)}
+                                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-10 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm appearance-none" // appearance-none hides spinner
+                                  placeholder="Age"
+                                />
+                                <span className="absolute right-2 top-2.5 text-gray-400 text-xs pointer-events-none">yrs</span>
+                                {room.adults.length > 1 && (
+                                   <button
+                                    type="button"
+                                    onClick={() => removeAdult(index, adultIndex)}
+                                    className="ml-1 text-red-500 hover:text-red-700 p-0.5 rounded-full hover:bg-red-100 absolute -right-4 top-1/2 transform -translate-y-1/2"
+                                    aria-label="Remove Adult"
+                                    disabled={room.adults.length <= 1} // Disable removing the last adult
+                                  >
+                                    <MinusIcon className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         </div>
 
-                        {room.children && room.children.length > 0 && (
-                          <div className="mt-4">
-                            <label className="block text-xs font-medium text-gray-600 mb-2">
-                              Age of child {room.children.length > 1 ? 'ren' : ''} at time of check-out
+                         {/* Children Section */}
+                         <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-medium text-gray-600">
+                              Children (0-17)
                             </label>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                              {room.children.map((age, childIndex) => (
-                                <div key={childIndex} className="relative">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="17"
-                                    value={age ?? ''} // Use ?? '' to handle null/undefined for empty input
-                                    onChange={(e) => handleChildAgeChange(index, childIndex, e.target.value)}
-                                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm appearance-none" // appearance-none hides spinner
-                                    placeholder="Age"
-                                  />
-                                   <span className="absolute right-2 top-2.5 text-gray-400 text-xs pointer-events-none">yrs</span>
-                                </div>
-                              ))}
-                            </div>
+                             <div className="flex items-center space-x-2">
+                               <button
+                                type="button"
+                                onClick={() => addChild(index)}
+                                disabled={room.children.length >= maxChildrenPerRoom}
+                                className="p-1 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                aria-label="Add Child"
+                              >
+                                <PlusIcon className="h-4 w-4" />
+                              </button>
+                               <span className="text-sm font-medium w-6 text-center">{room.children.length}</span>
+                             </div>
                           </div>
-                        )}
+                           {room.children && room.children.length > 0 && (
+                            <>
+                               <p className="text-xs text-gray-500 mb-2">
+                                Age of child{room.children.length !== 1 ? 'ren' : ''} at time of check-out
+                              </p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                {room.children.map((age, childIndex) => (
+                                  <div key={`child-${childIndex}`} className="relative flex items-center">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="17"
+                                      value={age ?? ''} // Use ?? '' for null/undefined
+                                      onChange={(e) => handleChildAgeChange(index, childIndex, e.target.value)}
+                                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-10 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm appearance-none" // appearance-none hides spinner
+                                      placeholder="Age"
+                                    />
+                                     <span className="absolute right-2 top-2.5 text-gray-400 text-xs pointer-events-none">yrs</span>
+                                     <button
+                                      type="button"
+                                      onClick={() => removeChild(index, childIndex)}
+                                      className="ml-1 text-red-500 hover:text-red-700 p-0.5 rounded-full hover:bg-red-100 absolute -right-4 top-1/2 transform -translate-y-1/2"
+                                      aria-label="Remove Child"
+                                    >
+                                      <MinusIcon className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                             </>
+                           )}
+                        </div>
+
                       </div>
                     ))}
                   </div>
@@ -223,11 +332,17 @@ RoomArrangementModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   initialRooms: PropTypes.arrayOf(PropTypes.shape({
-    adults: PropTypes.number.isRequired,
+    // Allow either number (count) or array (ages) initially for adults
+    adults: PropTypes.oneOfType([
+      PropTypes.number,
+      PropTypes.arrayOf(PropTypes.number)
+    ]).isRequired,
     children: PropTypes.arrayOf(PropTypes.number) // Allow null for ages initially
   })),
   onSave: PropTypes.func.isRequired,
-  maxRooms: PropTypes.number
+  maxRooms: PropTypes.number,
+  maxAdultsPerRoom: PropTypes.number, // Added prop
+  maxChildrenPerRoom: PropTypes.number // Added prop
 };
 
 export default RoomArrangementModal;

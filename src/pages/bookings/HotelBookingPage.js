@@ -105,7 +105,7 @@ const HotelBookingPage = () => {
     checkOut: '',
     city: null,
     nationality: 'IN',
-    rooms: [{ adults: 1, children: [] }],
+    rooms: [{ adults: [30], children: [] }],
     filterBy: {
       freeBreakfast: false,
       isRefundable: false,
@@ -228,29 +228,23 @@ const HotelBookingPage = () => {
   const getRoomSummary = () => {
     const rooms = formData.rooms || [];
     if (rooms.length === 0) return 'No rooms configured';
-    const totalGuests = rooms.reduce((acc, room) => acc + room.adults + (room.children ? room.children.length : 0), 0);
+    const totalGuests = rooms.reduce((acc, room) => acc + (room.adults ? room.adults.length : 0) + (room.children ? room.children.length : 0), 0);
     return `${rooms.length} Room${rooms.length !== 1 ? 's' : ''}, ${totalGuests} Guest${totalGuests !== 1 ? 's' : ''}`;
-    // Alternatively, show more details:
-    // return rooms.map((room, index) => {
-    //   const adults = room.adults || 0;
-    //   const children = room.children ? room.children.length : 0;
-    //   return `Room ${index + 1}: ${adults}A${children > 0 ? `, ${children}C` : ''}`;
-    // }).join('; ');
   };
 
-  // Handle search submission
+  // Handle search submission - REVERTED occupancies structure
   const handleSearch = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Please fix the errors in the form');
       return;
     }
-    
+
     try {
       setIsLoading(true);
       setPage(1); // Reset page to 1 for new search
-      
+
       // Clean up filterBy object to remove empty/null values
       const cleanFilterBy = Object.entries(formData.filterBy).reduce((acc, [key, value]) => {
         if (Array.isArray(value) && value.length === 0) return acc;
@@ -259,32 +253,33 @@ const HotelBookingPage = () => {
         acc[key] = value;
         return acc;
       }, {});
-      
-      // Prepare search data for the API
+
+      // Prepare search data for the API - Sending numOfAdults (count)
       const searchData = {
         checkIn: formData.checkIn,
         checkOut: formData.checkOut,
         nationality: formData.nationality,
+        // Calculate numOfAdults from array length, keep childAges
         occupancies: formData.rooms.map(room => ({
-          numOfAdults: room.adults,
-          childAges: room.children
+          numOfAdults: room.adults.length, // Send the count
+          childAges: room.children // Keep child ages as is
         })),
         locationId: formData.city?.locationId,
         page: 1,
         limit: 20
       };
-      
+
       // Add hotelId if present (for Hotel type locations)
       if (formData.city?.hotelId) {
         searchData.hotelId = formData.city.hotelId;
       }
-      
+
       if (Object.keys(cleanFilterBy).length > 0) {
         searchData.filterBy = cleanFilterBy;
       }
-      
+
       const response = await bookingService.searchHotels(searchData);
-      
+
       if (!response.success) {
         throw new Error(response.message || 'Failed to search hotels');
       }
@@ -293,7 +288,7 @@ const HotelBookingPage = () => {
       const total = response.data?.results?.[0]?.totalCount || 0;
       const totalPgs = response.data?.results?.[0]?.totalPages || 1;
       const trace = response.data?.traceId;
-      
+
       setSearchResults(hotels);
       setTotalCount(total);
       setTotalPages(totalPgs);
@@ -308,41 +303,42 @@ const HotelBookingPage = () => {
     }
   };
 
-  // Handle load more results
+  // Handle load more results - REVERTED occupancies structure
   const handleLoadMore = async () => {
     if (!hasMore || isLoading) return;
-    
+
     try {
       setIsLoading(true);
       const nextPage = page + 1;
-      
-      // Prepare search data with traceId for pagination
+
+      // Prepare search data with traceId for pagination - Sending numOfAdults
       const searchData = {
         checkIn: formData.checkIn,
         checkOut: formData.checkOut,
         nationality: formData.nationality,
+        // Calculate numOfAdults from array length, keep childAges
         occupancies: formData.rooms.map(room => ({
-          numOfAdults: room.adults,
-          childAges: room.children
+          numOfAdults: room.adults.length, // Send the count
+          childAges: room.children // Keep child ages as is
         })),
         locationId: formData.city?.locationId,
         page: nextPage,
         limit: 20,
         traceId: traceId // Include traceId for maintaining search context
       };
-      
+
       // Add hotelId if present (for Hotel type locations)
       if (formData.city?.hotelId) {
         searchData.hotelId = formData.city.hotelId;
       }
-      
+
       // Add existing filters if any
       if (Object.keys(formData.filterBy).length > 0) {
         searchData.filterBy = formData.filterBy;
       }
-      
+
       const response = await bookingService.searchHotels(searchData);
-      
+
       if (!response.success) {
         throw new Error(response.message || 'Failed to load more hotels');
       }
@@ -350,14 +346,12 @@ const HotelBookingPage = () => {
       const newHotels = response.data?.results?.[0]?.data || [];
       const total = response.data?.results?.[0]?.totalCount || 0;
       const totalPgs = response.data?.results?.[0]?.totalPages || 1;
-      
-      // Update search results by appending new hotels
+
       setSearchResults(prev => [...prev, ...newHotels]);
       setTotalCount(total);
       setTotalPages(totalPgs);
       setPage(nextPage);
-      
-      // Only show Load More if we haven't reached totalPages
+
       setHasMore(nextPage < totalPgs);
     } catch (error) {
       console.error('Error loading more hotels:', error);
@@ -367,32 +361,29 @@ const HotelBookingPage = () => {
     }
   };
 
-  // Handle booking
+  // Handle booking - Needs check based on booking API
   const handleBookHotel = async () => {
     try {
       setIsLoading(true);
-      
-      // Prepare booking data
+
+      // Prepare booking data - Sending numOfAdults (consistent with search)
       const bookingData = {
         hotelId: selectedHotel.id,
         checkIn: formData.checkIn,
         checkOut: formData.checkOut,
         occupancies: formData.rooms.map(room => ({
-          numOfAdults: room.adults,
-          childAges: room.children
+           numOfAdults: room.adults.length,
+           childAges: room.children
         })),
         roomType: selectedHotel.roomType,
         price: selectedHotel.price,
         // Add other necessary booking details
       };
-      
+
       // Call the hotel booking API
       // const response = await bookingService.bookHotel(bookingData);
-      
-      // Show success message
+
       toast.success('Hotel booked successfully!');
-      
-      // Redirect to bookings page or show confirmation
       // history.push('/bookings');
     } catch (error) {
       console.error('Error booking hotel:', error);
@@ -971,7 +962,7 @@ const HotelBookingPage = () => {
             <h3 className="text-lg font-medium mb-4">Guest Details</h3>
             
             <p className="mb-2">
-              <span className="font-medium">{formData.rooms[0].adults}</span> Adult{formData.rooms[0].adults > 1 ? 's' : ''}
+              <span className="font-medium">{formData.rooms[0].adults.length}</span> Adult{formData.rooms[0].adults.length > 1 ? 's' : ''}
             </p>
             
             <div className="flex items-center text-sm text-gray-500">
