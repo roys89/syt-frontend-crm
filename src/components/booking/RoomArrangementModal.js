@@ -60,8 +60,14 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
 
   const handleAdultAgeChange = (roomIndex, adultIndex, age) => {
     const value = age === '' ? null : parseInt(age, 10);
-    // Basic validation for age (e.g., 18 to 99)
-    if (value === null || (value >= 18 && value <= 120)) {
+    // Basic validation for age (e.g., 18 to 120)
+    // REMOVED: if (value === null || (value >= 18 && value <= 120)) {
+
+    // Prevent NaN issues if parseInt fails, although type="number" helps
+    if (isNaN(value) && age !== '') {
+        return; // Don't update state if input is non-numeric but not empty
+    }
+
        const newRooms = rooms.map((room, rIndex) => {
          if (rIndex === roomIndex) {
            const newAdults = [...room.adults];
@@ -71,7 +77,7 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
          return room;
        });
        setRooms(newRooms);
-     }
+     // REMOVED: }
   };
   // --- End Adult Management ---
 
@@ -117,15 +123,15 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
   // --- End Child Management ---
 
   const handleSave = () => {
-    // Validation: Ensure all ages (adult and child) are filled
-    const hasNullAges = rooms.some(room =>
-      room.adults.some(age => age === null || age === undefined) ||
-      room.children.some(age => age === null || age === undefined)
+    // Validation: Ensure all ages (adult and child) are filled AND within range
+    const hasInvalidAges = rooms.some(room =>
+      room.adults.some(age => age === null || age === undefined || age < 18 || age > 120) || // Added range check
+      room.children.some(age => age === null || age === undefined /* Add child range check here if needed */)
     );
 
-    if (hasNullAges) {
+    if (hasInvalidAges) {
       // Optionally show a more specific error message
-      alert("Please enter the age for all adults and children.");
+      alert("Please ensure all adult ages are filled and between 18 and 120."); // Updated message
       return;
     }
     onSave(rooms);
@@ -162,7 +168,7 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                 <Dialog.Title
                   as="h3"
                   className="text-lg font-medium leading-6 text-gray-900 flex justify-between items-center"
@@ -176,8 +182,8 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
                     <XMarkIcon className="h-6 w-6" />
                   </button>
                 </Dialog.Title>
-                <div className="mt-4 max-h-[65vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                  <div className="space-y-4">
+                <div className="mt-4 max-h-[65vh] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 scrollbar-thumb-rounded">
+                  <div className="space-y-5">
                     {rooms.map((room, index) => (
                       <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                         <div className="flex items-center justify-between mb-4">
@@ -196,8 +202,8 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
                         </div>
 
                         {/* Adult Section */}
-                        <div className="mb-4 pb-4 border-b border-gray-200">
-                          <div className="flex items-center justify-between mb-2">
+                        <div className="mb-6 pb-6 border-b border-gray-200">
+                          <div className="flex items-center justify-between mb-3">
                              <label className="block text-xs font-medium text-gray-600">
                               Adults (18+)
                             </label>
@@ -214,7 +220,7 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
                               <span className="text-sm font-medium w-6 text-center">{room.adults.length}</span>
                              </div>
                           </div>
-                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                             {room.adults.map((age, adultIndex) => (
                               <div key={`adult-${adultIndex}`} className="relative flex items-center">
                                 <input
@@ -223,15 +229,15 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
                                   max="120"
                                   value={age ?? ''} // Use ?? '' for null/undefined
                                   onChange={(e) => handleAdultAgeChange(index, adultIndex, e.target.value)}
-                                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-10 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm appearance-none" // appearance-none hides spinner
+                                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-12 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 focus:ring-offset-1 sm:text-sm appearance-none"
                                   placeholder="Age"
                                 />
-                                <span className="absolute right-2 top-2.5 text-gray-400 text-xs pointer-events-none">yrs</span>
+                                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none">yrs</span>
                                 {room.adults.length > 1 && (
                                    <button
                                     type="button"
                                     onClick={() => removeAdult(index, adultIndex)}
-                                    className="ml-1 text-red-500 hover:text-red-700 p-0.5 rounded-full hover:bg-red-100 absolute -right-4 top-1/2 transform -translate-y-1/2"
+                                    className="ml-1 text-red-500 hover:text-red-700 p-0.5 rounded-full hover:bg-red-100 absolute -right-5 top-1/2 transform -translate-y-1/2 focus:outline-none focus:ring-1 focus:ring-red-500 focus:ring-offset-1"
                                     aria-label="Remove Adult"
                                     disabled={room.adults.length <= 1} // Disable removing the last adult
                                   >
@@ -245,7 +251,7 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
 
                          {/* Children Section */}
                          <div>
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center justify-between mb-3">
                             <label className="block text-xs font-medium text-gray-600">
                               Children (0-17)
                             </label>
@@ -267,7 +273,7 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
                                <p className="text-xs text-gray-500 mb-2">
                                 Age of child{room.children.length !== 1 ? 'ren' : ''} at time of check-out
                               </p>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                 {room.children.map((age, childIndex) => (
                                   <div key={`child-${childIndex}`} className="relative flex items-center">
                                     <input
@@ -276,14 +282,14 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
                                       max="17"
                                       value={age ?? ''} // Use ?? '' for null/undefined
                                       onChange={(e) => handleChildAgeChange(index, childIndex, e.target.value)}
-                                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-10 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm appearance-none" // appearance-none hides spinner
+                                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-12 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 focus:ring-offset-1 sm:text-sm appearance-none"
                                       placeholder="Age"
                                     />
-                                     <span className="absolute right-2 top-2.5 text-gray-400 text-xs pointer-events-none">yrs</span>
+                                     <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none">yrs</span>
                                      <button
                                       type="button"
                                       onClick={() => removeChild(index, childIndex)}
-                                      className="ml-1 text-red-500 hover:text-red-700 p-0.5 rounded-full hover:bg-red-100 absolute -right-4 top-1/2 transform -translate-y-1/2"
+                                      className="ml-1 text-red-500 hover:text-red-700 p-0.5 rounded-full hover:bg-red-100 absolute -right-5 top-1/2 transform -translate-y-1/2 focus:outline-none focus:ring-1 focus:ring-red-500 focus:ring-offset-1"
                                       aria-label="Remove Child"
                                     >
                                       <MinusIcon className="h-3.5 w-3.5" />

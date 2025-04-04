@@ -22,7 +22,7 @@ const navigation = [
     href: '/bookings', 
     icon: CalendarIcon,
     subItems: [
-      { name: 'All Bookings', href: '/bookings' },
+      { name: 'Bookings & Inquiries', href: '/bookings' },
       { name: 'Create Booking', href: '/bookings/create' },
       { name: 'Itinerary Booking', href: '/bookings/itinerary' },
     ] 

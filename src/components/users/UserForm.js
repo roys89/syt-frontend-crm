@@ -15,7 +15,8 @@ const UserForm = () => {
       canRemoveLead: false,
       canViewLeads: true,
       canAddUser: false,
-      canRemoveUser: false
+      canRemoveUser: false,
+      bookings: false
     }
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -262,6 +263,27 @@ const UserForm = () => {
                           <p className="text-gray-500">Allow user to view leads in the system</p>
                         </div>
                       </div>
+
+                      <div className="flex items-start">
+                        <div className="flex items-center h-5">
+                          <input
+                            id="bookings"
+                            name="bookings"
+                            type="checkbox"
+                            className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                            checked={formData.permissions.bookings}
+                            onChange={onPermissionChange}
+                            disabled={formData.role === 'admin'} // Admin always has this permission
+                          />
+                        </div>
+                        <div className="ml-3 text-sm">
+                          <label htmlFor="bookings" className="font-medium text-gray-700">
+                            Bookings Permission
+                          </label>
+                          <p className="text-gray-500">Allow user to access and manage bookings (Flights, Hotels, etc.)</p>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
                 </div>

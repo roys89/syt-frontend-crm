@@ -781,44 +781,176 @@ const submitItineraryInquiry = async (payload) => {
 };
 // ---------------------------------------------
 
-// --- Create Itinerary from Inquiry (CRM) --- 
-const createCrmItinerary = async (inquiryToken) => {
+// --- Get CRM Inquiries --- (Renamed from getCrmItineraries)
+const getCrmInquiries = async () => {
   try {
-    console.log('📡 API REQUEST: createCrmItinerary', { inquiryToken });
+    console.log('📡 API REQUEST: getCrmInquiries');
+    
+    // Construct the full URL for inquiries
+    const url = `${config.API_URL}/inquiries/`; // Updated path
+    console.log(`📡 Calling URL: ${url}`);
+
+    const response = await authAxios.get(url);
+
+    console.log('📡 API RESPONSE: getCrmInquiries', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('📡 API ERROR: getCrmInquiries', error);
+    if (error.response) {
+      console.error('📡 Error response:', { status: error.response.status, data: error.response.data });
+      throw new Error(error.response?.data?.message || 'Failed to fetch CRM inquiries');
+    } else {
+      throw new Error('Network error or failed to fetch CRM inquiries');
+    }
+  }
+};
+// --------------------------
+
+// --- Create Itinerary from Inquiry (using B2C endpoint) ---
+const createItineraryFromInquiry = async (inquiryToken) => {
+  try {
+    console.log('📡 API REQUEST: createItineraryFromInquiry', { inquiryToken });
     
     // Target the B2C endpoint using API_B2C_URL
     const url = `${config.API_B2C_URL}/itinerary/${inquiryToken}`; 
-    console.log(`📡 Using B2C URL for Itinerary Creation: ${url}`);
+    console.log(`📡 Calling B2C URL for Itinerary Creation: ${url}`);
 
-    // Manually get the CRM token (as the B2C endpoint requires it)
+    // Manually get the CRM token (assuming B2C endpoint requires it based on previous context)
     const token = localStorage.getItem('token');
     const headers = {};
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     } else {
-      console.warn('No CRM token found for createCrmItinerary call');
-      // Let the backend handle the missing token error
+      console.warn('No CRM token found for createItineraryFromInquiry call to B2C endpoint');
+      // Let the backend handle the missing token error if needed
     }
 
     // Use standard axios, providing the full URL and manual headers
-    const response = await axios.post(url, {}, { headers }); // POST request, empty body needed for axios.post signature
+    // B2C endpoint is POST as per b2c/routes/itineraryRoutes/itineraryRoutes.js
+    const response = await axios.post(url, {}, { headers }); 
 
-    console.log('📡 API RESPONSE: createCrmItinerary', response.data);
-    return response.data; // Return the full itinerary object
+    console.log('📡 API RESPONSE: createItineraryFromInquiry', response.data);
+    return response.data; // Return the newly created itinerary object
   } catch (error) {
-    console.error('📡 API ERROR: createCrmItinerary', error);
+    console.error('📡 API ERROR: createItineraryFromInquiry', error);
     if (error.response) {
-      console.error('📡 Error response:', {
-        status: error.response.status,
-        data: error.response.data
-      });
+      console.error('📡 Error response:', { status: error.response.status, data: error.response.data });
       throw new Error(error.response?.data?.message || error.response?.data?.error || 'Failed to create itinerary from inquiry');
     } else {
       throw new Error('Network error or failed to create itinerary');
     }
   }
 };
-// -------------------------------------------
+// ---------------------------------------------------------
+
+// New function to assign user to an inquiry
+const assignUserToInquiry = async (inquiryToken, userDetails) => {
+  if (!inquiryToken || !userDetails || !userDetails._id) {
+    console.error('assignUserToInquiry: Missing inquiryToken or userDetails/_id');
+    throw new Error('Inquiry token and User details are required for assignment.');
+  }
+  const url = `${config.API_URL}/inquiries/${inquiryToken}/assign-user`;
+
+  // Construct payload with all necessary fields for backend to update Inquiry/Itinerary userInfo
+  const payload = {
+    userId: userDetails._id,
+    firstName: userDetails.firstName,
+    lastName: userDetails.lastName,
+    email: userDetails.email,
+    phoneNumber: userDetails.phoneNumber, // Assuming backend returns national number
+    country: userDetails.country,         // Full name
+    countryCode: userDetails.countryCode, // Prefix (e.g., +91) - Now provided by backend
+    dob: userDetails.dob
+  };
+
+  console.log(`📡 API REQUEST: assignUserToInquiry (PUT ${url})`, payload);
+
+  try {
+    const response = await authAxios.put(url, payload); // Send the full payload
+    console.log('📡 API RESPONSE: assignUserToInquiry', response.data);
+
+    if (!response.data || !response.data.message) { // Check for at least a message
+      // Consider success even without specific data if API returns 200/204
+      if (response.status >= 200 && response.status < 300) {
+          console.warn('assignUserToInquiry: API returned success status but no message/data.');
+          return { success: true, message: 'User assigned (no content)' }; // Assume success on 2xx
+      }
+      throw new Error('Invalid response format after assigning user.');
+    }
+
+    // Assuming the backend sends a simple success message or updated inquiry
+    return { 
+      success: true, // Assuming success if no error is thrown
+      message: response.data.message, 
+      updatedInquiry: response.data.updatedInquiry // Pass along updated data if backend sends it
+    };
+
+  } catch (error) {
+    console.error('📡 API ERROR: assignUserToInquiry', error);
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to assign user to inquiry.';
+    throw new Error(errorMessage); // Re-throw the error for the component to handle
+  }
+};
+
+// --- New Markup Settings Service --- 
+const getMarkupSettings = async () => {
+  try {
+    console.log('📡 API REQUEST: getMarkupSettings');
+    // Use the B2C base URL as the markup settings are likely global
+    const url = `${config.API_B2C_URL}/markup`;
+    console.log(`📡 Calling URL: ${url}`);
+
+    // Use standard axios as auth might not be needed for settings
+    const response = await axios.get(url);
+
+    console.log('📡 API RESPONSE: getMarkupSettings', response.data);
+    if (!response.data || !response.data.markups || !response.data.tcsRates) {
+      throw new Error('Invalid markup settings format received from server.');
+    }
+    return response.data; // Should contain { markups: {...}, tcsRates: {...} }
+  } catch (error) {
+    console.error('📡 API ERROR: getMarkupSettings', error);
+    if (error.response) {
+      console.error('📡 Error response:', { status: error.response.status, data: error.response.data });
+    }
+    throw new Error(error.response?.data?.message || 'Failed to fetch markup settings');
+  }
+};
+// ---------------------------------
+
+// Fetch a specific itinerary by its token
+const getItineraryByToken = async (itineraryToken, inquiryToken) => {
+  if (!itineraryToken) {
+    console.error('getItineraryByToken called without an itineraryToken.');
+    throw new Error('Itinerary token is required.');
+  }
+  if (!inquiryToken) {
+    console.error('getItineraryByToken called without an inquiryToken.');
+    throw new Error('Inquiry token is required for fetching itinerary details.');
+  }
+
+  console.log(`Fetching itinerary with itineraryToken: ${itineraryToken}, inquiryToken: ${inquiryToken}`);
+  const url = `${config.API_B2C_URL}/itinerary/${itineraryToken}`; 
+  try {
+    const response = await authAxios.get(url, {
+      headers: {
+        'x-inquiry-token': inquiryToken
+      }
+    });
+    const itineraryData = response.data;
+    if (itineraryData && itineraryData.itineraryToken === itineraryToken) {
+      console.log('Successfully fetched itinerary:', itineraryData);
+      return itineraryData;
+    } else {
+      console.error('Failed to fetch itinerary or token mismatch. Response:', response.data);
+      throw new Error('Could not retrieve the specified itinerary.');
+    }
+  } catch (error) {
+    console.error(`Error fetching itinerary ${itineraryToken}:`, error.response?.data || error.message);
+    const errorMessage = error.response?.data?.message || 'Failed to load itinerary details.';
+    throw new Error(errorMessage); 
+  }
+};
 
 const bookingService = {
   // Flight services
@@ -883,7 +1015,19 @@ const bookingService = {
   submitItineraryInquiry,
 
   // Add the new itinerary creation function
-  createCrmItinerary
+  createItineraryFromInquiry,
+
+  // Add the new CRM inquiries fetch function
+  getCrmInquiries,
+
+  // New function to assign user to inquiry
+  assignUserToInquiry,
+
+  // New function to get markup settings
+  getMarkupSettings,
+
+  // Fetch a specific itinerary by its token
+  getItineraryByToken
 };
 
 export default bookingService;

@@ -33,6 +33,7 @@ import TransferBookingPage from './pages/bookings/TransferBookingPage';
 
 // Route Guards
 import AdminRoute from './utils/AdminRoute';
+import BookingRoute from './utils/BookingRoute';
 import PrivateRoute from './utils/PrivateRoute';
 
 function App() {
@@ -57,14 +58,16 @@ function App() {
               <Route path="/leads/view/:id" element={<ViewLeadPage />} />
               <Route path="/leads/upload" element={<UploadLeadsPage />} />
               
-              {/* Booking Routes */}
-              <Route path="/bookings" element={<BookingsPage />} />
-              <Route path="/bookings/create" element={<CreateBookingPage />} />
-              <Route path="/bookings/itinerary" element={<ItineraryBookingPage />} />
-              <Route path="/bookings/flight" element={<FlightBookingPage />} />
-              <Route path="/bookings/hotel" element={<HotelBookingPage />} />
-              <Route path="/bookings/activity" element={<ActivityBookingPage />} />
-              <Route path="/bookings/transfer" element={<TransferBookingPage />} />
+              {/* Booking Routes (Requires 'bookings' permission or admin) */}
+              <Route element={<BookingRoute />}>
+                <Route path="/bookings" element={<BookingsPage />} />
+                <Route path="/bookings/create" element={<CreateBookingPage />} />
+                <Route path="/bookings/itinerary" element={<ItineraryBookingPage />} />
+                <Route path="/bookings/flight" element={<FlightBookingPage />} />
+                <Route path="/bookings/hotel" element={<HotelBookingPage />} />
+                <Route path="/bookings/activity" element={<ActivityBookingPage />} />
+                <Route path="/bookings/transfer" element={<TransferBookingPage />} />
+              </Route>
               
               {/* Users Routes (Admin Only) */}
               <Route element={<AdminRoute />}>
