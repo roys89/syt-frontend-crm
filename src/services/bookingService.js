@@ -952,6 +952,34 @@ const getItineraryByToken = async (itineraryToken, inquiryToken) => {
   }
 };
 
+// --- Update Flight Selections (Seats, Baggage, Meals) ---
+const updateFlightSelections = async ({ itineraryToken, inquiryToken, selections }) => {
+  if (!itineraryToken || !inquiryToken || !selections) {
+    console.error('updateFlightSelections: Missing required parameters');
+    throw new Error('Itinerary token, inquiry token, and selections are required.');
+  }
+  // Use the B2C API base URL as this likely modifies the shared itinerary
+  const url = `${config.API_B2C_URL}/itinerary/${itineraryToken}/flight/seats`;
+  console.log(`📡 API REQUEST: updateFlightSelections (PUT ${url})`, selections);
+
+  try {
+    const response = await authAxios.put(url, selections, {
+      headers: {
+        'X-Inquiry-Token': inquiryToken,
+        // Authorization header is automatically added by authAxios interceptor
+      },
+    });
+    console.log('📡 API RESPONSE: updateFlightSelections', response.data);
+    // Assuming success returns the updated itinerary or at least a success message
+    return response.data;
+  } catch (error) {
+    console.error('📡 API ERROR: updateFlightSelections', error);
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to update flight selections.';
+    throw new Error(errorMessage);
+  }
+};
+// -----------------------------------------------------
+
 const bookingService = {
   // Flight services
   searchFlights,
@@ -1027,7 +1055,10 @@ const bookingService = {
   getMarkupSettings,
 
   // Fetch a specific itinerary by its token
-  getItineraryByToken
+  getItineraryByToken,
+
+  // Add the new function
+  updateFlightSelections
 };
 
 export default bookingService;

@@ -1,15 +1,22 @@
-import { BuildingOffice2Icon } from '@heroicons/react/24/outline'; // For placeholder
-import React from 'react';
+import { HomeIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, EyeIcon, TrashIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/solid';
+import React, { useState } from 'react';
+import { toast } from 'react-toastify';
+import CrmHotelModifyModal from '../modals/CrmHotelModifyModal';
+import CrmHotelViewModal from '../modals/CrmHotelViewModal';
 
 // --- Helper Functions ---
 const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
+  if (!dateString || typeof dateString !== 'string') return 'N/A';
   try {
-    // Using en-GB for dd/mm/yyyy format
-    return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    });
   } catch (e) {
-    console.error("Invalid date format:", dateString, e);
-    return 'Invalid Date';
+    console.error("Invalid date format:", dateString);
+    return dateString;
   }
 };
 
@@ -45,7 +52,7 @@ const StarRating = ({ rating }) => {
 };
 // --- End Helper Functions ---
 
-const CrmHotelCard = ({ hotel }) => {
+const CrmHotelCard = ({ hotel, travelersDetails }) => {
   // --- Data Extraction (Mirroring B2C HotelCard.js structure) ---
   // console.log("Raw hotel prop in CrmHotelCard:", JSON.stringify(hotel, null, 2)); // DEBUG
 
@@ -72,6 +79,11 @@ const CrmHotelCard = ({ hotel }) => {
   const imageUrl = staticContent?.heroImage || staticContent?.images?.[0]?.links?.[0]?.url || null;
   // --- End Data Extraction ---
 
+  // State for view modal
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  // State for modify modal
+  const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
+
   // Revised Basic check: Show if we have dates or a name
    if (hotelName === 'Hotel Name N/A' && !checkInDate && !checkOutDate) {
     console.warn("CrmHotelCard: Missing essential hotel data (name and dates):", hotel);
@@ -82,43 +94,172 @@ const CrmHotelCard = ({ hotel }) => {
     );
   }
 
+  // Format check-in/out if needed
+  const formattedCheckIn = formatDate(checkInDate);
+  const formattedCheckOut = formatDate(checkOutDate);
+
+  // Calculate nights
+  const nights = (() => {
+    try {
+      if (checkInDate === 'N/A' || checkOutDate === 'N/A') return 'N/A';
+      const start = new Date(checkInDate);
+      const end = new Date(checkOutDate);
+      const diffTime = Math.abs(end - start);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    } catch (e) {
+      console.error("Error calculating nights:", e);
+      return 'N/A';
+    }
+  })();
+
+  // Add button handlers before the return statement
+  const handleRemoveHotel = () => {
+    toast.info("Remove Hotel action placeholder");
+  };
+
+  const handleChangeHotel = () => {
+    toast.info("Change Hotel action placeholder");
+  };
+
+  const handleViewHotel = () => {
+    setIsViewModalOpen(true);
+  };
+
+  const handleCloseViewModal = () => {
+    setIsViewModalOpen(false);
+  };
+
+  const handleChangeRoom = () => {
+    toast.info("Change Room action placeholder");
+  };
+
+  // Updated: Open the new modify modal
+  const handleModifyHotel = () => {
+    if (!travelersDetails) {
+        toast.error("Cannot modify: Traveler details are missing.");
+        return;
+    }
+    setIsModifyModalOpen(true);
+  };
+  const handleCloseModifyModal = () => {
+    setIsModifyModalOpen(false);
+    // Add any logic needed after closing modify, e.g., triggering itinerary refresh
+  };
+
   return (
-    // Use flex layout: image on left, content on right
-    <div className="flex gap-4 border rounded-lg p-4 bg-white shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
-      {/* Image Section */}
-      {imageUrl ? (
-        <div className="w-32 h-32 md:w-40 md:h-40 flex-shrink-0 rounded-md overflow-hidden bg-gray-200">
-          <img src={imageUrl} alt={hotelName} className="w-full h-full object-cover" />
-        </div>
-      ) : (
-        <div className="w-32 h-32 md:w-40 md:h-40 flex-shrink-0 rounded-md bg-gray-100 flex items-center justify-center border">
-          <BuildingOffice2Icon className="w-12 h-12 text-gray-300" />
-        </div>
-      )}
-
-      {/* Content Section */}
-      <div className="flex-grow space-y-2">
-        {/* Header: Hotel Name and Rating */}
-        <div className="flex flex-col sm:flex-row justify-between sm:items-start border-b pb-2 gap-1">
-           <h4 className="text-md md:text-lg font-semibold text-green-700 truncate leading-tight" title={hotelName}>{hotelName}</h4>
-          <div className="flex items-center flex-shrink-0">
-             <StarRating rating={rating} />
-             {rating > 0 && <span className="ml-1 text-xs text-gray-600">({rating.toFixed(1)})</span>}
-          </div>
+    <>
+      <div className="relative flex flex-col md:flex-row border rounded-lg overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow duration-200">
+        {/* Image Section - Updated width, height, flex-shrink */}
+        <div className="relative w-full h-48 md:w-64 md:h-64 md:flex-shrink-0 bg-gray-200">
+          {imageUrl ? (
+            <img src={imageUrl} alt={hotelName} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-48 md:h-64 flex items-center justify-center bg-gray-100">
+              <HomeIcon className="w-12 h-12 text-gray-300" />
+            </div>
+          )}
         </div>
 
-        {/* Body: Dates, Room Info, Address */}
-        <div className="text-sm text-gray-800 space-y-1.5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-            <p><span className="font-medium text-gray-600">Check-in:</span> {formatDate(checkInDate)}</p>
-            <p><span className="font-medium text-gray-600">Check-out:</span> {formatDate(checkOutDate)}</p>
+        {/* Content Section - Updated padding */}
+        <div className="flex flex-col justify-between w-full p-3 md:p-4">
+          {/* Header Information */}
+          <div className="space-y-3">
+            <h3 className="text-xl font-bold text-gray-800">{hotelName}</h3>
+
+            {/* Hotel Details */}
+            <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
+              <div className="col-span-2 md:col-span-1">
+                <span className="font-medium text-gray-600">Check In:</span>
+                <span className="ml-2 text-gray-800">{formattedCheckIn}</span>
+              </div>
+              <div className="col-span-2 md:col-span-1">
+                <span className="font-medium text-gray-600">Check Out:</span>
+                <span className="ml-2 text-gray-800">{formattedCheckOut}</span>
+              </div>
+              <div className="col-span-2 md:col-span-1">
+                <span className="font-medium text-gray-600">Nights:</span>
+                <span className="ml-2 text-gray-800">{nights !== 'N/A' ? `${nights} night${nights > 1 ? 's' : ''}` : 'N/A'}</span>
+              </div>
+              <div className="col-span-2 md:col-span-1">
+                <span className="font-medium text-gray-600">Room Type:</span>
+                <span className="ml-2 text-gray-800">{roomType}</span>
+              </div>
+            </div>
+
+            {/* Location */}
+            {address !== 'Address N/A' && (
+              <div className="flex items-start gap-2 text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="text-gray-700 line-clamp-1">{address}</span>
+              </div>
+            )}
           </div>
-          <p><span className="font-medium text-gray-600">Room:</span> {roomType} <span className="text-xs text-gray-500">({boardBasis})</span></p>
-          {address !== 'Address N/A' && <p><span className="font-medium text-gray-600">Address:</span> {address}</p>}
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end mt-4 pt-3 border-t">
+            <div className="flex items-center space-x-2 flex-wrap gap-y-2 justify-end">
+              <button
+                onClick={handleViewHotel}
+                className="p-2 bg-green-900 text-white rounded-md hover:bg-green-800"
+                aria-label="View Hotel"
+              >
+                <EyeIcon className="h-5 w-5" />
+              </button>
+              <button
+                onClick={handleModifyHotel}
+                className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-blue-900 text-white rounded-md hover:bg-blue-800 font-medium text-xs"
+                aria-label="Modify Hotel"
+              >
+                <WrenchScrewdriverIcon className="h-4 w-4" />
+                Hotel
+              </button>
+              <button
+                onClick={handleChangeRoom}
+                className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-purple-900 text-white rounded-md hover:bg-purple-800 font-medium text-xs"
+              >
+                <ArrowPathIcon className="h-4 w-4" />
+                Room
+              </button>
+              <button
+                onClick={handleChangeHotel}
+                className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 font-medium text-xs"
+              >
+                <ArrowPathIcon className="h-4 w-4" />
+                Hotel
+              </button>
+              <button
+                onClick={handleRemoveHotel}
+                className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                aria-label="Remove Hotel"
+              >
+                <TrashIcon className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
         </div>
-        {/* Optional Footer Placeholder */}
       </div>
-    </div>
+
+      {/* Hotel view modal */}
+      <CrmHotelViewModal 
+        isOpen={isViewModalOpen} 
+        onClose={handleCloseViewModal} 
+        hotelData={hotel} 
+      />
+
+      {/* Hotel modify modal */}
+      {isModifyModalOpen && (
+        <CrmHotelModifyModal
+            isOpen={isModifyModalOpen}
+            onClose={handleCloseModifyModal}
+            hotelData={hotel}
+            travelersDetails={travelersDetails}
+        />
+      )}
+    </>
   );
 };
 

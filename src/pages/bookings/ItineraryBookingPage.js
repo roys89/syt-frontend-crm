@@ -40,9 +40,9 @@ const ItineraryBookingPage = () => {
     agentCode: '',
     selectedCities: [],
     departureCity: null,
-    departureDates: {
+    departureDates: { 
       startDate: '',
-      endDate: ''
+      endDate: '' 
     },
     travelersDetails: {
       type: '',
@@ -55,7 +55,7 @@ const ItineraryBookingPage = () => {
     includeInternational: false,
     includeGroundTransfer: true,
     includeFerryTransport: false,
-    userInfo: null,
+    userInfo: null, 
     citySearch: '',
     initialDestination: null,
     searchResults: [],
@@ -100,8 +100,8 @@ const ItineraryBookingPage = () => {
         }
         if (formData.departureDates.startDate && formData.departureDates.endDate && 
             new Date(formData.departureDates.endDate) <= new Date(formData.departureDates.startDate)) {
-          newErrors.endDate = 'End date must be after start date';
-        }
+        newErrors.endDate = 'End date must be after start date';
+      }
         break;
         
       case 2: // Travelers
@@ -149,7 +149,7 @@ const ItineraryBookingPage = () => {
       default:
         break;
     }
-
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData, selectedCustomer]);
@@ -232,21 +232,21 @@ const ItineraryBookingPage = () => {
       console.log('handleSubmit called prematurely, ignoring.');
       return;
     }
-
+    
     if (selectedCustomer && !formData.userInfo) {
        setFormData(prev => ({ ...prev, userInfo: selectedCustomer }));
     }
 
-    if (!validateStep(5)) {
+    if (!validateStep(5)) { 
       toast.error('Please review the form for errors');
       return;
     }
-
+    
     if (!agent || !agent._id) {
       toast.error("Agent details not found. Please log in again.");
       return;
     }
-
+    
     setIsSubmittingInquiry(true);
     setSubmittedInquiryToken(null);
     setGeneratedItinerary(null);
@@ -273,10 +273,10 @@ const ItineraryBookingPage = () => {
          includeFerryTransport: formData.includeFerryTransport,
          // userInfo is added conditionally below
          agents: [{
-           agentId: agent._id,
+           agentId: agent._id, 
            agentCode: formData.agentCode.trim(),
-           agentName: agent.name,
-           agentEmail: agent.email
+           agentName: agent.name, 
+           agentEmail: agent.email 
          }]
       };
 
@@ -293,17 +293,17 @@ const ItineraryBookingPage = () => {
           dob: formData.userInfo.dob,
         };
       }
-
+      
       console.log("Submitting Itinerary Inquiry Payload:", payload);
       const inquiryResponse = await bookingService.submitItineraryInquiry(payload);
       toast.success('Itinerary inquiry created successfully!');
       console.log("Inquiry Response:", inquiryResponse);
-
+      
       const inquiryToken = inquiryResponse?.itineraryInquiryToken;
       if (!inquiryToken) {
         throw new Error("Inquiry token not found in response.");
       }
-
+      
       setSubmittedInquiryToken(inquiryToken);
 
     } catch (error) {
@@ -427,7 +427,7 @@ const ItineraryBookingPage = () => {
   const renderStepContent = useCallback(() => {
     switch(currentStep) {
       case 0:
-        return (
+  return (
           <div className="w-full px-4 sm:px-8 py-4">
             <h2 className="text-xl font-medium text-gray-800 mb-2 text-center">
               Select Cities
@@ -467,7 +467,7 @@ const ItineraryBookingPage = () => {
                         onClick={() => {
                           handleChange(null, 'initialDestination', option);
                           handleChange(null, 'citySearch', '');
-                          setFormData(prev => ({ ...prev, cities: [] }));
+                          setFormData(prev => ({ ...prev, cities: [] })); 
                         }}
                         className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50"
                       >
@@ -664,8 +664,8 @@ const ItineraryBookingPage = () => {
                       type="button"
                       onClick={() => handleChange('travelersDetails', 'type', type)}
                       className={`px-4 py-2 rounded-full text-sm font-medium border capitalize
-                        ${formData.travelersDetails.type === type
-                          ? 'bg-indigo-600 text-white border-indigo-600'
+                        ${formData.travelersDetails.type === type 
+                          ? 'bg-indigo-600 text-white border-indigo-600' 
                           : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}
                       `}
                     >
@@ -740,7 +740,7 @@ const ItineraryBookingPage = () => {
                     onClick={() => handleInterestChange(interest)}
                     className={`px-5 py-3 rounded-full text-sm font-medium border-2 transition-colors duration-150
                       ${(formData.preferences.selectedInterests || []).includes(interest)
-                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        ? 'bg-indigo-600 text-white border-indigo-600' 
                         : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-500 hover:text-indigo-600'}
                     `}
                   >
@@ -763,8 +763,8 @@ const ItineraryBookingPage = () => {
                   type="button"
                     onClick={() => handleBudgetChange(option)}
                     className={`flex-1 px-5 py-4 rounded-lg text-center font-medium border-2 transition-colors duration-150 flex items-center justify-center
-                      ${formData.preferences.budget === option
-                        ? 'bg-indigo-600 text-white border-indigo-600'
+                      ${formData.preferences.budget === option 
+                        ? 'bg-indigo-600 text-white border-indigo-600' 
                         : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-500 hover:text-indigo-600'}
                     `}
                   >
@@ -793,31 +793,31 @@ const ItineraryBookingPage = () => {
                 <div className="flex justify-between items-start">
                     <div>
                         <h3 className="text-lg font-medium text-green-800 mb-1">Selected Customer</h3>
-                        <p className="text-sm text-green-700">
-                          <strong>Name:</strong> {selectedCustomer.firstName} {selectedCustomer.lastName} <br />
-                          <strong>Email:</strong> {selectedCustomer.email} <br />
+                <p className="text-sm text-green-700">
+                  <strong>Name:</strong> {selectedCustomer.firstName} {selectedCustomer.lastName} <br />
+                  <strong>Email:</strong> {selectedCustomer.email} <br />
                           {selectedCustomer.countryCode && <><strong>Code:</strong> {selectedCustomer.countryCode} <br /></>}
                           {selectedCustomer.phoneNumber && <><strong>Phone:</strong> {selectedCustomer.phoneNumber} <br /></>}
                           {selectedCustomer.country && <><strong>Country:</strong> {selectedCustomer.country} <br /></>}
                           {selectedCustomer.dob && <><strong>DOB:</strong> {new Date(selectedCustomer.dob).toLocaleDateString()} <br /></>}
-                          <strong>ID:</strong> {selectedCustomer._id}
-                        </p>
-                    </div>
-                    <button
-                      type="button"
+                  <strong>ID:</strong> {selectedCustomer._id}
+                </p>
+              </div>
+                <button
+                  type="button"
                        onClick={openCustomerAssignmentModal} // Button now re-opens modal to change
                        className="ml-4 inline-flex items-center px-3 py-1 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                     >
+                >
                        <PencilIcon className="h-4 w-4 mr-1" />
                        Change
-                    </button>
+                </button>
                 </div>
               </div>
             ) : (
               // Button to open the modal if no customer is selected
               <div className="text-center py-6 px-4 border-2 border-dashed border-gray-300 rounded-lg">
                  <p className="text-gray-600 mb-4">No customer selected for this inquiry yet.</p>
-                 <button
+            <button
                     type="button"
                     onClick={openCustomerAssignmentModal}
                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -825,8 +825,8 @@ const ItineraryBookingPage = () => {
                     <UserPlusIcon className="h-5 w-5 mr-2" />
                     Select or Register Customer
                   </button>
-              </div>
-            )}
+                </div>
+             )}
 
             {/* Agent Code Input - Remains the same */}
             <div className="mt-6">
@@ -860,8 +860,8 @@ const ItineraryBookingPage = () => {
                <div className="bg-gray-50 p-4 rounded-md">
                 <h3 className="font-medium text-gray-800 mb-2">Selected Cities</h3>
                 <p className="text-sm text-gray-600">
-                  {formData.selectedCities.length > 0
-                    ? formData.selectedCities.map(city => city.name || city.city).join(', ')
+                  {formData.selectedCities.length > 0 
+                    ? formData.selectedCities.map(city => city.name || city.city).join(', ') 
                     : 'No cities selected'}
                 </p>
               </div>
@@ -890,8 +890,8 @@ const ItineraryBookingPage = () => {
                <div className="bg-gray-50 p-4 rounded-md">
                  <h3 className="font-medium text-gray-800 mb-2">Preferences</h3>
                  <p className="text-sm text-gray-600">
-                   Interests: {formData.preferences.selectedInterests.length > 0
-                    ? formData.preferences.selectedInterests.join(', ')
+                   Interests: {formData.preferences.selectedInterests.length > 0 
+                    ? formData.preferences.selectedInterests.join(', ') 
                      : 'None selected'}<br />
                    Budget: {formData.preferences.budget || 'Not specified'}
                  </p>
@@ -916,8 +916,8 @@ const ItineraryBookingPage = () => {
               <div className="bg-gray-50 p-4 rounded-md">
                 <h3 className="font-medium text-gray-800 mb-2">Agent Information</h3>
                  {!reviewAgent ? <p className="text-sm text-red-600">Agent details missing!</p> :
-                   <p className="text-sm text-gray-600">
-                     Agent Code: {formData.agentCode || 'Not specified'}<br/>
+                <p className="text-sm text-gray-600">
+                  Agent Code: {formData.agentCode || 'Not specified'}<br/>
                      Agent Name: {reviewAgent.name || 'N/A'} <br/>
                      Agent Email: {reviewAgent.email || 'N/A'} <br/>
                      Agent ID: {reviewAgent._id || 'N/A'}
@@ -943,7 +943,7 @@ const ItineraryBookingPage = () => {
         return null;
     }
   }, [currentStep, formData, errors, isSearching, isFetchingCities, handleChange, getRoomSummary, agent, selectedCustomer, openCustomerAssignmentModal]);
-
+  
   // Add useEffect for API calls
   useEffect(() => {
     const fetchSearchResults = async () => {
@@ -967,7 +967,7 @@ const ItineraryBookingPage = () => {
         setFormData(prev => ({ ...prev, searchResults: [] }));
       }
     };
-
+    
     const timerId = setTimeout(() => {
         fetchSearchResults();
     }, 300);
@@ -984,7 +984,7 @@ const ItineraryBookingPage = () => {
           if (destinationName.includes(' - ')) {
             destinationName = destinationName.split(' - ')[0];
           }
-
+          
           const response = await axios.get(
             `http://localhost:5000/api/destinations/cities?destination=${encodeURIComponent(destinationName)}&destinationType=${formData.initialDestination.type}`
           );
@@ -1005,7 +1005,7 @@ const ItineraryBookingPage = () => {
 
     fetchCities();
   }, [formData.initialDestination]);
-
+  
   // MODIFICATION: useEffect to load itinerary if token is provided in state
   useEffect(() => {
     const tokenFromState = location.state?.itineraryToken;
@@ -1077,20 +1077,20 @@ const ItineraryBookingPage = () => {
           }
           
           // Existing logic: Render itinerary display if loaded
-          if (generatedItinerary) {
+  if (generatedItinerary) {
             // Use the CrmItineraryDisplay component now
-            return (
+    return (
               <div className="max-w-7xl mx-auto p-6 bg-white shadow-lg rounded-lg">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-2xl font-bold text-gray-800">GENERATED ITINERARY</h2>
-                  <button
+        <button 
                     onClick={handleCreateNewInquiry}
                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Create New Inquiry
-                  </button>
+        >
+          Create New Inquiry
+            </button>
                 </div>
-                <CrmItineraryDisplay itinerary={generatedItinerary} />
+          <CrmItineraryDisplay itinerary={generatedItinerary} />
               </div>
             );
           } else if (submittedInquiryToken) {
@@ -1127,98 +1127,98 @@ const ItineraryBookingPage = () => {
                             Create Another Inquiry
                           </button>
                         </div>
-                      </div>
-                 </div>
-             );
+          </div>
+      </div>
+    );
           } else {
             // ... Multi-Step Form View ...
-            return (
-                 <div className="max-w-5xl mx-auto px-4 py-8">
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-8">
                    {/* Header, Progress, Form Structure */}
-                   <div className="mb-8">
+      <div className="mb-8">
                       <h1 className="text-3xl font-bold text-gray-900">Create Itinerary Inquiry</h1>
                       <p className="mt-2 text-gray-600">Fill in the details to create a new itinerary inquiry.</p>
-                   </div>
-                   {/* Progress bar */}
-                    <div className="mb-8">
-                        <div className="flex items-center justify-between mb-2">
-                        {steps.map((step, idx) => (
-                            <div
-                            key={step.id}
-                            className={`flex flex-col items-center ${idx < steps.length - 1 ? 'w-full' : ''}`}
-                            >
-                            <div
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                                ${idx < currentStep ? 'bg-indigo-600 text-white' :
-                                    idx === currentStep ? 'bg-indigo-100 text-indigo-600 border-2 border-indigo-600' :
-                                    'bg-gray-100 text-gray-500'}`}
-                            >
-                                {idx + 1}
-                            </div>
-                            <span
-                                className={`text-xs mt-1 text-center
-                                ${idx <= currentStep ? 'text-indigo-600 font-medium' : 'text-gray-500'}`}
-                            >
-                                {step.title}
-                            </span>
-                            </div>
-                        ))}
-                        </div>
-                        <div className="relative pt-1">
-                        <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
-                            <div
-                            className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-600 transition-all duration-500 ease-out"
-                            style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
-                            ></div>
-                        </div>
-                        </div>
-                    </div>
-                   <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+      </div>
+      {/* Progress bar */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-2">
+          {steps.map((step, idx) => (
+            <div 
+              key={step.id}
+              className={`flex flex-col items-center ${idx < steps.length - 1 ? 'w-full' : ''}`}
+            >
+              <div 
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                  ${idx < currentStep ? 'bg-indigo-600 text-white' : 
+                    idx === currentStep ? 'bg-indigo-100 text-indigo-600 border-2 border-indigo-600' : 
+                    'bg-gray-100 text-gray-500'}`}
+              >
+                {idx + 1}
+              </div>
+              <span 
+                className={`text-xs mt-1 text-center
+                  ${idx <= currentStep ? 'text-indigo-600 font-medium' : 'text-gray-500'}`}
+              >
+                {step.title}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="relative pt-1">
+          <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
+            <div 
+              className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-600 transition-all duration-500 ease-out"
+              style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+      </div>
+      <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
                        <form onSubmit={handleSubmit} /* className="bg-white shadow-md rounded-lg p-6" - Removed redundant classes */>
                           <div className="mb-8 min-h-[300px]">
-                               {renderStepContent()} 
-                           </div>
-                           {/* Navigation buttons */} 
-                           <div className="mt-8 pt-6 border-t border-gray-200 flex justify-between">
-                               <button
-                                    type="button"
-                                    onClick={handleBack}
+            {renderStepContent()}
+          </div>
+          {/* Navigation buttons */}
+          <div className="mt-8 pt-6 border-t border-gray-200 flex justify-between">
+            <button
+              type="button"
+              onClick={handleBack}
                                     disabled={currentStep === 0 || isSubmittingInquiry || isCreatingItinerary}
-                                    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                                >
-                                    <ChevronLeftIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-                                    Back
-                                </button>
-                                {currentStep < steps.length - 1 ? (
-                                    <button
-                                    type="button"
-                                    onClick={handleNext}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            >
+              <ChevronLeftIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+              Back
+            </button>
+            {currentStep < steps.length - 1 ? (
+              <button
+                type="button"
+                onClick={handleNext}
                                     disabled={isSubmittingInquiry || isCreatingItinerary}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                                    >
-                                    Next
-                                    <ChevronRightIcon className="ml-2 -mr-1 h-5 w-5" aria-hidden="true" />
-                                    </button>
-                                ) : (
-                                    <button
-                                    type="submit"
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              >
+                Next
+                <ChevronRightIcon className="ml-2 -mr-1 h-5 w-5" aria-hidden="true" />
+              </button>
+            ) : (
+            <button
+              type="submit"
                                     disabled={isSubmittingInquiry || isCreatingItinerary}
                                     className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                                    >
+            >
                                     {isSubmittingInquiry ? 'Submitting Inquiry...' : 'Submit Inquiry'}
                                     {isSubmittingInquiry && <ArrowPathIcon className="animate-spin ml-2 h-5 w-5" />}
-                                    </button>
-                                )}
-                           </div>
-                       </form>
-                   </div>
+            </button>
+            )}
+          </div>
+        </form>
+      </div>
                    {/* Room Modal */}
-                   <RoomArrangementModal
-                     isOpen={isRoomModalOpen}
-                     onClose={() => setIsRoomModalOpen(false)}
-                     initialRooms={formData.travelersDetails.rooms}
-                     onSave={handleSaveRooms}
-                   />
+      <RoomArrangementModal 
+        isOpen={isRoomModalOpen}
+        onClose={() => setIsRoomModalOpen(false)}
+        initialRooms={formData.travelersDetails.rooms}
+        onSave={handleSaveRooms}
+      />
                  </div>
             );
           }

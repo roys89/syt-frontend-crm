@@ -58,9 +58,7 @@ const CrmItineraryDisplay = ({ itinerary }) => {
       setLoadingSettings(true);
       setErrorSettings(null);
       try {
-        console.log("Fetching markup settings...");
         const settings = await bookingService.getMarkupSettings();
-        console.log("Markup settings fetched:", settings);
         setMarkupSettings(settings); // Stores { markups: {...}, tcsRates: {...} }
       } catch (error) {
         console.error("Error fetching markup settings:", error);
@@ -76,9 +74,7 @@ const CrmItineraryDisplay = ({ itinerary }) => {
   // Calculate totals when itinerary or settings change
   useEffect(() => {
     if (itinerary && markupSettings) {
-      console.log("Calculating itinerary totals with:", { itinerary, markups: markupSettings.markups, tcsRates: markupSettings.tcsRates });
       const totals = calculateItineraryTotal(itinerary, markupSettings.markups, markupSettings.tcsRates);
-      console.log("Calculated totals:", totals);
       setCalculatedTotals(totals);
     } else {
        console.log("Skipping total calculation - missing itinerary or markupSettings.", { hasItinerary: !!itinerary, hasSettings: !!markupSettings });
@@ -92,13 +88,21 @@ const CrmItineraryDisplay = ({ itinerary }) => {
     return <p className="text-red-500">Error: Itinerary data is missing or invalid.</p>;
   }
 
+  // --- Extract necessary props for children --- 
+  const travelersDetails = itinerary.travelersDetails;
+  const itineraryToken = itinerary.itineraryToken; 
+  // Assuming inquiryToken is also part of the main itinerary object after load/generation
+  // If not, it might need to be passed separately from ItineraryBookingPage
+  const inquiryToken = itinerary.inquiryToken; 
+  // --- End Extraction ---
+
   // Calculate summary details
-  const totalTravelers = getTotalTravelers(itinerary.travelersDetails);
+  const totalTravelers = getTotalTravelers(travelersDetails);
   const tripDuration = getTripDuration(itinerary.cities);
   const cityCount = itinerary.cities.length;
 
   // Optional: Extract top-level info if needed
-  const itineraryTitle = itinerary.itineraryToken ? `Itinerary: ${itinerary.itineraryToken}` : 'Itinerary Details';
+  const itineraryTitle = itineraryToken ? `Itinerary: ${itineraryToken}` : 'Itinerary Details';
 
   let dayCounter = 1; // Initialize day counter
 
@@ -163,6 +167,9 @@ const CrmItineraryDisplay = ({ itinerary }) => {
                     key={day.date || `day-${currentDayNumber}`}
                     day={day}
                     dayNumber={currentDayNumber}
+                    travelersDetails={travelersDetails}
+                    itineraryToken={itineraryToken}
+                    inquiryToken={inquiryToken}
                   />
                 );
               })

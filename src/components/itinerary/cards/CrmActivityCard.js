@@ -1,5 +1,7 @@
 import { TicketIcon } from '@heroicons/react/24/outline'; // For placeholder
+import { ArrowPathIcon, EyeIcon, TrashIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/solid';
 import React from 'react';
+import { toast } from 'react-toastify';
 
 // --- Helper Functions ---
 const formatTime = (timeString) => {
@@ -34,7 +36,7 @@ const truncateDescription = (text, maxLength = 100) => {
 };
 // --- End Helper Functions ---
 
-const CrmActivityCard = ({ activity }) => {
+const CrmActivityCard = ({ activity, onViewClick }) => {
   // --- Data Extraction (Based on Itinerary.js ActivitySchema) ---
   const activityName = activity?.activityName || 'N/A';
   // Duration likely in minutes based on schema type: Number
@@ -66,71 +68,133 @@ const CrmActivityCard = ({ activity }) => {
     );
   }
 
+  // Add button handlers before the return statement
+  const handleRemoveActivity = () => {
+    toast.info("Remove Activity action placeholder");
+  };
+
+  const handleChangeActivity = () => {
+    toast.info("Change Activity action placeholder");
+  };
+
+  const handleViewActivity = () => {
+    if (onViewClick) {
+      onViewClick();
+    } else {
+      toast.error("View action is not configured.");
+    }
+  };
+
+  const handleModifyActivity = () => {
+    toast.info("Modify Activity action placeholder");
+  };
+
   return (
-    // Use flex layout: image on left, content on right
-    <div className="flex gap-4 border rounded-lg p-4 bg-white shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
-       {/* Image Section */}
-       {imageUrl ? (
-        <div className="w-32 h-32 md:w-40 md:h-40 flex-shrink-0 rounded-md overflow-hidden bg-gray-200">
+    <div className="relative flex flex-col md:flex-row border rounded-lg overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow duration-200">
+      {/* Image Section - Updated width, height, and flex-shrink */}
+      <div className="relative w-full h-48 md:w-64 md:h-64 md:flex-shrink-0 bg-gray-200">
+        {imageUrl ? (
           <img src={imageUrl} alt={activityName} className="w-full h-full object-cover" />
-        </div>
-      ) : (
-        <div className="w-32 h-32 md:w-40 md:h-40 flex-shrink-0 rounded-md bg-gray-100 flex items-center justify-center border">
-          <TicketIcon className="w-12 h-12 text-gray-300" />
-        </div>
-      )}
-
-       {/* Content Section */}
-       <div className="flex-grow space-y-2">
-          {/* Header: Activity Name */}
-          <div className="flex justify-between items-start border-b pb-2">
-             <h4 className="text-md md:text-lg font-semibold text-purple-700 truncate leading-tight" title={activityName}>{activityName}</h4>
-             {/* Optional: Add category tag if available */}
+        ) : (
+          <div className="w-full h-48 md:h-64 flex items-center justify-center bg-gray-100">
+            <TicketIcon className="w-12 h-12 text-gray-300" />
           </div>
-
-          {/* Body: Time, Duration, Location, Description */}
-          <div className="text-sm text-gray-800 space-y-1.5">
-            {/* Time and Duration Row */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              {formattedTime !== 'N/A' && (
-                 <div className="flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="font-medium text-gray-600">Time:</span>
-                    <span>{formattedTime}</span>
-                </div>
-            )}
-            {formattedDuration !== 'N/A' && (
-                <div className="flex items-center gap-1">
-                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="font-medium text-gray-600">Duration:</span>
-                    <span>{formattedDuration}</span>
-                 </div>
-            )}
+        )}
+        {/* Online badge - only show if activity is online */}
+        {activity?.isOnline && (
+          <div className="absolute top-4 left-4">
+            <div className="flex items-center gap-1 bg-gray-800/80 text-white px-3 py-1 rounded-full text-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span>online</span>
             </div>
-
-            {/* Location Row */}
-             {address !== 'Location N/A' && (
-                 <div className="flex items-start gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <span className="font-medium text-gray-600">Location:</span>
-                    <span>{address}</span>
-                </div>
-             )}
-
-            {/* Description */}
-             {shortDescription && (
-                <p className="text-xs text-gray-600 pt-1 italic">{shortDescription}</p>
-             )}
           </div>
-           {/* Optional Footer Placeholder */}
-       </div>
+        )}
+      </div>
+
+      {/* Content Section - Updated padding */}
+      <div className="flex flex-col justify-between w-full p-3 md:p-4">
+        {/* Header Information */}
+        <div className="space-y-3">
+          <h3 className="text-xl font-bold text-gray-800">{activityName}</h3>
+
+          {/* Activity Details */}
+          <div className="flex flex-wrap gap-4 text-sm">
+            {formattedDuration !== 'N/A' && (
+              <div className="flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{formattedDuration}</span>
+              </div>
+            )}
+
+            {formattedTime !== 'N/A' && (
+              <div className="flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{formattedTime}</span>
+              </div>
+            )}
+
+            {address !== 'Location N/A' && (
+              <div className="flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>{address.split(',')[0]}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Description */}
+          {shortDescription && (
+            <div className="flex items-start gap-2 text-sm text-gray-700 mt-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="line-clamp-2">{shortDescription}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Buttons section - no rating display if not available */}
+        <div className="flex items-center justify-end mt-4 pt-3 border-t">
+          <div className="flex items-center space-x-2 flex-wrap gap-y-2 justify-end">
+            <button
+              onClick={handleViewActivity}
+              className="p-2 bg-green-900 text-white rounded-md hover:bg-green-800"
+              aria-label="View Activity"
+            >
+              <EyeIcon className="h-5 w-5" />
+            </button>
+            <button
+              onClick={handleModifyActivity}
+              className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-blue-900 text-white rounded-md hover:bg-blue-800 font-medium text-xs"
+              aria-label="Modify Activity"
+            >
+              <WrenchScrewdriverIcon className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleChangeActivity}
+              className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 font-medium text-xs"
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleRemoveActivity}
+              className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+              aria-label="Remove Activity"
+            >
+              <TrashIcon className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

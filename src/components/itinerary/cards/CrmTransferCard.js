@@ -1,5 +1,8 @@
 import { TruckIcon } from '@heroicons/react/24/outline'; // For placeholder
-import React from 'react';
+import { EyeIcon, TrashIcon } from '@heroicons/react/24/solid';
+import React, { useState } from 'react';
+import { toast } from 'react-toastify';
+import CrmTransferViewModal from '../modals/CrmTransferViewModal';
 // Optional: Add icons if desired
 // import { TruckIcon, MapPinIcon } from '@heroicons/react/24/solid';
 
@@ -12,6 +15,20 @@ const formatTime = (dateTimeString) => {
     } catch (e) {
         console.error("Invalid time format:", dateTimeString, e);
         return 'Invalid Time';
+    }
+};
+
+const formatDate = (dateTimeString) => {
+    if (!dateTimeString) return 'N/A';
+    try {
+        return new Date(dateTimeString).toLocaleDateString('en-US', { 
+            day: 'numeric', 
+            month: 'short', 
+            year: 'numeric' 
+        });
+    } catch (e) {
+        console.error("Invalid date format:", dateTimeString, e);
+        return 'Invalid Date';
     }
 };
 
@@ -35,6 +52,9 @@ const formatTransferType = (type) => {
 // --- End Helper Functions ---
 
 const CrmTransferCard = ({ transfer }) => {
+  // State declarations at the top of the component
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  
   // --- Data Extraction (Mirroring B2C TransferCard.js structure) ---
   // console.log("Raw transfer prop in CrmTransferCard:", JSON.stringify(transfer, null, 2)); // DEBUG
 
@@ -78,56 +98,78 @@ const CrmTransferCard = ({ transfer }) => {
      );
   }
 
+  // Button handlers
+  const handleRemoveTransfer = () => {
+    toast.info("Remove Transfer action placeholder");
+  };
+
+  const handleViewTransfer = () => {
+    setIsViewModalOpen(true);
+  };
+
+  const handleCloseViewModal = () => {
+    setIsViewModalOpen(false);
+  };
+
+  const handleModifyTransfer = () => { // Adding Modify handler for consistency
+      toast.info("Modify Transfer action placeholder");
+  };
+
   return (
-    // Use flex layout: image on left, content on right
-    <div className="flex gap-4 border rounded-lg p-4 bg-white shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
-       {/* Image Section */}
-       {imageUrl ? (
-         <div className="w-32 h-32 md:w-40 md:h-40 flex-shrink-0 rounded-md overflow-hidden bg-gray-200">
-           <img src={imageUrl} alt={transferType} className="w-full h-full object-cover" />
-         </div>
-       ) : (
-         <div className="w-32 h-32 md:w-40 md:h-40 flex-shrink-0 rounded-md bg-gray-100 flex items-center justify-center border">
-           <TruckIcon className="w-12 h-12 text-gray-300" />
-         </div>
-       )}
+    <>
+      <div className="relative flex flex-col md:flex-row border rounded-lg overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow duration-200">
+        {/* Image Section - Updated width, height, flex-shrink */}
+        <div className="relative w-full h-48 md:w-64 md:h-64 md:flex-shrink-0 bg-gray-200">
+          {imageUrl ? (
+            <img src={imageUrl} alt={transferType} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-48 md:h-64 flex items-center justify-center bg-gray-100">
+              <TruckIcon className="w-12 h-12 text-gray-300" />
+            </div>
+          )}
+        </div>
 
-       {/* Content Section */}
-       <div className="flex-grow space-y-3">
-         {/* Header: Transfer Type and Provider */}
-         <div className="flex flex-col sm:flex-row justify-between sm:items-start border-b pb-2 gap-1">
-            <h4 className="text-md md:text-lg font-semibold text-orange-700 leading-tight">{transferType}</h4>
-            {provider !== 'Provider N/A' && (
-               <span className="text-xs font-medium text-gray-500 flex-shrink-0 mt-1">Provider: {provider}</span>
-            )}
-         </div>
-
-         {/* Body: Pickup, Dropoff, Details */}
-         <div className="text-sm text-gray-800 space-y-2">
-            {/* Pickup Info */}
-            <div className="flex items-start gap-2">
-               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-               </svg>
-               <div>
-                  <span className="font-medium text-gray-600">Pickup:</span> {pickupLocation}
-                  {formattedPickupTime !== 'N/A' && formattedPickupTime !== 'Invalid Time' && (
-                      <span className="ml-2 text-xs text-gray-500">({formattedPickupTime})</span>
-                  )}
-               </div>
+        {/* Content Section - Updated padding */}
+        <div className="flex flex-col justify-between w-full p-3 md:p-4">
+          {/* Header Information */}
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <h3 className="text-xl font-bold text-gray-800">{transferType} Transfer</h3>
+              {provider !== 'Provider N/A' && (
+                 <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{provider}</span>
+              )}
             </div>
 
-            {/* Dropoff Info */}
-            <div className="flex items-start gap-2">
-               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-               </svg>
-               <div>
-                   <span className="font-medium text-gray-600">Dropoff:</span> {dropoffLocation}
-                   {/* Dropoff time omitted as it's not explicitly in B2C data */}
-               </div>
+            {/* Transfer Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-4 text-sm">
+              <div className="space-y-1">
+                <p className="font-medium text-gray-700">Pick-up</p>
+                <div className="flex items-start gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-gray-700">{pickupLocation}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-gray-700">{formatDate(pickupTime)} - {formattedPickupTime}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-medium text-gray-700">Drop-off</p>
+                <div className="flex items-start gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-gray-700">{dropoffLocation}</span>
+                </div>
+                {/* Dropoff time omitted as it's not explicitly in B2C data */}
+              </div>
             </div>
 
             {/* Additional Details Row */}
@@ -157,9 +199,45 @@ const CrmTransferCard = ({ transfer }) => {
                    </div>
                )}
             </div>
-         </div>
-       </div>
-    </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end mt-4 pt-3 border-t">
+            <div className="flex items-center space-x-2 flex-wrap gap-y-2 justify-end">
+              <button
+                onClick={handleViewTransfer}
+                className="p-2 bg-green-900 text-white rounded-md hover:bg-green-800"
+                aria-label="View Transfer"
+              >
+                <EyeIcon className="h-5 w-5" />
+              </button>
+              {/* Modify Transfer Button Placeholder */}
+              {/* <button
+                onClick={handleModifyTransfer}
+                className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-blue-900 text-white rounded-md hover:bg-blue-800 font-medium text-xs"
+                aria-label="Modify Transfer"
+              >
+                <WrenchScrewdriverIcon className="h-4 w-4" />
+                Transfer
+              </button> */}
+              <button
+                onClick={handleRemoveTransfer}
+                className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                aria-label="Remove Transfer"
+              >
+                <TrashIcon className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <CrmTransferViewModal 
+        isOpen={isViewModalOpen}
+        onClose={handleCloseViewModal}
+        transferData={transfer}
+      />
+    </>
   );
 };
 
