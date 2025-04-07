@@ -45,7 +45,7 @@ const formatAmount = (amount) => {
   return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-const CrmItineraryDisplay = ({ itinerary }) => {
+const CrmItineraryDisplay = ({ itinerary, onUpdateItinerary }) => {
   // State for markups and calculated totals
   const [markupSettings, setMarkupSettings] = useState(null);
   const [calculatedTotals, setCalculatedTotals] = useState(null);
@@ -162,14 +162,17 @@ const CrmItineraryDisplay = ({ itinerary }) => {
             const cityDays = city.days && city.days.length > 0 ? (
               city.days.map((day) => {
                 const currentDayNumber = dayCounter++;
+                // --- Add city name to the day object --- 
+                const dayWithCity = { ...day, city: city.city }; 
                 return (
                   <CrmItineraryDay
                     key={day.date || `day-${currentDayNumber}`}
-                    day={day}
+                    day={dayWithCity} // Pass the modified day object
                     dayNumber={currentDayNumber}
                     travelersDetails={travelersDetails}
                     itineraryToken={itineraryToken}
                     inquiryToken={inquiryToken}
+                    onUpdateItinerary={onUpdateItinerary}
                   />
                 );
               })

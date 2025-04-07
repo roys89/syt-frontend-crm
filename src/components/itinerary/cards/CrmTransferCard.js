@@ -2,7 +2,7 @@ import { TruckIcon } from '@heroicons/react/24/outline'; // For placeholder
 import { EyeIcon, TrashIcon } from '@heroicons/react/24/solid';
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
-import CrmTransferViewModal from '../modals/CrmTransferViewModal';
+import CrmTransferViewModal from '../modals/view/CrmTransferViewModal';
 // Optional: Add icons if desired
 // import { TruckIcon, MapPinIcon } from '@heroicons/react/24/solid';
 
@@ -51,24 +51,37 @@ const formatTransferType = (type) => {
 };
 // --- End Helper Functions ---
 
-const CrmTransferCard = ({ transfer }) => {
+const CrmTransferCard = ({ 
+  transfer, 
+  itineraryDay, // Contains date
+  itineraryToken, 
+  inquiryToken, 
+  onUpdate // Function to refresh itinerary
+}) => {
   // State declarations at the top of the component
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false); // Add removing state
   
   // --- Data Extraction (Mirroring B2C TransferCard.js structure) ---
   // console.log("Raw transfer prop in CrmTransferCard:", JSON.stringify(transfer, null, 2)); // DEBUG
 
   const details = transfer?.details;
   const selectedQuote = details?.selectedQuote;
-  const routeDetails = selectedQuote?.routeDetails;
+  const quotation_id = details?.quotation_id; // Use quotation_id from details level
+  const routeDetails = selectedQuote?.quote?.routeDetails; // Keep this for other details if needed
   const vehicle = selectedQuote?.quote?.vehicle;
+
+  // Extract date and city name from itineraryDay or details if possible
+  const date = itineraryDay?.date; // Get date from parent day object
+  const cityName = details?.origin?.city || details?.destination?.city; // Get city from origin or destination
 
   const transferType = formatTransferType(transfer?.type); // Type from top level
   const provider = selectedQuote?.quote?.provider?.pr_name || 'Provider N/A';
 
   // Pickup/Dropoff Locations & Times
   const pickupLocation = details?.origin?.display_address || 'Pickup Location N/A';
-  const pickupTime = routeDetails?.pickup_date; // Use pickup_date directly
+  // Adjust pickupTime extraction if it comes directly from details, not routeDetails anymore
+  const pickupTime = details?.pickup_date || routeDetails?.pickup_date; 
   const formattedPickupTime = formatTime(pickupTime);
 
   const dropoffLocation = details?.destination?.display_address || 'Dropoff Location N/A';
@@ -86,7 +99,6 @@ const CrmTransferCard = ({ transfer }) => {
 
   // Image URL
   const imageUrl = vehicle?.vehicleImages?.ve_im_url || null;
-  // --- End Data Extraction ---
 
   // Basic check: Explicitly check against fallback strings
   if (transferType === 'Transfer' && pickupLocation === 'Pickup Location N/A' && dropoffLocation === 'Dropoff Location N/A') {
@@ -99,8 +111,53 @@ const CrmTransferCard = ({ transfer }) => {
   }
 
   // Button handlers
-  const handleRemoveTransfer = () => {
-    toast.info("Remove Transfer action placeholder");
+  const handleRemoveTransfer = async () => {
+      if (!itineraryToken || !inquiryToken || !cityName || !date || !quotation_id) {
+          toast.error("Cannot remove transfer: Missing required information.");
+          console.error("Missing data for remove transfer:", { itineraryToken, inquiryToken, cityName, date, quotation_id });
+          return;
+      }
+
+      // Optional: Confirmation
+      // if (!window.confirm(`Are you sure you want to remove this ${transferType} transfer?`)) {
+      //     return;
+      // }
+
+      setIsRemoving(true);
+      try {
+          const response = await fetch(
+              `http://localhost:5000/api/itinerary/${itineraryToken}/transfer`, // Use relative path
+              {
+                  method: 'DELETE',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'X-Inquiry-Token': inquiryToken,
+                      // Auth handled by interceptor/context
+                      'Authorization': `Bearer ${localStorage.getItem('crmToken')}` 
+                  },
+                  body: JSON.stringify({
+                      cityName: cityName, 
+                      date: date,         
+                      quotation_id: quotation_id // Use quotation_id as the identifier
+                  }),
+              }
+          );
+
+          const result = await response.json();
+
+          if (!response.ok) {
+              throw new Error(result.message || 'Failed to remove transfer');
+          }
+
+          toast.success(`${transferType} transfer removed successfully.`);
+          window.location.reload(); // Force page reload
+
+      } catch (error) {
+          console.error('Error removing transfer:', error);
+          toast.error(`Error removing transfer: ${error.message}`);
+      } finally {
+          setIsRemoving(false);
+      }
   };
 
   const handleViewTransfer = () => {
@@ -222,8 +279,9 @@ const CrmTransferCard = ({ transfer }) => {
               </button> */}
               <button
                 onClick={handleRemoveTransfer}
-                className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Remove Transfer"
+                disabled={isRemoving} // Disable button
               >
                 <TrashIcon className="h-5 w-5" />
               </button>

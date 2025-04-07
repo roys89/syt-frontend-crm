@@ -1,16 +1,53 @@
+import { ArrowPathIcon } from '@heroicons/react/20/solid';
 import { PlusIcon } from '@heroicons/react/24/outline';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import bookingService from '../../services/bookingService';
 
 // This component now holds the content previously directly in BookingsPage for the 'Bookings' main tab.
 // It uses placeholder data for now.
 
 const BookingsTabContent = () => {
   const [activeSubTab, setActiveSubTab] = useState('all'); // Sub-tab ID
+  const [itineraries, setItineraries] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Fetch itineraries when the component mounts or the relevant tab is selected
+  useEffect(() => {
+    const fetchItineraries = async () => {
+      if (activeSubTab === 'all' || activeSubTab === 'itinerary') {
+        // Only fetch if itineraries haven't been loaded yet or forcing refresh
+        // This simple check avoids refetching constantly when switching between 'all' and 'itinerary'
+        // A more robust solution might involve caching or state management libraries
+        if (itineraries.length === 0) { 
+          setLoading(true);
+          setError(null);
+          try {
+            const response = await bookingService.getCrmItineraries();
+            if (response.success && Array.isArray(response.data)) {
+              // Add a type property for easier filtering/rendering later
+              const typedItineraries = response.data.map(it => ({ ...it, type: 'itinerary' }));
+              setItineraries(typedItineraries);
+            } else {
+              throw new Error(response.message || 'Failed to fetch itineraries');
+            }
+          } catch (err) {
+            console.error("Error fetching itineraries:", err);
+            setError(err.message || 'Could not load itineraries.');
+            setItineraries([]); // Clear itineraries on error
+          } finally {
+            setLoading(false);
+          }
+        }
+      }
+    };
+
+    fetchItineraries();
+  }, [activeSubTab, itineraries.length]); // Re-run if tab changes or itineraries are cleared
 
   // For demo purposes, let's create sample data (copied from original BookingsPage)
-  const sampleBookingsData = [
-    // Existing sample data...
+  const sampleOtherBookingsData = [
     {
       _id: '1',
       type: 'flight',
@@ -63,37 +100,38 @@ const BookingsTabContent = () => {
         date: '2025-06-20'
       },
       totalAmount: 800
-    },
-    // New Itinerary Booking Sample
-    {
-        _id: '5',
-        type: 'itinerary',
-        status: 'confirmed',
-        customer: { firstName: 'Michael', lastName: 'Brown' },
-        createdAt: '2025-05-10T11:00:00.000Z',
-        details: {
-            packageName: 'Dubai Extravaganza',
-            duration: '7 Days / 6 Nights',
-            startDate: '2025-07-01'
-        },
-        totalAmount: 25000
     }
   ];
 
   // Filter data based on active sub tab
-  const filteredData = activeSubTab === 'all'
-    ? sampleBookingsData
-    : sampleBookingsData.filter(item => item.type === activeSubTab);
+  const filteredData = (() => {
+    if (activeSubTab === 'all') {
+        // Combine fetched itineraries with other sample bookings
+        return [...itineraries, ...sampleOtherBookingsData];
+    } else if (activeSubTab === 'itinerary') {
+        return itineraries;
+    } else {
+        // Filter only sample data for other specific types
+        return sampleOtherBookingsData.filter(item => item.type === activeSubTab);
+    }
+  })();
 
   // Format date function
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    try {
+      const date = new Date(dateString);
+      // Check if the date is valid before formatting
+      if (isNaN(date.getTime())) return 'Invalid Date'; 
+      return date.toLocaleDateString('en-GB', { // Use en-GB for DD/MM/YYYY or desired format
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      console.error("Error formatting date:", dateString, e);
+      return 'Invalid Date';
+    }
   };
 
   // Get appropriate badge color based on status
@@ -101,12 +139,15 @@ const BookingsTabContent = () => {
     if (!status) return 'bg-gray-100 text-gray-800';
     switch (status.toLowerCase()) {
       case 'confirmed':
+      case 'completed': // Add completed for itinerary payment status
         return 'bg-green-100 text-green-800';
       case 'pending':
+      case 'processing': // Add processing for itinerary payment status
         return 'bg-yellow-100 text-yellow-800';
       case 'cancelled':
+      case 'failed': // Add failed for itinerary payment status
         return 'bg-red-100 text-red-800';
-      case 'inquiry':
+      case 'inquiry': // Keep for potential future use
         return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -118,17 +159,17 @@ const BookingsTabContent = () => {
     if (!type) return 'text-gray-500 border-gray-500';
     switch (type.toLowerCase()) {
       case 'flight':
-        return 'text-blue-500 border-blue-500';
+        return 'bg-blue-500'; // Use background color for the bar
       case 'hotel':
-        return 'text-red-500 border-red-500';
+        return 'bg-red-500';
       case 'activity':
-        return 'text-green-500 border-green-500';
+        return 'bg-green-500';
       case 'transfer':
-        return 'text-purple-500 border-purple-500';
+        return 'bg-purple-500';
       case 'itinerary':
-        return 'text-orange-500 border-orange-500';
+        return 'bg-orange-500'; // Orange for itineraries
       default:
-        return 'text-gray-500 border-gray-500';
+        return 'bg-gray-500';
     }
   };
 
@@ -152,40 +193,42 @@ const BookingsTabContent = () => {
       case 'flight':
         return (
           <div>
-            <div className="font-medium">{item.details.origin.city} to {item.details.destination.city}</div>
-            <div className="text-xs">{item.details.origin.code} → {item.details.destination.code}</div>
+            <div className="font-medium text-gray-900">{item.details.origin.city} to {item.details.destination.city}</div>
+            <div className="text-xs text-gray-500">{item.details.origin.code} → {item.details.destination.code}</div>
           </div>
         );
       case 'hotel':
         return (
           <div>
-            <div className="font-medium">{item.details.hotelName}</div>
-            <div className="text-xs">{item.details.checkIn} to {item.details.checkOut}</div>
+            <div className="font-medium text-gray-900">{item.details.hotelName}</div>
+            <div className="text-xs text-gray-500">{formatDate(item.details.checkIn)} to {formatDate(item.details.checkOut)}</div>
           </div>
         );
       case 'activity':
         return (
           <div>
-            <div className="font-medium">{item.details.activityName}</div>
-            <div className="text-xs">{item.details.location}</div>
+            <div className="font-medium text-gray-900">{item.details.activityName}</div>
+            <div className="text-xs text-gray-500">{item.details.location}</div>
           </div>
         );
       case 'transfer':
         return (
           <div>
-            <div className="font-medium">{item.details.origin}</div>
-            <div className="text-xs">to {item.details.destination}</div>
+            <div className="font-medium text-gray-900">{item.details.origin}</div>
+            <div className="text-xs text-gray-500">to {item.details.destination}</div>
           </div>
         );
-      case 'itinerary': // Itinerary Booking details
+      case 'itinerary':
         return (
           <div>
-            <div className="font-medium">{item.details.packageName}</div>
-            <div className="text-xs">{item.details.duration}, Starts: {formatDate(item.details.startDate)}</div>
+            <div className="font-medium text-gray-900 truncate w-40" title={item.itineraryToken}>{item.itineraryToken}</div>
+            <div className="text-xs text-gray-500">
+                {item.totalDays ? `${item.totalDays} Days` : '-'} | Starts: {formatDate(item.startDate)}
+            </div>
           </div>
         );
       default:
-        return 'N/A';
+        return <span className="text-gray-400">N/A</span>;
     }
   };
 
@@ -198,11 +241,12 @@ const BookingsTabContent = () => {
             <button
               key={tab.id}
               onClick={() => handleSubTabChange(tab.id)}
+              disabled={loading} // Disable tabs while loading
               className={`${
                 activeSubTab === tab.id
                   ? 'border-indigo-500 text-indigo-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {tab.label}
             </button>
@@ -210,93 +254,126 @@ const BookingsTabContent = () => {
         </nav>
       </div>
 
-       {/* Data table for Bookings */}
-      {filteredData.length === 0 ? (
-        <div className="text-center py-12 bg-white shadow rounded-lg">
-          <h3 className="text-lg font-medium text-gray-900">
-            No {activeSubTab !== 'all' ? `${activeSubTab} ` : ''} bookings found
-            {activeSubTab !== 'all' ? ` for this type` : ''}.
-          </h3>
-          <p className="mt-2 text-sm text-gray-500">
-             Get started by creating a new booking.
-          </p>
-          <div className="mt-6">
-              <Link
-                to="/bookings/create" // Link to general booking creation
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-                New Booking
-              </Link>
-            </div>
+       {/* Loading State */}
+       {loading && (
+        <div className="text-center py-12">
+            <ArrowPathIcon className="animate-spin h-8 w-8 text-indigo-600 mx-auto mb-4" />
+            <p className="text-sm text-gray-500">Loading bookings...</p>
         </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-300">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
-                  Type
-                </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                  Customer
-                </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                  Details
-                </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                  Date Added
-                </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                  Status
-                </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                    Amount
-                </th>
-                <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredData.map((item) => (
-                <tr key={item._id} className="hover:bg-gray-50">
-                  <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
-                    <div className={`flex items-center`}>
-                      <div className={`h-8 w-1 rounded-l-lg mr-2 ${getTypeIndicator(item.type)}`}></div>
-                      <span className="font-medium capitalize">{item.type}</span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-4 text-sm text-gray-500">
-                    {item.customer.firstName} {item.customer.lastName}
-                  </td>
-                  <td className="px-3 py-4 text-sm text-gray-500">
-                    {renderBookingDetails(item)}
-                  </td>
-                  <td className="px-3 py-4 text-sm text-gray-500 whitespace-nowrap">
-                    {formatDate(item.createdAt)}
-                  </td>
-                  <td className="px-3 py-4 text-sm whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.status)}`}>
-                      {item.status}
-                    </span>
-                  </td>
-                   <td className="px-3 py-4 text-sm text-gray-500 whitespace-nowrap">
-                      {item.totalAmount != null ? `₹${item.totalAmount.toLocaleString()}` : 'N/A'}
-                    </td>
-                  <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                     {/* TODO: Update link based on booking type if needed */}
-                    <Link to={`/bookings/${item._id}`} className="text-indigo-600 hover:text-indigo-900">
-                      View<span className="sr-only">, {item._id}</span>
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+       )}
+
+       {/* Error State */}
+       {!loading && error && (
+        <div className="text-center py-12 bg-red-50 border border-red-200 rounded-lg">
+          <h3 className="text-lg font-medium text-red-800">Error Loading Bookings</h3>
+          <p className="mt-2 text-sm text-red-600">{error}</p>
+          {/* Optional: Add a retry button here */}
         </div>
-      )}
-    </div>
+       )}
+
+       {/* Data Table - Render only if not loading and no error */} 
+       {!loading && !error && (
+         <> 
+           {filteredData.length === 0 ? (
+             <div className="text-center py-12 bg-white shadow rounded-lg">
+               <h3 className="text-lg font-medium text-gray-900">
+                 No {activeSubTab !== 'all' ? `${activeSubTab} ` : ''} bookings found
+                 {activeSubTab !== 'all' ? ` for this type` : ''}.
+               </h3>
+               <p className="mt-2 text-sm text-gray-500">
+                  Get started by creating a new booking or check back later.
+               </p>
+               <div className="mt-6">
+                   <Link
+                     to="/bookings/create" // Link to general booking creation
+                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                   >
+                     <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                     New Booking
+                   </Link>
+                 </div>
+             </div>
+           ) : (
+             <div className="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+               <table className="min-w-full divide-y divide-gray-300">
+                 <thead className="bg-gray-50">
+                   <tr>
+                     {/* Adjusting Headers for Itinerary View */}
+                     <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                       Type
+                     </th>
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                       Client
+                     </th>
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                       Details / Token
+                     </th>
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                       Date Added
+                     </th>
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                       Status
+                     </th>
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                         Assigned To
+                     </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                         Amount / Duration
+                     </th>
+                     <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                       <span className="sr-only">Actions</span>
+                     </th>
+                   </tr>
+                 </thead>
+                 <tbody className="bg-white divide-y divide-gray-200">
+                   {filteredData.map((item) => (
+                     <tr key={item.itineraryToken || item._id} className="hover:bg-gray-50">
+                       <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
+                         <div className={`flex items-center`}>
+                           <div className={`h-6 w-1 ${getTypeIndicator(item.type)} mr-3`}></div>
+                           <span className="font-medium text-gray-900 capitalize">{item.type}</span>
+                         </div>
+                       </td>
+                       <td className="px-3 py-4 text-sm text-gray-500">
+                         {item.clientName || `${item.customer?.firstName || ''} ${item.customer?.lastName || ''}`.trim() || 'N/A'}
+                       </td>
+                       <td className="px-3 py-4 text-sm text-gray-500">
+                         {renderBookingDetails(item)}
+                       </td>
+                       <td className="px-3 py-4 text-sm text-gray-500 whitespace-nowrap">
+                         {formatDate(item.createdAt)}
+                       </td>
+                       <td className="px-3 py-4 text-sm whitespace-nowrap">
+                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.status)} capitalize`}>
+                           {item.status || 'Unknown'}
+                         </span>
+                       </td>
+                        <td className="px-3 py-4 text-sm text-gray-500 whitespace-nowrap">
+                           {item.assignedTo ? item.assignedTo.name : 'Unassigned'}
+                         </td>
+                       <td className="px-3 py-4 text-sm text-gray-500 whitespace-nowrap">
+                           {item.type === 'itinerary' 
+                             ? (item.totalDays ? `${item.totalDays} Days` : 'N/A')
+                             : (item.totalAmount != null ? `₹${item.totalAmount.toLocaleString()}` : 'N/A')
+                           }
+                         </td>
+                       <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                          <Link 
+                            to={item.type === 'itinerary' ? `/itinerary/${item.itineraryToken}` : `/bookings/${item._id}`} 
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
+                            View<span className="sr-only">, {item.itineraryToken || item._id}</span>
+                          </Link>
+                        </td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+             </div>
+           )}
+         </>
+       )}
+     </div>
   );
 };
 

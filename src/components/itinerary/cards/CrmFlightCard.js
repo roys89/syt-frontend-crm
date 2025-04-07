@@ -1,8 +1,8 @@
 import { ArrowPathIcon, CurrencyDollarIcon, EyeIcon, PaperAirplaneIcon, TrashIcon } from '@heroicons/react/24/solid';
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
-import CrmFlightViewModal from '../modals/CrmFlightViewModal';
-import CrmSeatSelectionModal from '../modals/CrmSeatSelectionModal';
+import CrmSeatSelectionModal from '../modals/modify/CrmSeatSelectionModal';
+import CrmFlightViewModal from '../modals/view/CrmFlightViewModal';
 
 // --- Helper Functions (Assuming these are defined or imported elsewhere if needed) ---
 // Example placeholder functions - replace with actual implementations if available
@@ -39,12 +39,13 @@ const formatDuration = (duration) => {
 };
 // --- End Helper Functions ---
 
-const CrmFlightCard = ({ flight, dayIndex, itemIndex, itineraryToken, inquiryToken, travelersDetails, onUpdate }) => {
+const CrmFlightCard = ({ flight, dayIndex, itemIndex, itineraryToken, inquiryToken, travelersDetails, onUpdate, date, city }) => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedFlightDataForView, setSelectedFlightDataForView] = useState(null);
 
   // State for Seat Selection Modal
   const [isSeatModalOpen, setIsSeatModalOpen] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   // Robust checks for data structure
   if (!flight || !flight.flightData || !flight.flightData.segments || flight.flightData.segments.length === 0) {
@@ -62,11 +63,10 @@ const CrmFlightCard = ({ flight, dayIndex, itemIndex, itineraryToken, inquiryTok
   // Data extraction for the card UI (using segment primarily)
   const airline = flightData.airline || segment.airline?.name || 'Airline N/A';
   const flightNumber = segment.flightNumber || 'N/A';
-  const flightCode = flightData.flightCode || 'N/A'; // May differ from segment.flightNumber
+  const flightCode = flightData.flightCode || 'N/A'; // Use this as the identifier
 
   const departureAirportCode = flightData.originAirport?.code || segment.origin || 'N/A';
   const departureCity = flightData.originAirport?.city || '';
-  const departureTime = segment.departureTime;
 
   const arrivalAirportCode = flightData.arrivalAirport?.code || segment.destination || 'N/A';
   const arrivalCity = flightData.arrivalAirport?.city || '';
@@ -85,8 +85,54 @@ const CrmFlightCard = ({ flight, dayIndex, itemIndex, itineraryToken, inquiryTok
   const isSeatSelected = flightData.isSeatSelected || (flightData.selectedSeats && flightData.selectedSeats.length > 0);
 
   // --- Button Handlers ---
-  const handleRemoveFlight = () => {
-    toast.info("Remove Flight action placeholder");
+  const handleRemoveFlight = async () => {
+    // Use the 'date' and 'city' props passed from parent
+    if (!itineraryToken || !inquiryToken || !city || !date || !flightCode || flightCode === 'N/A') {
+        toast.error("Cannot remove flight: Missing required information.");
+        console.error("Missing data for remove flight:", { itineraryToken, inquiryToken, city, date, flightCode });
+        return;
+    }
+
+    // Optional: Confirmation
+    // if (!window.confirm(`Are you sure you want to remove flight ${flightCode}?`)) {
+    //     return;
+    // }
+
+    setIsRemoving(true);
+    try {
+        const response = await fetch(
+            `http://localhost:5000/api/itinerary/${itineraryToken}/flight`, 
+            {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Inquiry-Token': inquiryToken,
+                    // Auth handled by interceptor/context
+                    'Authorization': `Bearer ${localStorage.getItem('crmToken')}` 
+                },
+                body: JSON.stringify({
+                    cityName: city, 
+                    date: date, // <-- Use the date prop here
+                    flightCode: flightCode 
+                }),
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to remove flight');
+        }
+
+        toast.success(`Flight ${flightCode} removed successfully.`);
+        window.location.reload(); // Force page reload
+
+    } catch (error) {
+        console.error('Error removing flight:', error);
+        toast.error(`Error removing flight: ${error.message}`);
+    } finally {
+        setIsRemoving(false);
+    }
   };
   const handleChangeFlight = () => {
     toast.info("Change Flight action placeholder");
@@ -159,8 +205,8 @@ const CrmFlightCard = ({ flight, dayIndex, itemIndex, itineraryToken, inquiryTok
               <p className="font-medium text-gray-700 truncate" title={`${departureAirportCode} ${departureCity}`}>
                 {departureAirportCode}
               </p>
-              <p className="text-gray-600">{formatTime(departureTime)}</p>
-              <p className="text-xs text-gray-500">{formatDate(departureTime)}</p>
+              <p className="text-gray-600">{formatTime(segment.departureTime)}</p>
+              <p className="text-xs text-gray-500">{formatDate(segment.departureTime)}</p>
             </div>
 
             {/* Duration & Flight Path Graphic */}
@@ -214,9 +260,10 @@ const CrmFlightCard = ({ flight, dayIndex, itemIndex, itineraryToken, inquiryTok
               </button>
               <button
                 onClick={handleRemoveFlight}
-                className="p-1.5 md:p-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
+                className="p-1.5 md:p-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Remove Flight"
                 title="Remove Flight"
+                disabled={isRemoving}
               >
                 <TrashIcon className="h-4 w-4 md:h-5 md:w-5" />
               </button>

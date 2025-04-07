@@ -8,15 +8,15 @@ import { AuthProvider } from './context/AuthContext';
 import DashboardLayout from './components/layout/DashboardLayout';
 
 // Pages
-import HomePage from './pages/HomePage';
-import NotFoundPage from './pages/NotFoundPage';
 import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
+import HomePage from './pages/HomePage';
 import AddLeadPage from './pages/leads/AddLeadPage';
 import EditLeadPage from './pages/leads/EditLeadPage';
 import LeadsPage from './pages/leads/LeadsPage';
 import UploadLeadsPage from './pages/leads/UploadLeadsPage';
 import ViewLeadPage from './pages/leads/ViewLeadPage';
+import NotFoundPage from './pages/NotFoundPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import AddUserPage from './pages/users/AddUserPage';
 import EditUserPage from './pages/users/EditUserPage';
@@ -25,6 +25,8 @@ import UsersPage from './pages/users/UsersPage';
 // Booking Pages
 import ActivityBookingPage from './pages/bookings/ActivityBookingPage';
 import BookingsPage from './pages/bookings/BookingsPage';
+import CrmChangeActivitiesPage from './pages/bookings/changePage/CrmChangeActivitiesPage';
+import CrmChangeHotelsPage from './pages/bookings/changePage/CrmChangeHotelsPage';
 import CreateBookingPage from './pages/bookings/CreateBookingPage';
 import FlightBookingPage from './pages/bookings/FlightBookingPage';
 import HotelBookingPage from './pages/bookings/HotelBookingPage';
@@ -35,6 +37,19 @@ import TransferBookingPage from './pages/bookings/TransferBookingPage';
 import AdminRoute from './utils/AdminRoute';
 import BookingRoute from './utils/BookingRoute';
 import PrivateRoute from './utils/PrivateRoute';
+
+// --- Placeholder for the new page component ---
+// const CrmAddHotelResultsPage = () => <div>Add Hotel Results Page (Placeholder)</div>; // TODO: Replace with actual component import
+
+// Import the actual component
+import CrmAddHotelResultsPage from './pages/bookings/addPage/CrmAddHotelResultsPage';
+
+// --- Placeholders for NEW Results Pages ---
+// TODO: Create these files and components
+const CrmAddActivityResultsPage = () => <div>Add Activity Results Page (Placeholder)</div>;
+const CrmAddTransferResultsPage = () => <div>Add Transfer Results Page (Placeholder)</div>;
+const CrmAddFlightResultsPage = () => <div>Add Flight Results Page (Placeholder)</div>;
+// --- End Placeholders ---
 
 function App() {
   return (
@@ -63,6 +78,13 @@ function App() {
                 <Route path="/bookings" element={<BookingsPage />} />
                 <Route path="/bookings/create" element={<CreateBookingPage />} />
                 <Route path="/bookings/itinerary" element={<ItineraryBookingPage />} />
+                <Route path="/bookings/itinerary/:itineraryToken" element={<ItineraryBookingPage />} />
+                <Route path="/crm/itinerary/:itineraryToken/change-hotel/:city/:checkIn/:checkOut" element={<CrmChangeHotelsPage />} />
+                <Route path="/crm/change-activity/:itineraryToken/:city/:date" element={<CrmChangeActivitiesPage />} />
+                <Route path="/crm/itinerary/:itineraryToken/add-hotel-results/:city/:checkIn/:checkOut" element={<CrmAddHotelResultsPage />} />
+                <Route path="/crm/itinerary/:itineraryToken/add-activity-results/:city/:date" element={<CrmAddActivityResultsPage />} />
+                <Route path="/crm/itinerary/:itineraryToken/add-transfer-results/:city/:date" element={<CrmAddTransferResultsPage />} />
+                <Route path="/crm/itinerary/:itineraryToken/add-flight-results/:date/:origin/:destination" element={<CrmAddFlightResultsPage />} />
                 <Route path="/bookings/flight" element={<FlightBookingPage />} />
                 <Route path="/bookings/hotel" element={<HotelBookingPage />} />
                 <Route path="/bookings/activity" element={<ActivityBookingPage />} />

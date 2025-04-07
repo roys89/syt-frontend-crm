@@ -553,7 +553,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
               </div>
               
               {/* Hotel Info Card */}
-              <div className="bg-white p-6 rounded-lg shadow-sm">
+              <div className="bg-white p-5 rounded-lg shadow-sm">
                 <h3 className="text-lg font-semibold mb-3">Hotel Highlights</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
@@ -566,7 +566,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                     <span className="font-medium">{hotel.checkoutInfo?.time || '12:00 PM'}</span>
                   </div>
                   
-                  <div className="border-t border-gray-200 my-2"></div>
+             
                   
                   <div className="grid grid-cols-1 gap-2">
                     {hotel.facilityGroups?.slice(0, 8).map(group => (

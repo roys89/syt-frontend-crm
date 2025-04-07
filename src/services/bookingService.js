@@ -980,6 +980,77 @@ const updateFlightSelections = async ({ itineraryToken, inquiryToken, selections
 };
 // -----------------------------------------------------
 
+// --- New Itinerary Modification Service --- 
+const replaceHotelInItinerary = async (itineraryToken, cityName, date, newHotelDetails, inquiryToken) => {
+  try {
+    console.log('📡 API REQUEST: replaceHotelInItinerary', { itineraryToken, cityName, date, newHotelDetails });
+
+    // Ensure inquiryToken is available for the header
+    if (!inquiryToken) {
+      console.error('replaceHotelInItinerary: Missing inquiryToken');
+      throw new Error('Inquiry token is required for this operation.');
+    }
+
+    const url = `${config.API_B2C_URL}/itinerary/${itineraryToken}/hotel`; // Use relative path as authAxios has baseURL
+
+    const response = await authAxios.put(url, 
+      { 
+        cityName, 
+        date, // This should be the specific date string (YYYY-MM-DD) for the day being modified
+        newHotelDetails // The complete hotel data object from CrmHotelModifyModal
+      },
+      {
+        headers: {
+          'X-Inquiry-Token': inquiryToken
+        }
+      }
+    );
+
+    console.log('📡 API RESPONSE: replaceHotelInItinerary', response.data);
+    return response.data; // Return the full response (includes success, message, potentially partialSuccess)
+  } catch (error) {
+    console.error('📡 API ERROR: replaceHotelInItinerary', error);
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to replace hotel in itinerary.';
+    // Return an object indicating failure, including potential partial success info from backend
+    return {
+      success: false,
+      message: errorMessage,
+      partialSuccess: error.response?.data?.partialSuccess || false,
+      transferUpdateFailed: error.response?.data?.transferUpdateFailed || false,
+      error: error.response?.data || error
+    };
+  }
+};
+// ----------------------------------------
+
+// --- Get CRM Itineraries (Actual Itineraries from B2C DB) ---
+const getCrmItineraries = async () => {
+  try {
+    console.log('📡 API REQUEST: getCrmItineraries');
+    
+    // Use the CRM base URL and the correct endpoint
+    const url = `${config.API_URL}/itineraries/`; // Uses /api/crm/itineraries via server.js routing
+    console.log(`📡 Calling URL: ${url}`);
+
+    const response = await authAxios.get(url);
+
+    console.log('📡 API RESPONSE: getCrmItineraries', response.data);
+    if (!response.data || !response.data.success) {
+        throw new Error(response.data?.message || 'Failed to fetch CRM itineraries or received unsuccessful response.');
+    }
+    return response.data; // Should return { success: true, count: number, data: [...] }
+  } catch (error) {
+    console.error('📡 API ERROR: getCrmItineraries', error);
+    if (error.response) {
+      console.error('📡 Error response:', { status: error.response.status, data: error.response.data });
+      throw new Error(error.response?.data?.message || 'Failed to fetch CRM itineraries');
+    } else {
+      throw new Error('Network error or failed to fetch CRM itineraries');
+    }
+  }
+};
+// ---------------------------------------------------------
+
 const bookingService = {
   // Flight services
   searchFlights,
@@ -1058,7 +1129,13 @@ const bookingService = {
   getItineraryByToken,
 
   // Add the new function
-  updateFlightSelections
+  updateFlightSelections,
+
+  // Add the new itinerary modification function
+  replaceHotelInItinerary,
+
+  // Add the new CRM itineraries fetch function
+  getCrmItineraries
 };
 
 export default bookingService;

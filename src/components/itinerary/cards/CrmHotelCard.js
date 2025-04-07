@@ -1,9 +1,11 @@
 import { HomeIcon } from '@heroicons/react/24/outline';
 import { ArrowPathIcon, EyeIcon, TrashIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/solid';
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import CrmHotelModifyModal from '../modals/CrmHotelModifyModal';
-import CrmHotelViewModal from '../modals/CrmHotelViewModal';
+import CrmRoomChangeModal from '../modals/change/CrmRoomChangeModal';
+import CrmHotelModifyModal from '../modals/modify/CrmHotelModifyModal';
+import CrmHotelViewModal from '../modals/view/CrmHotelViewModal';
 
 // --- Helper Functions ---
 const formatDate = (dateString) => {
@@ -52,7 +54,20 @@ const StarRating = ({ rating }) => {
 };
 // --- End Helper Functions ---
 
-const CrmHotelCard = ({ hotel, travelersDetails }) => {
+const CrmHotelCard = ({ 
+  hotel, 
+  travelersDetails,
+  itineraryDay,
+  onUpdateItinerary,
+  itineraryToken,
+  inquiryToken
+}) => {
+  const navigate = useNavigate();
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [isRoomChangeModalOpen, setIsRoomChangeModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
+
   // --- Data Extraction (Mirroring B2C HotelCard.js structure) ---
   // console.log("Raw hotel prop in CrmHotelCard:", JSON.stringify(hotel, null, 2)); // DEBUG
 
@@ -60,29 +75,39 @@ const CrmHotelCard = ({ hotel, travelersDetails }) => {
   const hotelStatic = hotel?.data?.hotelDetails;
   const staticContent = hotel?.data?.staticContent?.[0];
 
+  const hotelId = staticContent?.id;
+  const traceId = hotel?.data?.traceId;
+
   const hotelName = hotelStatic?.name || 'Hotel Name N/A';
   const rating = parseInt(hotelStatic?.starRating) || 0;
 
   const locationInfo = hotelStatic?.address;
   const address = locationInfo ? [locationInfo.line1, locationInfo.line2, locationInfo.city?.name].filter(Boolean).join(', ') : 'Address N/A';
+  const cityName = locationInfo?.city?.name;
+  const date = itineraryDay?.date;
 
   // Get Check-in/Check-out from the top level of the `hotel` object passed from the day
   const checkInDate = hotel?.checkIn;
   const checkOutDate = hotel?.checkOut;
 
   // Get room details (assuming first selected room for display)
-  const roomAndRate = hotelDetails?.selectedRoomsAndRates?.[0];
+  const roomsAndRates = hotelDetails?.selectedRoomsAndRates || [];
+  const roomAndRate = roomsAndRates[0]; // Use the full array for price calculation later
   const roomType = roomAndRate?.room?.name || 'Room Details N/A';
   const boardBasis = roomAndRate?.rate?.boardBasis?.description || 'Board Basis N/A';
+
+  // Get old hotel code
+  const oldHotelCode = hotelDetails?.code;
+  const hotelCode = hotelDetails?.code || hotelStatic?.code;
+
+  // Calculate existing hotel price (sum of final rates for all selected rooms)
+  const existingHotelPrice = roomsAndRates.reduce((total, roomRate) => {
+      return total + (roomRate?.rate?.finalRate || 0);
+  }, 0);
 
   // Get image URL (using logic similar to B2C)
   const imageUrl = staticContent?.heroImage || staticContent?.images?.[0]?.links?.[0]?.url || null;
   // --- End Data Extraction ---
-
-  // State for view modal
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  // State for modify modal
-  const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
 
   // Revised Basic check: Show if we have dates or a name
    if (hotelName === 'Hotel Name N/A' && !checkInDate && !checkOutDate) {
@@ -114,12 +139,75 @@ const CrmHotelCard = ({ hotel, travelersDetails }) => {
   })();
 
   // Add button handlers before the return statement
-  const handleRemoveHotel = () => {
-    toast.info("Remove Hotel action placeholder");
+  const handleRemoveHotel = async () => {
+      if (!itineraryToken || !inquiryToken || !cityName || !date || !hotelCode) {
+          toast.error("Cannot remove hotel: Missing required information.");
+          console.error("Missing data for remove hotel:", { itineraryToken, inquiryToken, cityName, date, hotelCode });
+          return;
+      }
+
+      // Optional: Confirmation
+      // if (!window.confirm(`Are you sure you want to remove ${hotelName}?`)) {
+      //     return;
+      // }
+
+      setIsRemoving(true);
+      try {
+          const response = await fetch(
+              `http://localhost:5000/api/itinerary/${itineraryToken}/hotel`, // Use relative path
+              {
+                  method: 'DELETE',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'X-Inquiry-Token': inquiryToken,
+                      // Auth handled by interceptor/context
+                      'Authorization': `Bearer ${localStorage.getItem('crmToken')}` 
+                      
+                  },
+                  body: JSON.stringify({
+                      cityName: cityName, 
+                      date: date,         
+                      hotelCode: hotelCode // Use hotelCode as the identifier
+                  }),
+              }
+          );
+
+          const result = await response.json();
+
+          if (!response.ok) {
+              throw new Error(result.message || 'Failed to remove hotel');
+          }
+
+          toast.success(`${hotelName} removed successfully.`);
+          window.location.reload(); // Force page reload
+
+      } catch (error) {
+          console.error('Error removing hotel:', error);
+          toast.error(`Error removing hotel: ${error.message}`);
+      } finally {
+          setIsRemoving(false);
+      }
   };
 
   const handleChangeHotel = () => {
-    toast.info("Change Hotel action placeholder");
+    if (!cityName || !checkInDate || !checkOutDate || !inquiryToken || !itineraryToken || !travelersDetails || !oldHotelCode) {
+      console.error("Missing data for changing hotel:", { cityName, checkInDate, checkOutDate, inquiryToken, itineraryToken, travelersDetails, oldHotelCode });
+      toast.error("Cannot initiate hotel change. Required information is missing.");
+      return;
+    }
+
+    const navigationState = {
+      existingHotelPrice,
+      oldHotelCode,
+      inquiryToken,
+      travelersDetails
+    };
+
+    console.log('Navigating to change hotel page with state:', navigationState);
+    navigate(
+      `/crm/itinerary/${itineraryToken}/change-hotel/${encodeURIComponent(cityName)}/${checkInDate}/${checkOutDate}`,
+      { state: navigationState }
+    );
   };
 
   const handleViewHotel = () => {
@@ -131,20 +219,36 @@ const CrmHotelCard = ({ hotel, travelersDetails }) => {
   };
 
   const handleChangeRoom = () => {
-    toast.info("Change Room action placeholder");
+    if (!hotelId || !traceId || !itineraryToken || !inquiryToken || !cityName || !checkInDate || !checkOutDate) {
+        console.error("Missing data for Room Change Modal:", { hotelId, traceId, itineraryToken, inquiryToken, cityName, checkInDate, checkOutDate });
+        toast.error("Cannot open room change options: Required information missing.");
+        return;
+    }
+    setIsRoomChangeModalOpen(true);
+  };
+
+  const handleCloseRoomChangeModal = () => {
+      setIsRoomChangeModalOpen(false);
   };
 
   // Updated: Open the new modify modal
   const handleModifyHotel = () => {
     if (!travelersDetails) {
-        toast.error("Cannot modify: Traveler details are missing.");
-        return;
+      console.error("Travelers details are missing, cannot open modify modal.");
+      toast.error("Cannot modify hotel without traveler details.");
+      return;
+    }
+    if (!itineraryToken || !inquiryToken) {
+      console.error("Missing itinerary or inquiry token.");
+      toast.error("Missing required tokens to modify hotel.");
+      return;
     }
     setIsModifyModalOpen(true);
   };
-  const handleCloseModifyModal = () => {
+  
+  // Simple close handler, API call is moved to the modal
+  const handleModalClose = () => {
     setIsModifyModalOpen(false);
-    // Add any logic needed after closing modify, e.g., triggering itinerary refresh
   };
 
   return (
@@ -200,45 +304,49 @@ const CrmHotelCard = ({ hotel, travelersDetails }) => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end mt-4 pt-3 border-t">
-            <div className="flex items-center space-x-2 flex-wrap gap-y-2 justify-end">
-              <button
-                onClick={handleViewHotel}
-                className="p-2 bg-green-900 text-white rounded-md hover:bg-green-800"
-                aria-label="View Hotel"
-              >
-                <EyeIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={handleModifyHotel}
-                className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-blue-900 text-white rounded-md hover:bg-blue-800 font-medium text-xs"
-                aria-label="Modify Hotel"
-              >
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-3 mt-auto">
+            <button
+              onClick={handleViewHotel}
+              className="p-2 bg-green-900 text-white rounded-md hover:bg-green-800"
+              aria-label="View Hotel"
+            >
+              <EyeIcon className="h-5 w-5" />
+            </button>
+            <button
+              onClick={handleModifyHotel}
+              className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-blue-900 text-white rounded-md hover:bg-blue-800 font-medium text-xs"
+            >
+              <>
                 <WrenchScrewdriverIcon className="h-4 w-4" />
                 Hotel
-              </button>
-              <button
-                onClick={handleChangeRoom}
-                className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-purple-900 text-white rounded-md hover:bg-purple-800 font-medium text-xs"
-              >
-                <ArrowPathIcon className="h-4 w-4" />
-                Room
-              </button>
-              <button
-                onClick={handleChangeHotel}
-                className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 font-medium text-xs"
-              >
-                <ArrowPathIcon className="h-4 w-4" />
-                Hotel
-              </button>
-              <button
-                onClick={handleRemoveHotel}
-                className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                aria-label="Remove Hotel"
-              >
-                <TrashIcon className="h-5 w-5" />
-              </button>
-            </div>
+              </>
+            </button>
+            <button
+              onClick={handleChangeRoom}
+              className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-purple-900 text-white rounded-md hover:bg-purple-800 font-medium text-xs"
+              disabled={!hotelId || !traceId || !itineraryToken || !inquiryToken || !cityName || !checkInDate || !checkOutDate}
+              title={!hotelId || !traceId || !itineraryToken || !inquiryToken || !cityName || !checkInDate || !checkOutDate ? "Missing data for room change" : "Change Room"}
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+              Room
+            </button>
+            <button
+              onClick={handleChangeHotel}
+              className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 font-medium text-xs"
+              disabled={!cityName || !checkInDate || !checkOutDate || !inquiryToken || !itineraryToken || !oldHotelCode || !travelersDetails}
+              title={!cityName || !checkInDate || !checkOutDate || !inquiryToken || !itineraryToken || !oldHotelCode || !travelersDetails ? "Missing data to change hotel" : "Change Hotel"}
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+              Hotel
+            </button>
+            <button
+              onClick={handleRemoveHotel}
+              className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isRemoving}
+            >
+              <TrashIcon className="h-4 w-4" />
+              {!isRemoving && 'Remove'}
+            </button>
           </div>
         </div>
       </div>
@@ -248,16 +356,39 @@ const CrmHotelCard = ({ hotel, travelersDetails }) => {
         isOpen={isViewModalOpen} 
         onClose={handleCloseViewModal} 
         hotelData={hotel} 
+        itineraryDay={itineraryDay}
       />
 
       {/* Hotel modify modal */}
       {isModifyModalOpen && (
         <CrmHotelModifyModal
             isOpen={isModifyModalOpen}
-            onClose={handleCloseModifyModal}
+            onClose={handleModalClose}
             hotelData={hotel}
             travelersDetails={travelersDetails}
+            itineraryToken={itineraryToken}
+            inquiryToken={inquiryToken}
+            originalCityName={hotelStatic?.address?.city?.name}
+            originalDate={checkInDate}
+            onUpdateItinerary={onUpdateItinerary}
         />
+      )}
+
+      {/* Room Change Modal */}
+      {isRoomChangeModalOpen && (
+          <CrmRoomChangeModal
+              isOpen={isRoomChangeModalOpen}
+              onClose={handleCloseRoomChangeModal}
+              hotel={hotel}
+              hotelId={hotelId}
+              traceId={traceId}
+              itineraryToken={itineraryToken}
+              inquiryToken={inquiryToken}
+              city={cityName}
+              date={checkInDate}
+              dates={{ checkIn: checkInDate, checkOut: checkOutDate }}
+              existingPrice={existingHotelPrice}
+          />
       )}
     </>
   );

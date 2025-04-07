@@ -8,7 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import React, { Fragment, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify'; // For error/loading feedback
-import bookingService from '../../../services/bookingService'; // Import the service
+import bookingService from '../../../../services/bookingService'; // Import the service
 
 // --- Helper Components ---
 const SeatButton = ({ seat, onClick, isSelected, disabled, maxSeatsReached }) => {
