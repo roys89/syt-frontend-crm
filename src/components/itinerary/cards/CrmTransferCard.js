@@ -81,7 +81,7 @@ const CrmTransferCard = ({
   // Pickup/Dropoff Locations & Times
   const pickupLocation = details?.origin?.display_address || 'Pickup Location N/A';
   // Adjust pickupTime extraction if it comes directly from details, not routeDetails anymore
-  const pickupTime = details?.pickup_date || routeDetails?.pickup_date; 
+  const pickupTime = details?.selectedQuote?.routeDetails?.pickup_date;
   const formattedPickupTime = formatTime(pickupTime);
 
   const dropoffLocation = details?.destination?.display_address || 'Dropoff Location N/A';
@@ -244,7 +244,7 @@ const CrmTransferCard = ({
                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                       <span>{formattedDuration}</span>
+                       <span>{formattedDuration || details.duration}</span>
                     </div>
                )}
                 {distance && (
@@ -268,15 +268,6 @@ const CrmTransferCard = ({
               >
                 <EyeIcon className="h-5 w-5" />
               </button>
-              {/* Modify Transfer Button Placeholder */}
-              {/* <button
-                onClick={handleModifyTransfer}
-                className="inline-flex items-center gap-1 px-2.5 py-2.5 bg-blue-900 text-white rounded-md hover:bg-blue-800 font-medium text-xs"
-                aria-label="Modify Transfer"
-              >
-                <WrenchScrewdriverIcon className="h-4 w-4" />
-                Transfer
-              </button> */}
               <button
                 onClick={handleRemoveTransfer}
                 className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"

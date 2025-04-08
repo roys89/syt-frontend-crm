@@ -56,6 +56,12 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
     const [isFlightSearchModalOpen, setIsFlightSearchModalOpen] = useState(false);
     // --- End State for NEW Search Modals ---
 
+    // --- Extract City Context --- 
+    const cityContext = day.cityContext || {}; // Get the context object
+    const cityName = cityContext.name || 'Unknown City';
+    const countryName = cityContext.country || 'Unknown Country';
+    // --- End Extract City Context ---
+
     const navigate = useNavigate();
 
     // Keep data extraction as separate arrays
@@ -90,8 +96,8 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
     // --- Action Button Handlers (Updated) --- 
     const handleAddActivity = () => {
         // toast.info(`Add Activity placeholder for Day ${dayNumber}`);
-        if (!day.city || !day.date || !itineraryToken || !inquiryToken) {
-             console.error("Cannot add activity: Missing context");
+        if (!cityName || !day.date || !itineraryToken || !inquiryToken) { // Check cityName
+             console.error("Cannot add activity: Missing context", { cityName, date: day.date, itineraryToken, inquiryToken });
              toast.error("Missing required context to add activity.");
              return;
         }
@@ -101,8 +107,8 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
 
     const handleAddTransfer = () => {
         // toast.info(`Add Transfer placeholder for Day ${dayNumber}`);
-         if (!day.city || !day.date || !itineraryToken || !inquiryToken) {
-             console.error("Cannot add transfer: Missing context");
+         if (!cityName || !day.date || !itineraryToken || !inquiryToken) { // Check cityName
+             console.error("Cannot add transfer: Missing context", { cityName, date: day.date, itineraryToken, inquiryToken });
              toast.error("Missing required context to add transfer.");
              return;
         }
@@ -112,8 +118,8 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
 
     // Updated handleAddHotel (opens modal)
     const handleAddHotel = () => {
-        if (!day.city || !day.date || !itineraryToken || !inquiryToken || !travelersDetails) {
-            console.error("Missing required context for adding hotel:", { city: day.city, date: day.date, itineraryToken, inquiryToken, travelersDetails });
+        if (!cityName || !day.date || !itineraryToken || !inquiryToken || !travelersDetails) { // Check cityName
+            console.error("Missing required context for adding hotel:", { city: cityName, date: day.date, itineraryToken, inquiryToken, travelersDetails });
             toast.error("Cannot initiate add hotel process: Missing context.");
             return;
         }
@@ -123,8 +129,8 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
 
     const handleAddFlight = () => {
         // toast.info(`Add Flight placeholder for Day ${dayNumber}`);
-         if (!day.city || !day.date || !itineraryToken || !inquiryToken) {
-             console.error("Cannot add flight: Missing context");
+         if (!cityName || !day.date || !itineraryToken || !inquiryToken) { // Check cityName
+             console.error("Cannot add flight: Missing context", { cityName, date: day.date, itineraryToken, inquiryToken });
              toast.error("Missing required context to add flight.");
              return;
         }
@@ -139,58 +145,81 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
         // ... implementation unchanged ...
          const { checkIn: modalCheckIn, checkOut: modalCheckOut, travelersDetails: modalTravelersDetails } = searchParams;
         setIsHotelSearchModalOpen(false); // Close the modal first
-        if (!day.city || !itineraryToken || !inquiryToken || !modalCheckIn || !modalCheckOut || !modalTravelersDetails) {
-             console.error("Cannot navigate to results: Missing data from modal or context", { city: day.city, itineraryToken, inquiryToken, searchParams });
+        if (!cityName || !itineraryToken || !inquiryToken || !modalCheckIn || !modalCheckOut || !modalTravelersDetails) { // Check cityName
+             console.error("Cannot navigate to results: Missing data from modal or context", { city: cityName, itineraryToken, inquiryToken, searchParams });
              toast.error("Failed to start hotel search. Missing required information.");
              return;
         }
-        console.log(`Navigating to hotel results for ${day.city} from ${modalCheckIn} to ${modalCheckOut}`);
+        console.log(`Navigating to hotel results for ${cityName} from ${modalCheckIn} to ${modalCheckOut}`);
         navigate(
-            `/crm/itinerary/${itineraryToken}/add-hotel-results/${encodeURIComponent(day.city)}/${modalCheckIn}/${modalCheckOut}`,
+            `/crm/itinerary/${itineraryToken}/add-hotel-results/${encodeURIComponent(cityName)}/${modalCheckIn}/${modalCheckOut}`,
             { state: { inquiryToken, travelersDetails: modalTravelersDetails }}
         );
     };
 
-    // New handler for Activity
+    // Modified handler for Activity
     const handleSearchFromActivityModal = (searchParams) => {
         setIsActivitySearchModalOpen(false);
         console.log("Activity search params from modal:", searchParams);
-        // TODO: Define actual parameters needed for activity search
-        const { date: activityDate = day.date /* default */, searchCriteria = {} } = searchParams;
+        // Extract date and any other criteria from the searchParams object
+        const { date: activityDate, ...searchCriteria } = searchParams;
 
-        if (!day.city || !itineraryToken || !inquiryToken || !activityDate) {
-             console.error("Cannot navigate to activity results: Missing data", { city: day.city, itineraryToken, inquiryToken, activityDate });
+        if (!cityName || !countryName || !itineraryToken || !inquiryToken || !activityDate || !travelersDetails) {
+             console.error("Cannot navigate to activity results: Missing data", { 
+                 city: cityName, 
+                 country: countryName, 
+                 itineraryToken, 
+                 inquiryToken, 
+                 activityDate, 
+                 travelersDetails, 
+                 searchCriteria 
+             });
              toast.error("Failed to start activity search. Missing required information.");
              return;
         }
 
-        console.log(`Navigating to activity results for ${day.city} on ${activityDate}`);
-        navigate(
-            // TODO: Define final route structure
-            `/crm/itinerary/${itineraryToken}/add-activity-results/${encodeURIComponent(day.city)}/${activityDate}`,
-            { state: { inquiryToken, searchCriteria } } // Pass relevant state
-        );
+        const targetPath = `/crm/itinerary/${itineraryToken}/add-activity/${encodeURIComponent(cityName)}/${activityDate}`;
+        const stateToPass = {
+            inquiryToken,
+            travelersDetails,
+            searchCriteria, // Pass along any extra criteria from the modal
+            countryName,    // Pass country name needed for API call on results page
+            city: cityName, // Pass city name for consistency
+            date: activityDate // Pass the selected date
+        };
+
+        console.log(`Navigating to: ${targetPath} with state:`, stateToPass);
+        navigate(targetPath, { state: stateToPass });
     };
 
     // New handler for Transfer
     const handleSearchFromTransferModal = (searchParams) => {
         setIsTransferSearchModalOpen(false);
         console.log("Transfer search params from modal:", searchParams);
-        // TODO: Define actual parameters needed for transfer search (e.g., locations, time)
-        const { date: transferDate = day.date, criteria = {} } = searchParams;
+        // Destructure directly from searchParams passed from the modal
+        const { date: transferDate = day.date, origin, destination, time } = searchParams;
 
-        if (!day.city || !itineraryToken || !inquiryToken || !transferDate) {
-             console.error("Cannot navigate to transfer results: Missing data", { city: day.city, itineraryToken, inquiryToken, transferDate });
+        if (!cityName || !itineraryToken || !inquiryToken || !transferDate || !origin || !destination || !time) { // Check cityName
+             console.error("Cannot navigate to transfer results: Missing data", { city: cityName, itineraryToken, inquiryToken, transferDate, origin, destination, time });
              toast.error("Failed to start transfer search. Missing required information.");
              return;
         }
 
-        console.log(`Navigating to transfer results for ${day.city} on ${transferDate}`);
-        navigate(
-            // TODO: Define final route structure
-            `/crm/itinerary/${itineraryToken}/add-transfer-results/${encodeURIComponent(day.city)}/${transferDate}`,
-            { state: { inquiryToken, criteria } } // Pass relevant state
-        );
+        const targetPath = `/crm/itinerary/${itineraryToken}/add-transfer-results/${encodeURIComponent(cityName)}/${transferDate}`;
+        
+        // Construct the state object to pass
+        const stateToPass = {
+            searchParams: searchParams, // Pass the full object received from modal
+            itineraryToken: itineraryToken,
+            inquiryToken: inquiryToken,
+            city: cityName, // Use cityName consistent with other handlers
+            date: transferDate // Use the date from searchParams
+        };
+
+        console.log(`Navigating to: ${targetPath} with explicit state:`, stateToPass);
+
+        // Pass the state object correctly
+        navigate(targetPath, { state: stateToPass });
     };
 
     // New handler for Flight
@@ -267,7 +296,7 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
                                         itineraryToken={itineraryToken} 
                                         inquiryToken={inquiryToken} 
                                         date={day.date}
-                                        city={day.city}
+                                        city={cityName} // Use extracted city name
                                         onUpdate={onUpdateItinerary}
                                     />
                                 </ItineraryItemWrapper>
@@ -279,7 +308,8 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
                                     <CrmTransferCard 
                                         transfer={transfer} 
                                         onViewClick={() => openViewModal(transfer, 'transfer')} 
-                                        itineraryDay={day}
+                                        itineraryDay={day} // Keep passing full day if needed, or pass context
+                                        city={cityName} // Pass extracted city name
                                         itineraryToken={itineraryToken}
                                         inquiryToken={inquiryToken}
                                         onUpdate={onUpdateItinerary}
@@ -293,7 +323,8 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
                                     <CrmHotelCard
                                         hotel={hotel}
                                         travelersDetails={travelersDetails}
-                                        itineraryDay={day}
+                                        itineraryDay={day} // Keep passing full day if needed, or pass context
+                                        city={cityName} // Pass extracted city name
                                         onUpdateItinerary={onUpdateItinerary}
                                         itineraryToken={itineraryToken}
                                         inquiryToken={inquiryToken}
@@ -311,7 +342,8 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
                                         itineraryToken={itineraryToken}
                                         inquiryToken={inquiryToken}
                                         travelersDetails={travelersDetails}
-                                        city={day.city} // Rely solely on the day object for city context
+                                        city={cityName} // Use extracted city name
+                                        country={countryName} // <-- Pass the country name here
                                         date={day.date} // Pass the specific day's date
                                         onUpdate={onUpdateItinerary}
                                         // --- End passing context --- 
@@ -384,7 +416,7 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
                     onClose={() => setIsHotelSearchModalOpen(false)} // Simple close handler
                     // Pre-fill with current day's context
                     currentSearch={{
-                        city: day.city,
+                        city: cityName, // Use extracted city name
                         checkIn: day.date, // Day's date is the check-in
                         checkOut: day.date ? (() => {
                             try {
@@ -409,7 +441,7 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
                     isOpen={isActivitySearchModalOpen}
                     onClose={() => setIsActivitySearchModalOpen(false)}
                     // TODO: Pass relevant pre-fill data (city, date)
-                    initialData={{ city: day.city, date: day.date }}
+                    initialData={{ city: cityName, date: day.date }} // Use extracted city name
                     onSearch={handleSearchFromActivityModal}
                  />
             )}
@@ -418,7 +450,7 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
                     isOpen={isTransferSearchModalOpen}
                     onClose={() => setIsTransferSearchModalOpen(false)}
                      // TODO: Pass relevant pre-fill data (city, date)
-                    initialData={{ city: day.city, date: day.date }}
+                    initialData={{ city: cityName, date: day.date }} // Use extracted city name
                     onSearch={handleSearchFromTransferModal}
                  />
             )}

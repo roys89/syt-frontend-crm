@@ -345,7 +345,7 @@ const CrmHotelCard = ({
               disabled={isRemoving}
             >
               <TrashIcon className="h-4 w-4" />
-              {!isRemoving && 'Remove'}
+              {!isRemoving}
             </button>
           </div>
         </div>

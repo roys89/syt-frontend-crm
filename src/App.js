@@ -42,12 +42,14 @@ import PrivateRoute from './utils/PrivateRoute';
 // const CrmAddHotelResultsPage = () => <div>Add Hotel Results Page (Placeholder)</div>; // TODO: Replace with actual component import
 
 // Import the actual component
+import CrmAddActivityResultsPage from './pages/bookings/addPage/CrmAddActivityResultsPage';
 import CrmAddHotelResultsPage from './pages/bookings/addPage/CrmAddHotelResultsPage';
+import CrmAddTransferResultsPage from './pages/bookings/addPage/CrmAddTransferResultsPage';
 
 // --- Placeholders for NEW Results Pages ---
 // TODO: Create these files and components
-const CrmAddActivityResultsPage = () => <div>Add Activity Results Page (Placeholder)</div>;
-const CrmAddTransferResultsPage = () => <div>Add Transfer Results Page (Placeholder)</div>;
+// REMOVED: const CrmAddActivityResultsPage = () => <div>Add Activity Results Page (Placeholder)</div>;
+// const CrmAddTransferResultsPage = () => <div>Add Transfer Results Page (Placeholder)</div>;
 const CrmAddFlightResultsPage = () => <div>Add Flight Results Page (Placeholder)</div>;
 // --- End Placeholders ---
 
@@ -82,7 +84,7 @@ function App() {
                 <Route path="/crm/itinerary/:itineraryToken/change-hotel/:city/:checkIn/:checkOut" element={<CrmChangeHotelsPage />} />
                 <Route path="/crm/change-activity/:itineraryToken/:city/:date" element={<CrmChangeActivitiesPage />} />
                 <Route path="/crm/itinerary/:itineraryToken/add-hotel-results/:city/:checkIn/:checkOut" element={<CrmAddHotelResultsPage />} />
-                <Route path="/crm/itinerary/:itineraryToken/add-activity-results/:city/:date" element={<CrmAddActivityResultsPage />} />
+                <Route path="/crm/itinerary/:itineraryToken/add-activity/:city/:date" element={<CrmAddActivityResultsPage />} />
                 <Route path="/crm/itinerary/:itineraryToken/add-transfer-results/:city/:date" element={<CrmAddTransferResultsPage />} />
                 <Route path="/crm/itinerary/:itineraryToken/add-flight-results/:date/:origin/:destination" element={<CrmAddFlightResultsPage />} />
                 <Route path="/bookings/flight" element={<FlightBookingPage />} />

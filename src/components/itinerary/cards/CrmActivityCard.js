@@ -48,6 +48,7 @@ const CrmActivityCard = ({
     inquiryToken, 
     travelersDetails, 
     city, 
+    country,
     date, 
     onUpdate
 }) => {
@@ -142,10 +143,10 @@ const CrmActivityCard = ({
     // --- Modified Change Activity Handler --- 
     const handleChangeActivity = () => {
         // 1. Validate required props
-        if (!itineraryToken || !oldActivityCode || !inquiryToken || !city || !date) {
+        if (!itineraryToken || !oldActivityCode || !inquiryToken || !city || !country || !date) {
             toast.error("Cannot initiate activity change: Missing required context.");
             console.error("Missing context for navigation:", { 
-                itineraryToken, oldActivityCode, inquiryToken, city, date 
+                itineraryToken, oldActivityCode, inquiryToken, city, country, date 
             });
             return;
         }
@@ -157,6 +158,7 @@ const CrmActivityCard = ({
             inquiryToken: inquiryToken,
             travelersDetails: travelersDetails, // Pass traveler details
             city: city, 
+            country: country,
             date: date, 
         };
 

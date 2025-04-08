@@ -162,12 +162,18 @@ const CrmItineraryDisplay = ({ itinerary, onUpdateItinerary }) => {
             const cityDays = city.days && city.days.length > 0 ? (
               city.days.map((day) => {
                 const currentDayNumber = dayCounter++;
-                // --- Add city name to the day object --- 
-                const dayWithCity = { ...day, city: city.city }; 
+                // --- Pass city context along with day data ---
+                const dayWithContext = { 
+                    ...day, 
+                    cityContext: { // Create a specific context object
+                        name: city.city, 
+                        country: city.country 
+                    }
+                }; 
                 return (
                   <CrmItineraryDay
                     key={day.date || `day-${currentDayNumber}`}
-                    day={dayWithCity} // Pass the modified day object
+                    day={dayWithContext} // Pass the modified day object with context
                     dayNumber={currentDayNumber}
                     travelersDetails={travelersDetails}
                     itineraryToken={itineraryToken}
@@ -270,7 +276,17 @@ const CrmItineraryDisplay = ({ itinerary, onUpdateItinerary }) => {
                     <p className="text-sm text-gray-500">Price details unavailable.</p>
                   )}
               </div>
-
+              {/* Important Notes Section */}
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg shadow-sm text-xs text-yellow-800 space-y-2">
+                <h4 className="font-semibold text-sm text-yellow-900 mb-1">Important Notes:</h4>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Flight quotes are typically valid for 15 minutes after search.</li>
+                  <li>Hotel quotes are typically valid for 60 minutes after search.</li>
+                  <li>Prices are dynamic and subject to change until booking is confirmed. A final price verification occurs before payment.</li>
+                  <li>TCS (Tax Collected at Source) applies as per government regulations. See <a href="/terms-and-conditions" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-yellow-900">Terms & Conditions</a> for details.</li>
+                </ul>
+              </div>
+              {/* End Important Notes Section */}
               {/* Action Buttons Section - Moved Here */}
               <div className="p-4 bg-white rounded-lg shadow-md space-y-3">
                   <h3 className="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">Actions</h3>
@@ -298,10 +314,13 @@ const CrmItineraryDisplay = ({ itinerary, onUpdateItinerary }) => {
                     Download PDF
                   </button>
               </div>
+
+
+
             </div>
           </div>
-      </div>
-    </div>
+        </div>
+      </div> 
   );
 };
 

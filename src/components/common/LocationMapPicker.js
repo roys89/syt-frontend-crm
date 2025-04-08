@@ -201,53 +201,61 @@ const LocationMapPicker = ({
       setIsSearching(true);
       setDebugInfo(`Searching for: ${query}`);
       
+      // Ensure PlacesService is available
+      if (!placesServiceRef.current) {
+        console.error('PlacesService is not initialized.');
+        setDebugInfo('Places service not available');
+        setIsSearching(false);
+        setSearchResults([]);
+        return;
+      }
+
       try {
-        // Use Geocoding API which is more reliable for locations
-        const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode(
-          { address: query + ', India' },
-          (results, status) => {
-            console.log("Geocoder results:", status, results);
-            if (status === "OK" && results && results.length > 0) {
+        // --- Prioritize TextSearch for finding named places --- 
+        const request = {
+            query: query, // Use the raw query without adding ", India"
+            fields: ['name', 'formatted_address', 'geometry', 'place_id', 'types'], // Request needed fields
+            locationBias: mapRef.current?.getCenter() // Bias towards the current map center
+            // bounds: mapRef.current?.getBounds() // Can use bounds instead of/with locationBias if preferred
+        };
+
+        placesServiceRef.current.textSearch(request, (results, status) => {
+            console.log("TextSearch results:", status, results);
+            if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
               const formattedResults = results.map(place => ({
                 place_id: place.place_id,
-                description: place.formatted_address,
+                name: place.name, // <-- Capture the place name
+                description: place.name, // Use name as primary description
                 formatted_address: place.formatted_address,
                 location: place.geometry.location,
                 types: place.types
               }));
               setSearchResults(formattedResults);
-              setDebugInfo(`Found ${formattedResults.length} locations`);
+              setDebugInfo(`Found ${formattedResults.length} places`);
             } else {
-              // Fallback to TextSearch if direct geocoding fails
-              if (placesServiceRef.current) {
-                placesServiceRef.current.textSearch(
-                  {
-                    query: query + ' india', // Add 'india' to focus on Indian locations
-                    bounds: mapRef.current?.getBounds() // Use current map bounds if available
-                  },
-                  (results, status) => {
-                    console.log("TextSearch results:", status, results);
-                    if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
-                      const formattedResults = results.map(place => ({
-                        place_id: place.place_id,
-                        description: place.name,
-                        formatted_address: place.formatted_address,
-                        location: place.geometry.location,
-                        types: place.types
-                      }));
-                      setSearchResults(formattedResults);
-                      setDebugInfo(`Found ${formattedResults.length} places`);
-                    } else {
-                      setSearchResults([]);
-                      setDebugInfo(`No results found for: ${query}`);
-                    }
-                  }
-                );
-              } else {
-                setSearchResults([]);
-                setDebugInfo('Places service not available');
-              }
+              // --- Optional Fallback: Geocoder (only if textSearch fails completely) ---
+              // console.log("TextSearch failed, trying Geocoder...");
+              // const geocoder = new window.google.maps.Geocoder();
+              // geocoder.geocode({ address: query }, (geoResults, geoStatus) => {
+              //    console.log("Geocoder fallback results:", geoStatus, geoResults);
+              //    if (geoStatus === "OK" && geoResults && geoResults.length > 0) {
+              //        const formattedGeoResults = geoResults.map(place => ({
+              //           place_id: place.place_id, // Geocoder might not always provide place_id
+              //           name: place.formatted_address, // Geocoder provides formatted_address
+              //           description: place.formatted_address,
+              //           formatted_address: place.formatted_address,
+              //           location: place.geometry.location,
+              //           types: place.types
+              //        }));
+              //        setSearchResults(formattedGeoResults);
+              //        setDebugInfo(`Found ${formattedGeoResults.length} locations via Geocoder`);
+              //    } else {
+              //        setSearchResults([]);
+              //        setDebugInfo(`No results found for: ${query}`);
+              //    }
+              // });
+              setSearchResults([]); // Keep simple: if textSearch fails, show no results
+              setDebugInfo(`No results found for: ${query} (Status: ${status})`);
             }
             setIsSearching(false);
           }
@@ -258,7 +266,7 @@ const LocationMapPicker = ({
         setIsSearching(false);
         setDebugInfo(`Search error: ${error.message}`);
       }
-    }, 500);
+    }, 500); // 500ms debounce
   };
 
   // Handle search result selection
@@ -294,19 +302,21 @@ const LocationMapPicker = ({
       }
       
       console.log(`Selected location: ${lat}, ${lng}`);
-      setDebugInfo(`Selected: ${result.description || result.formatted_address}`);
+      // Use result.name first for display, fallback to formatted_address
+      const displayName = result.name || result.formatted_address || result.description;
+      setDebugInfo(`Selected: ${displayName}`);
       
       // Update marker position and map center
       const newLocation = { lat, lng };
       setCurrentLocation(newLocation);
       setMapCenter(newLocation);
       
-      // Send complete location data back to parent
+      // Send complete location data back to parent, prioritizing name
       onLocationSelect && onLocationSelect({
         lat,
         long: lng,
-        display_address: result.description || result.formatted_address,
-        place_name: result.description || result.formatted_address,
+        display_address: displayName, // Use the determined display name
+        place_name: result.name || displayName, // Prioritize the actual place name if available
         place_id: result.place_id
       });
       
