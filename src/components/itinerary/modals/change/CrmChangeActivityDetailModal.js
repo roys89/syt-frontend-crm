@@ -39,6 +39,77 @@ const ActivityOptionCard = ({ option, selected, onSelect }) => {
     );
 };
 
+// --- Helper function to parse duration string to minutes --- 
+const parseDurationToMinutes = (durationString) => {
+    if (!durationString || typeof durationString !== 'string') {
+        return null; // Or 0 if preferred
+    }
+    let totalMinutes = 0;
+    const hoursMatch = durationString.match(/(\d+)\s*hour/i);
+    const minutesMatch = durationString.match(/(\d+)\s*minute/i);
+
+    if (hoursMatch && hoursMatch[1]) {
+        totalMinutes += parseInt(hoursMatch[1], 10) * 60; // Convert hours to minutes
+    }
+    if (minutesMatch && minutesMatch[1]) {
+        totalMinutes += parseInt(minutesMatch[1], 10);
+    }
+
+    // Handle cases like "30 minutes" or "2 hours" where one part might be missing
+    if (totalMinutes === 0 && /^\d+$/.test(durationString.trim())) {
+        totalMinutes = parseInt(durationString.trim(), 10);
+    }
+
+    return totalMinutes > 0 ? totalMinutes : null; // Return null if parsing yields 0 or less
+};
+
+// --- Frontend Time Helper Functions (based on backend logic) ---
+
+// Helper function to validate and normalize time (HH:MM format)
+const validateAndNormalizeTime = (timeStr) => {
+    if (!timeStr || typeof timeStr !== 'string') return null;
+    const pattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!pattern.test(timeStr)) return null;
+    return timeStr; // Already in HH:MM format
+};
+
+// Helper function to determine time slot based on hour
+const getTimeSlot = (timeStr) => {
+  if (!timeStr) return null;
+  const validatedTime = validateAndNormalizeTime(timeStr);
+  if (!validatedTime) return null;
+
+  const hour = parseInt(validatedTime.split(':')[0], 10);
+
+  if (hour >= 9 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 16) return 'afternoon';
+  if (hour >= 16 && hour < 20) return 'evening';
+  return null; // Outside defined slots or invalid
+};
+
+// Helper function to calculate end time using duration in minutes
+const calculateEndTime = (startTimeStr, durationInMinutes) => {
+  const validatedStartTime = validateAndNormalizeTime(startTimeStr);
+  if (!validatedStartTime || durationInMinutes == null || durationInMinutes <= 0) {
+    return null; // Cannot calculate without valid start time and duration
+  }
+
+  const [hours, minutes] = validatedStartTime.split(':').map(Number);
+  const totalStartMinutes = hours * 60 + minutes;
+  const totalEndMinutes = totalStartMinutes + durationInMinutes;
+
+  const endHours = Math.floor(totalEndMinutes / 60) % 24; // Use modulo 24 for potential next day wrap
+  const endMinutes = totalEndMinutes % 60;
+
+  if (endHours >= 20 && totalStartMinutes < (20*60)) { // Only clamp if it *crosses* 20:00
+      return '20:00';
+  }
+
+  return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+};
+
+// --- End Frontend Time Helper Functions ---
+
 const CrmChangeActivityDetailModal = ({
     isOpen,
     onClose,
@@ -61,6 +132,10 @@ const CrmChangeActivityDetailModal = ({
     // State for user selection within the modal
     const [selectedOption, setSelectedOption] = useState(null); // The specific package/rate chosen
     const [priceComparison, setPriceComparison] = useState(null); // Comparison between NEW option and OLD activity
+
+    // --- State for Manual Time Input ---
+    const [manualStartTime, setManualStartTime] = useState('');
+    // --- End Manual Time State ---
 
     // State for the final confirmation API call
     const [bookingStatus, setBookingStatus] = useState({
@@ -134,6 +209,16 @@ const CrmChangeActivityDetailModal = ({
         if (isOpen && selectedActivity) {
             fetchActivityDetails();
         }
+        // Cleanup on close
+        if (!isOpen) {
+            setActivityDetails(null);
+            setSelectedOption(null);
+            setDetailsError(null);
+            setDetailsLoading(false);
+            setManualStartTime(''); // Reset manual time on close
+            setPriceComparison(null);
+            setBookingStatus({ loading: false, error: null, success: false, message: '' });
+        }
     }, [isOpen, selectedActivity, fetchActivityDetails]);
 
     // --- Handle option selection and price comparison --- 
@@ -159,32 +244,83 @@ const CrmChangeActivityDetailModal = ({
         }
         if (!itineraryToken || !oldActivityCode || !city || !date || !inquiryToken) {
              toast.error("Cannot confirm change: Missing essential itinerary context.");
-             console.error("Missing context for PUT request:", { itineraryToken, oldActivityCode, city, date, inquiryToken });
+             console.error("Missing context for POST request:", { itineraryToken, oldActivityCode, city, date, inquiryToken });
              return;
         }
 
         setBookingStatus({ loading: true, error: null, success: false, message: 'Updating itinerary...' });
 
         try {
-            // Construct the newActivityDetails payload based on customer frontend's example
+            // --- Determine Start Time --- 
+            let finalStartTime = null;
+            const hasDepartureTime = selectedOption.departureTime && validateAndNormalizeTime(selectedOption.departureTime);
+
+            if (hasDepartureTime) {
+                finalStartTime = selectedOption.departureTime;
+                console.log(`Change Modal: Using provided departure time: ${finalStartTime}`);
+            } else {
+                finalStartTime = validateAndNormalizeTime(manualStartTime);
+                console.log(`Change Modal: Using manual start time: ${finalStartTime}`);
+                if (!finalStartTime) {
+                     setBookingStatus({ loading: false, success: false, error: true, message: 'Please enter a valid start time (HH:MM).' });
+                     return; // Stop if manual time is invalid
+                }
+            }
+
+            // --- Parse Duration to Minutes --- 
+            const durationInMinutes = parseDurationToMinutes(activityDetails?.productInfo?.duration);
+            console.log(`Change Modal: Parsed duration '${activityDetails?.productInfo?.duration}' to ${durationInMinutes} minutes.`);
+             if (durationInMinutes === null) {
+                console.error("Change Modal: Could not parse duration from product info.");
+                setBookingStatus({ loading: false, success: false, error: true, message: 'Could not determine activity duration.' });
+                return;
+            }
+
+            // --- Calculate End Time & Time Slot ---
+            const finalEndTime = calculateEndTime(finalStartTime, durationInMinutes);
+            const finalTimeSlot = getTimeSlot(finalStartTime);
+            console.log(`Change Modal: Calculated End Time: ${finalEndTime}, Time Slot: ${finalTimeSlot}`);
+
+            // Construct the newActivityDetails payload matching CrmAddActivityDetailModal
             const newActivityDetailsPayload = {
-                activityType: 'online', // Assuming it's usually online from this source?
+                searchId: searchId, // Include searchId
+                activityType: activityDetails?.productInfo?.activityType || 'online', // Use fetched type or default
                 activityCode: selectedActivity.code,
-                activityName: selectedActivity.title,
-                // Include other relevant fields from selectedActivity or activityDetails if needed by backend
+                activityName: selectedOption.title || selectedActivity.title, // Prefer option title
+                activityProvider: 'GRNC',
+                selectedTime: finalStartTime, // Use determined start time
+                endTime: finalEndTime, // Include calculated end time
+                timeSlot: finalTimeSlot, // Include determined time slot
+                isFlexibleTiming: !hasDepartureTime, // Indicate if time was manually set
                 bookingStatus: 'pending', 
+                departureTime: { // Structure based on backend assignTimeSlots
+                    time: finalStartTime,
+                    code: selectedOption?.ratekey || null // Use ratekey as the code identifier
+                },
                 packageDetails: { // Details from the *selected option* within the modal
                     amount: selectedOption.amount,
                     currency: selectedOption.currency, 
                     ratekey: selectedOption.ratekey,
                     title: selectedOption.title,
-                    departureTime: selectedOption.departureTime, // Optional
-                    description: selectedOption.description // Optional
+                    departureTime: selectedOption.departureTime, // Keep original departure time from option here if exists
+                    description: selectedOption.description
                 },
-                // Include fields from activityDetails.productInfo if needed
-                images: activityDetails?.productInfo?.images || [],
-                description: activityDetails?.productInfo?.description || '',
-                // Add other fields like inclusions, exclusions, etc. if the PUT endpoint requires them
+                 // Include fields from activityDetails.productInfo if needed
+                images: activityDetails?.productInfo?.images || (selectedActivity.imgURL ? [{variants:[{url: selectedActivity.imgURL}]}] : []),
+                description: activityDetails?.productInfo?.description || selectedActivity.description || '',
+                groupCode: activityDetails?.productInfo?.groupCode || selectedActivity.groupCode || null,
+                duration: durationInMinutes, // Use the parsed number value (minutes)
+                departurePoint: activityDetails?.productInfo?.departurePoint || null,
+                inclusions: activityDetails?.productInfo?.inclusions || [],
+                exclusions: activityDetails?.productInfo?.exclusions || [],
+                additionalInfo: activityDetails?.productInfo?.additionalInfo || [],
+                itinerary: activityDetails?.productInfo?.itinerary || null,
+                bookingRequirements: activityDetails?.productInfo?.bookingRequirements || null,
+                pickupHotellist: activityDetails?.productInfo?.PickupHotellist || null,
+                bookingQuestions: activityDetails?.productInfo?.bookingQuestions || [],
+                cancellationFromTourDate: activityDetails?.productInfo?.cancellationFromTourDate || [],
+                tourGrade: activityDetails?.productInfo?.tourGrades?.[0] || null, // Assuming first tour grade? Or find based on option?
+                ageBands: activityDetails?.productInfo?.ageBands || [],
             };
 
             const requestBody = {
@@ -194,12 +330,12 @@ const CrmChangeActivityDetailModal = ({
                 newActivityDetails: newActivityDetailsPayload
             };
 
-            console.log("Submitting PUT /activity request:", JSON.stringify(requestBody, null, 2));
+            console.log("Submitting POST /activity request:", JSON.stringify(requestBody, null, 2));
 
             const response = await fetch(
                 `http://localhost:5000/api/itinerary/${itineraryToken}/activity`,
                 {
-                    method: 'PUT',
+                    method: 'POST',
                     headers: {
                         Authorization: `Bearer ${localStorage.getItem('token')}`,
                         'Content-Type': 'application/json',
@@ -382,6 +518,13 @@ const CrmChangeActivityDetailModal = ({
                                                 {formatCurrency(priceComparison.newPrice, priceComparison.currency)}
                                             </span>
                                         </div>
+                                        {/* Display Determined Time Info */} 
+                                        {selectedOption && (selectedOption.departureTime || manualStartTime) && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Selected Time:</span>
+                                                 <span className="font-semibold text-gray-800">{selectedOption.departureTime || manualStartTime || 'N/A'}</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Current Activity:</span>
                                             <span>
@@ -404,6 +547,24 @@ const CrmChangeActivityDetailModal = ({
                                     </div>
                                 </div>
                             )}
+
+                            {/* --- Manual Time Input --- */}
+                            {!detailsLoading && activityDetails && selectedOption && !selectedOption.departureTime && (
+                                <div className="mt-4">
+                                    <label htmlFor="manualStartTime" className="block text-sm font-medium text-gray-700 mb-1">Select Start Time</label>
+                                    <input
+                                        type="time"
+                                        id="manualStartTime"
+                                        name="manualStartTime"
+                                        value={manualStartTime}
+                                        onChange={(e) => setManualStartTime(e.target.value)}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                        required
+                                    />
+                                     <p className="mt-1 text-xs text-gray-500">Please select the desired start time for this activity.</p>
+                                </div>
+                            )}
+                            {/* --- End Manual Time Input --- */}
                         </div>
                     )}
                 </div>

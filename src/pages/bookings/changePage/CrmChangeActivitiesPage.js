@@ -7,8 +7,8 @@ import { toast } from 'react-toastify';
 // --- Import the filter component ---
 import CrmActivityFilterMdal from '../../../components/itinerary/modals/change/CrmActivityFilterMdal';
 
-// --- Import the actual components ---
-import CrmChangeActivityDetailModal from '../../../components/itinerary/modals/change/CrmChangeActivityDetailModal';
+// --- Import the Add modal instead of Change modal ---
+import CrmAddActivityDetailModal from '../../../components/itinerary/modals/add/CrmAddActivityDetailModal';
 
 // Helper function to format currency (moved from card)
 const formatCurrency = (amount) => {
@@ -34,8 +34,10 @@ const CrmChangeActivitiesPage = () => {
     const [itemsPerPage] = useState(12); // How many to load each time
     const [visibleCount, setVisibleCount] = useState(itemsPerPage); // Start with one page visible
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedActivityForModal, setSelectedActivityForModal] = useState(null);
+    // State for the Add Activity Modal
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [selectedActivityForAddModal, setSelectedActivityForAddModal] = useState(null);
+
     const [searchId, setSearchId] = useState(null);
 
     // Filter & Sort State - Managed here, passed to child component
@@ -211,14 +213,15 @@ const CrmChangeActivitiesPage = () => {
     };
 
     const handleSelectActivity = (activity) => {
-        console.log("Selected activity for modal:", activity);
-        setSelectedActivityForModal(activity);
-        setIsModalOpen(true);
+        console.log("Selected activity to ADD:", activity);
+        setSelectedActivityForAddModal(activity);
+        setIsAddModalOpen(true);
     };
 
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setTimeout(() => setSelectedActivityForModal(null), 300);
+    const handleCloseAddModal = () => {
+        setIsAddModalOpen(false);
+        // Delay clearing to allow fade-out animation
+        setTimeout(() => setSelectedActivityForAddModal(null), 300); 
     };
 
     const handleBackToItinerary = () => {
@@ -231,10 +234,11 @@ const CrmChangeActivitiesPage = () => {
         }
     };
 
-    const handleActivityChangedSuccessfully = () => {
-        toast.success("Activity successfully changed in the itinerary!");
-        handleCloseModal();
-        handleBackToItinerary();
+    // Callback for when activity is successfully ADDED via the modal
+    const handleActivityAddedSuccessfully = () => {
+        toast.success("Activity successfully added to the itinerary!");
+        handleCloseAddModal();
+        handleBackToItinerary(); // Navigate back after adding
     };
     // --- End Event Handlers ---
 
@@ -390,21 +394,19 @@ const CrmChangeActivitiesPage = () => {
                 </main>
             </div>
 
-            {/* Modal */} 
-             <CrmChangeActivityDetailModal
-                 isOpen={isModalOpen}
-                 onClose={handleCloseModal}
-                 selectedActivity={selectedActivityForModal}
-                 // Pass necessary context for the modal's API calls
-                 itineraryToken={itineraryToken}
-                 inquiryToken={inquiryToken}
-                 searchId={searchId}
-                 travelersDetails={travelersDetails}
-                 city={city}
-                 date={date}
-                 oldActivityCode={oldActivityCode}
-                 existingPrice={existingPrice}
-                 onActivityChanged={handleActivityChangedSuccessfully}
+            {/* Modal for Adding the selected activity */}
+             <CrmAddActivityDetailModal
+                 isOpen={isAddModalOpen}
+                 onClose={handleCloseAddModal}
+                 selectedActivity={selectedActivityForAddModal}
+                  // Pass necessary context for the modal's API calls
+                  itineraryToken={itineraryToken}
+                  inquiryToken={inquiryToken}
+                  searchId={searchId}
+                  travelersDetails={travelersDetails}
+                  city={city}
+                  date={date}
+                  onActivityAdded={handleActivityAddedSuccessfully} // Use the correct callback prop
              />
         </div>
     );
