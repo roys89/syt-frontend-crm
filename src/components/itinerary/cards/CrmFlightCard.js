@@ -1,5 +1,6 @@
 import { ArrowPathIcon, CurrencyDollarIcon, EyeIcon, PaperAirplaneIcon, TrashIcon } from '@heroicons/react/24/solid';
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import CrmSeatSelectionModal from '../modals/modify/CrmSeatSelectionModal';
 import CrmFlightViewModal from '../modals/view/CrmFlightViewModal';
@@ -42,10 +43,10 @@ const formatDuration = (duration) => {
 const CrmFlightCard = ({ flight, dayIndex, itemIndex, itineraryToken, inquiryToken, travelersDetails, onUpdate, date, city }) => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedFlightDataForView, setSelectedFlightDataForView] = useState(null);
-
-  // State for Seat Selection Modal
   const [isSeatModalOpen, setIsSeatModalOpen] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
+
+  const navigate = useNavigate();
 
   // Robust checks for data structure
   if (!flight || !flight.flightData || !flight.flightData.segments || flight.flightData.segments.length === 0) {
@@ -53,7 +54,7 @@ const CrmFlightCard = ({ flight, dayIndex, itemIndex, itineraryToken, inquiryTok
     return <div className="border rounded-md p-3 bg-white shadow-sm text-red-600">Incomplete flight data. Cannot render card.</div>;
   }
   if (!travelersDetails) {
-     console.warn('Travelers details missing for CrmFlightCard, needed for seat selection', { dayIndex, itemIndex });
+     console.warn('Travelers details missing for CrmFlightCard, needed for seat selection/change search', { dayIndex, itemIndex });
      // Decide how to handle - maybe disable seat button or show error?
    }
 
@@ -67,9 +68,11 @@ const CrmFlightCard = ({ flight, dayIndex, itemIndex, itineraryToken, inquiryTok
 
   const departureAirportCode = flightData.originAirport?.code || segment.origin || 'N/A';
   const departureCity = flightData.originAirport?.city || '';
+  const departureCountry = flightData.originAirport?.country || ''; // Need country for prefill
 
   const arrivalAirportCode = flightData.arrivalAirport?.code || segment.destination || 'N/A';
   const arrivalCity = flightData.arrivalAirport?.city || '';
+  const arrivalCountry = flightData.arrivalAirport?.country || ''; // Need country for prefill
   const arrivalTime = segment.arrivalTime;
 
   // Use direct flightDuration from flightData if available, else calculate from segment
@@ -101,19 +104,19 @@ const CrmFlightCard = ({ flight, dayIndex, itemIndex, itineraryToken, inquiryTok
     setIsRemoving(true);
     try {
         const response = await fetch(
-            `http://localhost:5000/api/itinerary/${itineraryToken}/flight`, 
+            `http://localhost:5000/api/itinerary/${itineraryToken}/flight`,
             {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Inquiry-Token': inquiryToken,
                     // Auth handled by interceptor/context
-                    'Authorization': `Bearer ${localStorage.getItem('crmToken')}` 
+                    'Authorization': `Bearer ${localStorage.getItem('crmToken')}`
                 },
                 body: JSON.stringify({
-                    cityName: city, 
+                    cityName: city,
                     date: date, // <-- Use the date prop here
-                    flightCode: flightCode 
+                    flightCode: flightCode
                 }),
             }
         );
@@ -135,8 +138,51 @@ const CrmFlightCard = ({ flight, dayIndex, itemIndex, itineraryToken, inquiryTok
     }
   };
   const handleChangeFlight = () => {
-    toast.info("Change Flight action placeholder");
+    // Basic checks before navigating
+    if (!travelersDetails) {
+        toast.error("Traveler details missing, cannot initiate flight change.");
+        return;
+    }
+     if (!itineraryToken || !inquiryToken || !city || !date || !flight || !flight.flightData) {
+        toast.error("Missing context required to change flight.");
+        return;
+    }
+
+    // Construct searchParams based on the current flight and context
+    // Mimics the structure from CrmFlightSearchFormModal
+    const searchParams = {
+        departureCity: {
+            city: flight.flightData.originAirport?.city || '',
+            iata: flight.flightData.originAirport?.code || '',
+        },
+        arrivalCity: {
+            city: flight.flightData.arrivalAirport?.city || '',
+            iata: flight.flightData.arrivalAirport?.code || '',
+        },
+        date: date, // Use the date passed from CrmItineraryDay
+        travelers: travelersDetails, // Use travelersDetails passed as prop
+        // Add default fields if CrmChangeFlightPage expects them
+        provider: 'TC', // Default provider
+        isRoundTrip: false, // Assuming change is always one-way search for now
+        cabinClass: 1 // Default cabin class (e.g., Economy/All)
+    };
+
+    const targetPath = `/crm/itinerary/${itineraryToken}/change-flight-results`; // Target page
+
+    // Construct the state to pass to the results page
+    const stateToPass = {
+        searchParams: searchParams, // The criteria derived from the current flight
+        oldFlightDetails: flight.flightData, // Pass the *current* flight object as context
+        itineraryToken: itineraryToken,
+        inquiryToken: inquiryToken,
+        cityName: city, // Pass current city context
+        date: date // Pass current date context
+    };
+
+    console.log(`Navigating to: ${targetPath} with state:`, stateToPass); // Keep this log for debugging
+    navigate(targetPath, { state: stateToPass });
   };
+
   const handleViewFlight = () => {
     setSelectedFlightDataForView(flight);
     setIsViewModalOpen(true);

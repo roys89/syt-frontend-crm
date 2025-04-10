@@ -11,7 +11,7 @@ import CrmActivityCard from '../cards/CrmActivityCard';
 import CrmFlightCard from '../cards/CrmFlightCard';
 import CrmHotelCard from '../cards/CrmHotelCard';
 import CrmTransferCard from '../cards/CrmTransferCard';
-import CrmHotelSearchModifyModal from '../modals/change/CrmHotelSearchModifyModal';
+import CrmHotelSearchModifyModal from '../modals/add/CrmHotelSearchModifyModal';
 import CrmActivityViewModal from '../modals/view/CrmActivityViewModal';
 
 // --- Placeholder Imports for NEW Search Form Modals ---
@@ -225,21 +225,44 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
     // New handler for Flight
     const handleSearchFromFlightModal = (searchParams) => {
         setIsFlightSearchModalOpen(false);
-        console.log("Flight search params from modal:", searchParams);
-        // TODO: Define actual parameters needed for flight search (e.g., origin, dest, dates)
-        const { date: flightDate = day.date, origin = 'FROM', destination = 'TO' } = searchParams;
+        console.log("Flight search payload from modal:", searchParams);
 
-         if (!itineraryToken || !inquiryToken || !flightDate) {
-             console.error("Cannot navigate to flight results: Missing data", { itineraryToken, inquiryToken, flightDate });
-             toast.error("Failed to start flight search. Missing required information.");
-             return;
+        // Extract data needed for the URL route parameters
+        const flightDate = searchParams?.date;
+        const originCode = searchParams?.departureCity?.iata;
+        const destinationCode = searchParams?.arrivalCity?.iata;
+
+        // Basic validation
+        if (!itineraryToken || !inquiryToken || !flightDate || !originCode || !destinationCode || !cityName || !day.date) { // Added cityName and day.date check
+            console.error("Cannot navigate to flight results: Missing data from payload or context", {
+                itineraryToken,
+                inquiryToken,
+                flightDate,
+                originCode,
+                destinationCode,
+                cityName, // Log cityName
+                dayDate: day.date, // Log day.date
+                searchParams // Log the full payload for debugging
+            });
+            toast.error("Failed to start flight search. Missing required information.");
+            return;
         }
 
-        console.log(`Navigating to flight results from ${origin} to ${destination} on ${flightDate}`);
+        console.log(`Navigating to flight results from ${originCode} to ${destinationCode} on ${flightDate}`);
+
+        // Pass the full, correctly formatted searchParams object in the state
+        // ALSO pass itineraryToken, inquiryToken, cityName, and date (from day.date)
         navigate(
-            // TODO: Define final route structure
-            `/crm/itinerary/${itineraryToken}/add-flight-results/${flightDate}/${origin}/${destination}`,
-            { state: { inquiryToken, searchParams } } // Pass relevant state
+            `/crm/itinerary/${itineraryToken}/add-flight-results/${flightDate}/${originCode}/${destinationCode}`,
+            { 
+                state: { 
+                    inquiryToken, 
+                    searchParams: searchParams, // Pass the full payload from modal
+                    itineraryToken, // Pass itinerary token
+                    cityName, // Pass the current city name from context
+                    date: day.date // Pass the specific date for this itinerary day
+                } 
+            }
         );
     };
     // --- End Handlers ---
@@ -298,6 +321,7 @@ const CrmItineraryDay = ({ day, dayNumber, travelersDetails, itineraryToken, inq
                                         date={day.date}
                                         city={cityName} // Use extracted city name
                                         onUpdate={onUpdateItinerary}
+                                        country={countryName}
                                     />
                                 </ItineraryItemWrapper>
                             ))}

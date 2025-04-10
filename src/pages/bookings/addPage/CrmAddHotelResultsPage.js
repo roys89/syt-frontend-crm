@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import CrmAddHotelDetailsModal from '../../../components/itinerary/modals/add/CrmAddHotelDetailsModal'; // Import the details modal
-import CrmHotelSearchModifyModal from '../../../components/itinerary/modals/change/CrmHotelSearchModifyModal'; // Re-use modify search modal
+import CrmHotelSearchModifyModal from '../../../components/itinerary/modals/add/CrmHotelSearchModifyModal'; // Re-use modify search modal
 // import CrmAddHotelRateModal from '../../../components/itinerary/modals/add/CrmAddHotelRateModal'; // Import the new rate modal (will be created)
 
 // Simple currency formatter helper (can be moved to a utils file)

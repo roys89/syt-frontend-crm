@@ -350,8 +350,6 @@ const FlightCard = ({
     // Create a map to store options by groupId
     const groupMap = new Map();
     
-    // Debug groupId presence
-    console.log('Inbound options group IDs:', inboundOptions.map(f => f.groupId));
     
     // First, group options by groupId
     inboundOptions.forEach(option => {
@@ -369,12 +367,7 @@ const FlightCard = ({
       groupMap.get(groupId).push(option);
     });
     
-    // Debug how many options are in each group
-    console.log('Inbound group sizes:', Array.from(groupMap.entries()).map(([id, options]) => ({ 
-      groupId: id, 
-      count: options.length,
-      firstOptionId: options[0]?.resultIndex
-    })));
+
     
     // Create the final array with grouped options
     let result = [];
@@ -542,12 +535,7 @@ const FlightCard = ({
     
     // For domestic round trip, ensure we send the correct flight structure
     if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
-      // Log selection for debugging
-      console.log('Domestic round trip selection:', {
-        flightId: flight.rI,
-        isOutbound,
-        structure: flight
-      });
+
       
       // Call parent onSelect with the flight object containing rI
       onSelect({
@@ -629,12 +617,6 @@ const FlightCard = ({
           className={`p-4 ${(selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null ? 'bg-blue-50' : 'bg-white'}`}
           onClick={() => selectInboundOption(optionIndex)}
         >
-          {/* Debug info */}
-          {option._debugHasGroup && (
-            <div className="mb-2 p-1 text-xs bg-yellow-100 text-yellow-800 rounded-sm">
-              Debug: This inbound option has {option._debugGroupSize} options in its group (groupId: {option.groupId})
-            </div>
-          )}
           
           {/* Flight segments */}
           <div className="mb-4">
@@ -987,12 +969,6 @@ const FlightCard = ({
         } hover:shadow-md transition-shadow cursor-pointer`}
         onClick={handleMainFlightSelect}
       >
-        {/* Debug info */}
-        {flight._debugHasGroup && (
-          <div className="mb-2 p-1 text-xs bg-yellow-100 text-yellow-800 rounded-sm">
-            Debug: This flight has {flight._debugGroupSize} flights in its group (groupId: {flight.groupId})
-          </div>
-        )}
         
         {/* Main content area */}
         <div className="space-y-6">
@@ -1298,13 +1274,7 @@ const FlightSummaryPanel = ({
     let baggage = '';
     let cabinBaggage = '';
     
-    // Extra logging for debugging
-    console.log('Extracting outbound data from:', {
-      resultIndex: selectedOutboundFlight.rI,
-      segments: selectedOutboundFlight.sg,
-      price: selectedOutboundFlight.pF,
-      currency: selectedOutboundFlight.cr
-    });
+
     
     if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
       // For domestic round trip, use the direct structure
@@ -1844,8 +1814,6 @@ const FlightSearchResults = ({
     // Create a map to store flights by groupId
     const groupMap = new Map();
     
-    // Debug groupId presence
-    console.log('Flight group IDs:', flightsToGroup.map(f => f.groupId));
     
     // First, group flights by groupId
     flightsToGroup.forEach(flight => {
@@ -1863,12 +1831,7 @@ const FlightSearchResults = ({
       groupMap.get(groupId).push(flight);
     });
     
-    // Debug how many flights are in each group
-    console.log('Group sizes:', Array.from(groupMap.entries()).map(([id, flights]) => ({ 
-      groupId: id, 
-      count: flights.length,
-      firstFlightId: flights[0]?.resultIndex || flights[0]?.rI
-    })));
+
     
     // Create the final array with grouped flights
     let result = [];

@@ -1,46 +1,86 @@
 import { X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import AirportSelector from '../../../booking/AirportSelector'; // Import the AirportSelector
 // Consider adding adult/child/infant count inputs if needed
 
 const CrmFlightSearchFormModal = ({ isOpen, onClose, onSearch, initialData }) => {
     // State for flight search fields
     const [departureDate, setDepartureDate] = useState('');
-    const [originAirport, setOriginAirport] = useState(''); // Expect IATA code or city name
-    const [destinationAirport, setDestinationAirport] = useState(''); // Expect IATA code or city name
+    const [originAirport, setOriginAirport] = useState(null); // State now holds the airport object
+    const [destinationAirport, setDestinationAirport] = useState(null); // State now holds the airport object
+    const [departureTime, setDepartureTime] = useState(''); // Add state for departure time
     // Add state for return date if needed for round trips
     // const [returnDate, setReturnDate] = useState('');
-    // Add state for passenger counts if needed
+    // Add state for passenger counts
     const [adults, setAdults] = useState(1);
+    const [children, setChildren] = useState(0);
+    const [infants, setInfants] = useState(0);
 
     // Pre-fill form when modal opens or initialData changes
     useEffect(() => {
         if (isOpen && initialData) {
             setDepartureDate(initialData.date || '');
+            setAdults(initialData.travelersDetails?.adults || 1);
+            setChildren(initialData.travelersDetails?.children || 0);
+            setInfants(initialData.travelersDetails?.infants || 0);
             // TODO: Potentially pre-fill origin/destination based on itinerary context
             // Example: Pre-fill origin based on current day's city (needs airport mapping)
             // setOriginAirport(getAirportCodeForCity(initialData.city) || '');
-            setOriginAirport(''); // Reset for now
-            setDestinationAirport(''); // Reset for now
+            setOriginAirport(null); // Reset airport objects
+            setDestinationAirport(null); // Reset airport objects
+            setDepartureTime(''); // Reset departure time
             // setReturnDate('');
             // setAdults(1);
         }
     }, [isOpen, initialData]);
 
     const handleSearchClick = (e) => {
+        // Default values mirroring FlightBookingPage
+        const provider = 'TC';
+        const isRoundTrip = false;
+        const cabinClass = 1; // Default to ALL/ECONOMY usually
+
         e.preventDefault();
-        // Basic validation
-        if (!originAirport || !destinationAirport || !departureDate) {
-            alert("Please fill in Origin, Destination, and Departure Date.");
+        // Basic validation using the airport objects
+        if (!originAirport || !originAirport.code || !destinationAirport || !destinationAirport.code || !departureDate) {
+            alert("Please select Origin, Destination, and Departure Date.");
             return;
         }
-        // Pass the current form state back
-        onSearch({
+        if (originAirport.code === destinationAirport.code) {
+            alert("Origin and Destination cannot be the same.");
+            return;
+        }
+
+        // Construct the payload in the desired format
+        const searchPayload = {
+            provider,
+            departureCity: {
+                city: originAirport.city,
+                iata: originAirport.code,
+                country: originAirport.country
+            },
+            arrivalCity: {
+                city: destinationAirport.city,
+                iata: destinationAirport.code,
+                country: destinationAirport.country
+            },
             date: departureDate,
-            origin: originAirport.toUpperCase(), // Standardize to uppercase?
-            destination: destinationAirport.toUpperCase(),
-            // returnDate: returnDate, // Add if round trip
-            // adults: adults, // Add passengers
-        });
+            returnDate: "", // Explicitly empty for one-way
+            isRoundTrip,
+            travelers: {
+                rooms: [{
+                    adults: adults, // Send the count directly
+                    children: children, // Send the count directly
+                    infants: infants // Send the count directly
+                }]
+            },
+            departureTime: departureTime || "", // Include departureTime, default to empty string if unset
+            returnTime: "", // Explicitly empty
+            cabinClass
+        };
+
+        // Pass the current form state back
+        onSearch(searchPayload); // Pass the correctly structured payload
     };
 
     if (!isOpen) return null;
@@ -66,33 +106,21 @@ const CrmFlightSearchFormModal = ({ isOpen, onClose, onSearch, initialData }) =>
                     {/* Origin & Destination */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label htmlFor="origin-airport" className="block text-sm font-medium text-gray-700 mb-1">
-                                Origin
-                            </label>
-                            <input
-                                id="origin-airport"
-                                type="text"
+                            <AirportSelector
+                                label="Origin"
+                                placeholder="Select origin airport"
                                 value={originAirport}
-                                onChange={(e) => setOriginAirport(e.target.value)}
-                                placeholder="City or Airport Code (e.g., DEL)"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                onChange={(airport) => setOriginAirport(airport)} // Update state with selected object
                                 required
-                                maxLength="3" // If enforcing IATA codes
                             />
                         </div>
                          <div>
-                            <label htmlFor="destination-airport" className="block text-sm font-medium text-gray-700 mb-1">
-                                Destination
-                            </label>
-                            <input
-                                id="destination-airport"
-                                type="text"
+                            <AirportSelector
+                                label="Destination"
+                                placeholder="Select destination airport"
                                 value={destinationAirport}
-                                onChange={(e) => setDestinationAirport(e.target.value)}
-                                placeholder="City or Airport Code (e.g., BOM)"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                onChange={(airport) => setDestinationAirport(airport)} // Update state with selected object
                                 required
-                                maxLength="3" // If enforcing IATA codes
                             />
                         </div>
                     </div>
@@ -112,6 +140,20 @@ const CrmFlightSearchFormModal = ({ isOpen, onClose, onSearch, initialData }) =>
                         />
                     </div>
 
+                    {/* Departure Time */}
+                    <div>
+                        <label htmlFor="departure-time" className="block text-sm font-medium text-gray-700 mb-1">
+                            Departure Time (Optional)
+                        </label>
+                        <input
+                            id="departure-time"
+                            type="time" // Input type for time
+                            value={departureTime}
+                            onChange={(e) => setDepartureTime(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        />
+                    </div>
+
                     {/* TODO: Add fields for passenger counts (Adults, Children, Infants) */}
                     
                     <div>
@@ -128,7 +170,32 @@ const CrmFlightSearchFormModal = ({ isOpen, onClose, onSearch, initialData }) =>
                             required
                         />
                     </div>
-                    
+                    <div>
+                        <label htmlFor="flight-children" className="block text-sm font-medium text-gray-700 mb-1">
+                            Children (2-11)
+                        </label>
+                        <input
+                            id="flight-children"
+                            type="number"
+                            min="0"
+                            value={children}
+                            onChange={(e) => setChildren(parseInt(e.target.value, 10) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="flight-infants" className="block text-sm font-medium text-gray-700 mb-1">
+                            Infants (0-1)
+                        </label>
+                        <input
+                            id="flight-infants"
+                            type="number"
+                            min="0"
+                            value={infants}
+                            onChange={(e) => setInfants(parseInt(e.target.value, 10) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        />
+                    </div>
 
                 </form>
 

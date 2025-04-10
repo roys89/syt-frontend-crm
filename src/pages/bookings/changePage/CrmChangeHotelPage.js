@@ -2,8 +2,8 @@ import { ArrowLeftIcon } from '@heroicons/react/24/solid'; // Use solid icons
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import CrmHotelSearchModifyModal from '../../../components/itinerary/modals/add/CrmHotelSearchModifyModal'; // Import the search modify modal
 import CrmChangeHotelDetailModal from '../../../components/itinerary/modals/change/CrmChangeHotelDetailModal'; // Import the new modal
-import CrmHotelSearchModifyModal from '../../../components/itinerary/modals/change/CrmHotelSearchModifyModal'; // Import the search modify modal
 
 // Simple currency formatter helper (can be moved to a utils file)
 const currencyFormatter = (amount, currencyCode = 'INR') => {
