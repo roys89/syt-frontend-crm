@@ -60,7 +60,8 @@ const parseDurationToMinutes = (durationString) => {
         totalMinutes = parseInt(durationString.trim(), 10);
     }
 
-    return totalMinutes > 0 ? totalMinutes : null; // Return null if parsing yields 0 or less
+    // Allow 0 minutes, return null only if parsing failed or resulted in negative
+    return totalMinutes >= 0 ? totalMinutes : null; 
 };
 
 // --- Frontend Time Helper Functions (based on backend logic) ---
@@ -108,6 +109,58 @@ const calculateEndTime = (startTimeStr, durationInMinutes) => {
   return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 };
 
+// --- ADD categorizeTravelers Helper Function ---
+const categorizeTravelers = (travelerAgesObject, apiAgeBands) => {
+  // Convert travelersDetails format to simple age array
+  const ages = [];
+  if (travelerAgesObject?.rooms?.[0]?.adults) {
+    // Need a representative age for adults based on bands
+    const adultBand = apiAgeBands?.find(b => b.ageBand === 'ADULT');
+    const representativeAdultAge = adultBand ? adultBand.startAge : 30; // Default 30 if no ADULT band
+    ages.push(...Array(travelerAgesObject.rooms[0].adults.length).fill(representativeAdultAge));
+  }
+  if (travelerAgesObject?.rooms?.[0]?.children) {
+    ages.push(...travelerAgesObject.rooms[0].children.map(age => parseInt(age)));
+  }
+  // TODO: Add logic if travelersDetails uses other formats (infants, seniors, youth)
+
+  const counts = { ADULT: 0, CHILD: 0, INFANT: 0, SENIOR: 0, YOUTH: 0 };
+  const defaultBand = 'ADULT';
+  const validAgeBands = Array.isArray(apiAgeBands) ? apiAgeBands : [];
+
+  if (validAgeBands.length === 0) {
+    console.warn('categorizeTravelers (Change Modal): No valid ageBands provided, using default counts.');
+    counts[defaultBand] = ages.length;
+  } else {
+    ages.forEach(age => {
+      let matched = false;
+      for (const band of validAgeBands) {
+        if (band && typeof band.startAge === 'number' && typeof band.endAge === 'number' && band.ageBand &&
+            age >= band.startAge && age <= band.endAge) {
+          if (counts.hasOwnProperty(band.ageBand)) {
+            counts[band.ageBand]++;
+            matched = true;
+            break;
+          } else {
+            console.warn(`categorizeTravelers (Change Modal): Unknown ageBand type '${band.ageBand}' found.`);
+          }
+        }
+      }
+      if (!matched) {
+        counts[defaultBand]++;
+        console.warn(`categorizeTravelers (Change Modal): Age ${age} did not fit any defined band, assigned to ${defaultBand}.`);
+      }
+    });
+  }
+
+  const groupCodeString = `${counts.ADULT}|${counts.CHILD}|${counts.INFANT}|${counts.SENIOR}|${counts.YOUTH}`;
+
+  return {
+    groupCode: groupCodeString // Only need the string for modifiedGroupCode construction
+  };
+};
+// --- END categorizeTravelers ---
+
 // --- End Frontend Time Helper Functions ---
 
 const CrmChangeActivityDetailModal = ({
@@ -124,20 +177,18 @@ const CrmChangeActivityDetailModal = ({
     existingPrice,
     onActivityChanged
 }) => {
-    // State for fetching options for the selectedActivity
-    const [detailsLoading, setDetailsLoading] = useState(false);
-    const [detailsError, setDetailsError] = useState(null);
-    const [activityDetails, setActivityDetails] = useState(null); // Stores response from /product-info
+    // State Refactoring
+    const [productInfoLoading, setProductInfoLoading] = useState(false);
+    const [productInfoError, setProductInfoError] = useState(null);
+    const [productInfoData, setProductInfoData] = useState(null); // Holds response from /product-info
+
+    const [availabilityLoading, setAvailabilityLoading] = useState(false);
+    const [availabilityError, setAvailabilityError] = useState(null);
+    const [availableOptions, setAvailableOptions] = useState([]); // Holds response from /availability-detail
     
-    // State for user selection within the modal
-    const [selectedOption, setSelectedOption] = useState(null); // The specific package/rate chosen
-    const [priceComparison, setPriceComparison] = useState(null); // Comparison between NEW option and OLD activity
-
-    // --- State for Manual Time Input ---
+    const [selectedOption, setSelectedOption] = useState(null); 
+    const [priceComparison, setPriceComparison] = useState(null); 
     const [manualStartTime, setManualStartTime] = useState('');
-    // --- End Manual Time State ---
-
-    // State for the final confirmation API call
     const [bookingStatus, setBookingStatus] = useState({
         loading: false,
         error: null,
@@ -145,25 +196,27 @@ const CrmChangeActivityDetailModal = ({
         message: ''
     });
 
-    // --- Fetch detailed options when modal opens --- 
-    const fetchActivityDetails = useCallback(async () => {
-        if (!selectedActivity?.code || !searchId || !inquiryToken || !city || !date || !travelersDetails) {
-             console.error("Missing data for fetching activity details:", { 
-                 selectedActivity, searchId, inquiryToken, city, date, travelersDetails 
+    // --- Fetch Product Info Only --- 
+    const fetchProductInfo = useCallback(async () => {
+        if (!selectedActivity?.code || !searchId || !inquiryToken || !city || !date ) { // Removed travelersDetails check
+             console.error("Change Modal: Missing data for fetching product info:", { 
+                 selectedActivity, searchId, inquiryToken, city, date 
              });
-             setDetailsError("Internal error: Missing required data to fetch details.");
+             setProductInfoError("Internal error: Missing required data to fetch product info.");
              return;
         }
 
-        setDetailsLoading(true);
-        setDetailsError(null);
-        setSelectedOption(null); // Reset selection
-        setActivityDetails(null); // Clear previous details
-        setPriceComparison(null); // Reset comparison
-        setBookingStatus({ loading: false, error: null, success: false, message: '' }); // Reset final status
+        setProductInfoLoading(true);
+        setProductInfoError(null);
+        setProductInfoData(null); // Clear previous info
+        setAvailableOptions([]); // Clear old options
+        setSelectedOption(null); 
+        setAvailabilityError(null);
+        setPriceComparison(null); 
+        setBookingStatus({ loading: false, error: null, success: false, message: '' });
 
         try {
-            console.log(`Fetching product info for activity code: ${selectedActivity.code} using searchId: ${searchId}`);
+            console.log(`Change Modal: Fetching product info for activity code: ${selectedActivity.code}`);
             const response = await fetch(
                 `http://localhost:5000/api/itinerary/product-info/${selectedActivity.code}`,
                 {
@@ -174,52 +227,134 @@ const CrmChangeActivityDetailModal = ({
                         'X-Inquiry-Token': inquiryToken,
                     },
                     body: JSON.stringify({
-                        city: { name: city },
+                        city: { name: city }, 
                         date: date,
-                        travelersDetails: travelersDetails,
+                        // travelersDetails: travelersDetails, // REMOVED
                         searchId: searchId,
-                        groupCode: selectedActivity.groupCode
+                        // groupCode: selectedActivity.groupCode // REMOVED - Not needed for initial product info
                     })
                 }
             );
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: response.statusText }));
-                throw new Error(errorData.message || `Failed to fetch activity details (${response.status})`);
+                throw new Error(errorData.message || `Failed to fetch activity product info (${response.status})`);
             }
 
             const data = await response.json();
-            console.log("Fetched activity product info:", data);
+            console.log("Change Modal: Fetched activity product info:", data);
             
-            if (!data || !data.availabilityDetails) {
-                 console.warn("Response format might be unexpected:", data);
-                 throw new Error("Activity details or options not found in the response.");
+            // Basic validation of product info structure
+            if (!data || !data.title || !data.productCode) { 
+                 throw new Error("Invalid product info structure received (missing title or productCode).");
             }
-            setActivityDetails(data);
+            setProductInfoData(data);
+            // --- Trigger availability fetch on success ---
+            fetchAvailabilityDetails(data); // Pass fetched data directly
+            // -------------------------------------------
 
         } catch (err) {
-            console.error("Error fetching activity details:", err);
-            setDetailsError(err.message);
+            console.error("Change Modal: Error fetching product info:", err);
+            setProductInfoError(err.message);
         } finally {
-            setDetailsLoading(false);
+            setProductInfoLoading(false);
         }
-    }, [selectedActivity, searchId, inquiryToken, city, date, travelersDetails]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedActivity, searchId, inquiryToken, city, date]); // travelersDetails removed from dependencies
+
+    // --- ADD fetchAvailabilityDetails --- 
+    const fetchAvailabilityDetails = useCallback(async (fetchedProductInfo) => {
+        if (!fetchedProductInfo || !travelersDetails || !selectedActivity?.groupCode || !searchId || !city || !date) {
+             console.error("Change Modal: Missing data for fetching availability details:", {
+                 fetchedProductInfo, travelersDetails, selectedActivity, searchId, city, date
+             });
+             setAvailabilityError("Internal error: Cannot fetch options.");
+             return;
+        }
+
+        setAvailabilityLoading(true);
+        setAvailabilityError(null);
+        setAvailableOptions([]); // Clear previous results
+        setSelectedOption(null); // Reset selection
+
+        try {
+            // --- Calculate modifiedGroupCode --- 
+            const baseGroupCode = selectedActivity.groupCode.split('-')[0];
+            if (!baseGroupCode) {
+                throw new Error("Could not determine base group code from selected activity.");
+            }
+             // Use the travelersDetails prop here
+            const { groupCode: ageDistribution } = categorizeTravelers(travelersDetails, fetchedProductInfo.ageBands);
+            const calculatedModifiedGroupCode = `${baseGroupCode}-${ageDistribution}`;
+            console.log(`Change Modal: Calculated modifiedGroupCode for availability: ${calculatedModifiedGroupCode}`);
+            // --- End Calculation --- 
+
+            // --- Fetch Availability Details using calculated modifiedGroupCode --- 
+            console.log(`Change Modal: Fetching availability details using searchId ${searchId} and modifiedGroupCode ${calculatedModifiedGroupCode}`);
+            const availabilityResponse = await fetch(
+                `http://localhost:5000/api/itinerary/availability-detail/${selectedActivity.code}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem('crmToken')}`,
+                        'Content-Type': 'application/json',
+                        'X-Inquiry-Token': inquiryToken,
+                    },
+                    body: JSON.stringify({
+                        searchId: searchId,
+                        modifiedGroupCode: calculatedModifiedGroupCode, // Send calculated code
+                        city: { name: city },
+                        date: date,
+                    })
+                }
+            );
+
+            if (!availabilityResponse.ok) {
+                const errorData = await availabilityResponse.json().catch(() => ({ message: availabilityResponse.statusText }));
+                throw new Error(errorData.message || `Failed to fetch availability details (${availabilityResponse.status})`);
+            }
+
+            const data = await availabilityResponse.json(); 
+            console.log("Change Modal: Fetched availability details (options):", data);
+
+            if (!Array.isArray(data)) {
+                 throw new Error("Invalid response structure received for availability details.");
+            }
+
+            if (data.length === 0) {
+                setAvailabilityError("No options found for the current travelers and selected activity.");
+            } else {
+                setAvailableOptions(data);
+                // Optionally auto-select first option? Maybe not for 'change' flow.
+            }
+
+        } catch (err) {
+            console.error("Change Modal: Error fetching availability details:", err);
+            setAvailabilityError(err.message);
+        } finally {
+            setAvailabilityLoading(false);
+        }
+    }, [selectedActivity, searchId, inquiryToken, city, date, travelersDetails]); // Added travelersDetails dependency
+    // --- END fetchAvailabilityDetails --- 
 
     useEffect(() => {
         if (isOpen && selectedActivity) {
-            fetchActivityDetails();
+            fetchProductInfo(); // Trigger the product info fetch first
         }
         // Cleanup on close
         if (!isOpen) {
-            setActivityDetails(null);
+            setProductInfoData(null);
+            setAvailableOptions([]);
             setSelectedOption(null);
-            setDetailsError(null);
-            setDetailsLoading(false);
-            setManualStartTime(''); // Reset manual time on close
+            setProductInfoError(null);
+            setAvailabilityError(null);
+            setProductInfoLoading(false);
+            setAvailabilityLoading(false);
+            setManualStartTime(''); 
             setPriceComparison(null);
             setBookingStatus({ loading: false, error: null, success: false, message: '' });
         }
-    }, [isOpen, selectedActivity, fetchActivityDetails]);
+    }, [isOpen, selectedActivity, fetchProductInfo]); // fetchProductInfo is stable due to useCallback
 
     // --- Handle option selection and price comparison --- 
     const handleOptionSelect = (option) => {
@@ -238,13 +373,13 @@ const CrmChangeActivityDetailModal = ({
 
     // --- Handle final confirmation --- 
     const handleConfirmChange = async () => {
-        if (!selectedOption || !activityDetails) {
+        if (!selectedOption || !productInfoData) {
             toast.error("Please select an activity option first.");
             return;
         }
-        if (!itineraryToken || !oldActivityCode || !city || !date || !inquiryToken) {
+        if (!itineraryToken || !oldActivityCode || !city || !date || !inquiryToken || !travelersDetails) {
              toast.error("Cannot confirm change: Missing essential itinerary context.");
-             console.error("Missing context for POST request:", { itineraryToken, oldActivityCode, city, date, inquiryToken });
+             console.error("Change Modal: Missing context for POST request:", { itineraryToken, oldActivityCode, city, date, inquiryToken, travelersDetails });
              return;
         }
 
@@ -268,8 +403,8 @@ const CrmChangeActivityDetailModal = ({
             }
 
             // --- Parse Duration to Minutes --- 
-            const durationInMinutes = parseDurationToMinutes(activityDetails?.productInfo?.duration);
-            console.log(`Change Modal: Parsed duration '${activityDetails?.productInfo?.duration}' to ${durationInMinutes} minutes.`);
+            const durationInMinutes = parseDurationToMinutes(productInfoData?.duration);
+            console.log(`Change Modal: Parsed duration '${productInfoData?.duration}' to ${durationInMinutes} minutes.`);
              if (durationInMinutes === null) {
                 console.error("Change Modal: Could not parse duration from product info.");
                 setBookingStatus({ loading: false, success: false, error: true, message: 'Could not determine activity duration.' });
@@ -281,56 +416,70 @@ const CrmChangeActivityDetailModal = ({
             const finalTimeSlot = getTimeSlot(finalStartTime);
             console.log(`Change Modal: Calculated End Time: ${finalEndTime}, Time Slot: ${finalTimeSlot}`);
 
+            // --- Recalculate modifiedGroupCode for the final payload ---
+            const baseGroupCode = selectedActivity?.groupCode?.split('-')[0];
+            if (!baseGroupCode) {
+                setBookingStatus({ loading: false, success: false, error: true, message: 'Could not determine base group code.'});
+                return;
+            }
+            // Use the travelersDetails prop here for calculation
+            const { groupCode: ageDistribution } = categorizeTravelers(travelersDetails, productInfoData.ageBands);
+            const finalModifiedGroupCode = `${baseGroupCode}-${ageDistribution}`;
+            console.log(`Change Modal: Final modifiedGroupCode for change request: ${finalModifiedGroupCode}`);
+            // --- End Recalculation ---
+
             // Construct the newActivityDetails payload matching CrmAddActivityDetailModal
             const newActivityDetailsPayload = {
-                searchId: searchId, // Include searchId
-                activityType: activityDetails?.productInfo?.activityType || 'online', // Use fetched type or default
+                searchId: searchId, 
+                activityType: productInfoData.activityType || 'online', // Use fetched type 
                 activityCode: selectedActivity.code,
-                activityName: selectedOption.title || selectedActivity.title, // Prefer option title
+                activityName: selectedOption.title || selectedActivity.title, 
                 activityProvider: 'GRNC',
-                selectedTime: finalStartTime, // Use determined start time
-                endTime: finalEndTime, // Include calculated end time
-                timeSlot: finalTimeSlot, // Include determined time slot
-                isFlexibleTiming: !hasDepartureTime, // Indicate if time was manually set
+                selectedTime: finalStartTime, 
+                endTime: finalEndTime, 
+                timeSlot: finalTimeSlot, 
+                isFlexibleTiming: !hasDepartureTime, 
                 bookingStatus: 'pending', 
-                departureTime: { // Structure based on backend assignTimeSlots
+                departureTime: { 
                     time: finalStartTime,
-                    code: selectedOption?.ratekey || null // Use ratekey as the code identifier
+                    code: selectedOption.code // Use Tour Grade Code from the selected package
                 },
-                packageDetails: { // Details from the *selected option* within the modal
+                packageDetails: { 
                     amount: selectedOption.amount,
                     currency: selectedOption.currency, 
                     ratekey: selectedOption.ratekey,
                     title: selectedOption.title,
-                    departureTime: selectedOption.departureTime, // Keep original departure time from option here if exists
+                    departureTime: selectedOption.departureTime, 
                     description: selectedOption.description
                 },
-                 // Include fields from activityDetails.productInfo if needed
-                images: activityDetails?.productInfo?.images || (selectedActivity.imgURL ? [{variants:[{url: selectedActivity.imgURL}]}] : []),
-                description: activityDetails?.productInfo?.description || selectedActivity.description || '',
-                groupCode: activityDetails?.productInfo?.groupCode || selectedActivity.groupCode || null,
-                duration: durationInMinutes, // Use the parsed number value (minutes)
-                departurePoint: activityDetails?.productInfo?.departurePoint || null,
-                inclusions: activityDetails?.productInfo?.inclusions || [],
-                exclusions: activityDetails?.productInfo?.exclusions || [],
-                additionalInfo: activityDetails?.productInfo?.additionalInfo || [],
-                itinerary: activityDetails?.productInfo?.itinerary || null,
-                bookingRequirements: activityDetails?.productInfo?.bookingRequirements || null,
-                pickupHotellist: activityDetails?.productInfo?.PickupHotellist || null,
-                bookingQuestions: activityDetails?.productInfo?.bookingQuestions || [],
-                cancellationFromTourDate: activityDetails?.productInfo?.cancellationFromTourDate || [],
-                tourGrade: activityDetails?.productInfo?.tourGrades?.[0] || null, // Assuming first tour grade? Or find based on option?
-                ageBands: activityDetails?.productInfo?.ageBands || [],
+                // Use data from productInfoData (the actual product info)
+                images: productInfoData.images || (selectedActivity.imgURL ? [{variants:[{url: selectedActivity.imgURL}]}] : []),
+                description: productInfoData.description || selectedActivity.description || '',
+                groupCode: finalModifiedGroupCode, // Use the code calculated based on travelersDetails prop
+                duration: durationInMinutes, 
+                departurePoint: productInfoData.departurePoint || null,
+                inclusions: productInfoData.inclusions || [],
+                exclusions: productInfoData.exclusions || [],
+                additionalInfo: productInfoData.additionalInfo || [],
+                itinerary: productInfoData.itinerary || null,
+                bookingRequirements: productInfoData.bookingRequirements || null,
+                pickupHotellist: productInfoData.PickupHotellist || null, // Note casing 
+                bookingQuestions: productInfoData.bookingQuestions || [],
+                cancellationFromTourDate: productInfoData.cancellationFromTourDate || [],
+                // tourGrade: productInfoData.tourGrades?.[0] || null, // Find based on selectedOption.code
+                tourGrade: productInfoData.tourGrades?.find(tg => tg.encryptgradeCode === selectedOption.code) || null,
+                ageBands: productInfoData.ageBands || [],
             };
 
             const requestBody = {
                 cityName: city,
                 date: date,
                 oldActivityCode: oldActivityCode,
-                newActivityDetails: newActivityDetailsPayload
+                newActivityDetails: newActivityDetailsPayload,
+                travelersDetails: travelersDetails // Send the original travelersDetails prop for context
             };
 
-            console.log("Submitting POST /activity request:", JSON.stringify(requestBody, null, 2));
+            console.log("Change Modal: Submitting POST /activity request:", JSON.stringify(requestBody, null, 2));
 
             const response = await fetch(
                 `http://localhost:5000/api/itinerary/${itineraryToken}/activity`,
@@ -368,8 +517,7 @@ const CrmChangeActivityDetailModal = ({
 
     if (!isOpen) return null;
 
-    const availableOptions = activityDetails?.availabilityDetails || [];
-    const productInfo = activityDetails?.productInfo || {};
+    const productInfo = productInfoData || {};
 
     return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in">
@@ -390,26 +538,26 @@ const CrmChangeActivityDetailModal = ({
 
                 {/* Content Area */}
                 <div className="flex-grow overflow-y-auto">
-                    {detailsLoading && (
+                    {productInfoLoading && (
                         <div className="text-center p-10">
                             <ArrowPathIcon className="h-8 w-8 text-blue-500 animate-spin mx-auto" />
                             <p className="mt-2 text-gray-600">Loading activity details...</p>
                         </div>
                     )}
 
-                    {detailsError && (
+                    {productInfoError && (
                         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 m-4 rounded relative" role="alert">
                             <strong className="font-bold">Error! </strong>
-                            <span className="block sm:inline">{detailsError}</span>
+                            <span className="block sm:inline">{productInfoError}</span>
                         </div>
                     )}
 
-                    {!detailsLoading && !detailsError && activityDetails && (
+                    {!productInfoLoading && !productInfoError && productInfoData && (
                         <div className="p-4 space-y-6">
                             {/* Image Gallery */}
-                            {productInfo.images && productInfo.images.length > 0 && (
+                            {productInfoData.images && productInfoData.images.length > 0 && (
                                 <div className="flex gap-2 overflow-x-auto pb-2">
-                                    {productInfo.images.map((image, index) => (
+                                    {productInfoData.images.map((image, index) => (
                                         <img
                                             key={index}
                                             src={image.variants[0].url}
@@ -421,35 +569,35 @@ const CrmChangeActivityDetailModal = ({
                             )}
 
                             {/* Description */}
-                            {productInfo.description && (
+                            {productInfoData.description && (
                                 <div className="text-gray-700">
                                     <h3 className="text-lg font-semibold mb-2">Description</h3>
-                                    <p className="text-sm">{productInfo.description}</p>
+                                    <p className="text-sm">{productInfoData.description}</p>
                                 </div>
                             )}
 
                             {/* Duration & Departure */}
                             <div className="grid grid-cols-2 gap-4">
-                                {productInfo.duration && (
+                                {productInfoData.duration && (
                                     <div>
                                         <h4 className="text-sm font-semibold text-gray-600">Duration</h4>
-                                        <p className="text-sm">{productInfo.duration}</p>
+                                        <p className="text-sm">{productInfoData.duration}</p>
                                     </div>
                                 )}
-                                {productInfo.departurePoint && (
+                                {productInfoData.departurePoint && (
                                     <div>
                                         <h4 className="text-sm font-semibold text-gray-600">Departure Point</h4>
-                                        <p className="text-sm">{productInfo.departurePoint}</p>
+                                        <p className="text-sm">{productInfoData.departurePoint}</p>
                                     </div>
                                 )}
                             </div>
 
                             {/* Inclusions */}
-                            {productInfo.inclusions && productInfo.inclusions.length > 0 && (
+                            {productInfoData.inclusions && productInfoData.inclusions.length > 0 && (
                                 <div>
                                     <h3 className="text-lg font-semibold mb-2">Inclusions</h3>
                                     <ul className="list-disc list-inside text-sm space-y-1">
-                                        {productInfo.inclusions.map((inclusion, index) => (
+                                        {productInfoData.inclusions.map((inclusion, index) => (
                                             <li key={index} className="text-gray-700">
                                                 {inclusion.otherDescription}
                                             </li>
@@ -459,11 +607,11 @@ const CrmChangeActivityDetailModal = ({
                             )}
 
                             {/* Itinerary */}
-                            {productInfo.itinerary?.itineraryItems && productInfo.itinerary.itineraryItems.length > 0 && (
+                            {productInfoData.itinerary?.itineraryItems && productInfoData.itinerary.itineraryItems.length > 0 && (
                                 <div>
                                     <h3 className="text-lg font-semibold mb-2">Itinerary</h3>
                                     <ul className="space-y-3 text-sm">
-                                        {productInfo.itinerary.itineraryItems.map((item, index) => (
+                                        {productInfoData.itinerary.itineraryItems.map((item, index) => (
                                             <li key={index} className="text-gray-700 border-l-2 border-blue-200 pl-3">
                                                 {item.name && <strong className="block font-medium text-gray-800">{item.name}</strong>}
                                                 {item.description && <p className="mt-0.5">{item.description}</p>}
@@ -475,11 +623,11 @@ const CrmChangeActivityDetailModal = ({
                             )}
 
                             {/* Additional Info */}
-                            {productInfo.additionalInfo && productInfo.additionalInfo.length > 0 && (
+                            {productInfoData.additionalInfo && productInfoData.additionalInfo.length > 0 && (
                                 <div>
                                     <h3 className="text-lg font-semibold mb-2">Additional Information</h3>
                                     <ul className="list-disc list-inside text-sm space-y-1">
-                                        {productInfo.additionalInfo.map((info, index) => (
+                                        {productInfoData.additionalInfo.map((info, index) => (
                                             <li key={index} className="text-gray-700">
                                                 {info.description}
                                             </li>
@@ -491,20 +639,31 @@ const CrmChangeActivityDetailModal = ({
                             {/* Available Options */}
                             <div>
                                 <h3 className="text-lg font-semibold mb-3">Available Options</h3>
-                                <div className="space-y-3">
-                                    {availableOptions.length > 0 ? (
-                                        availableOptions.map(option => (
-                                            <ActivityOptionCard
-                                                key={option.ratekey}
-                                                option={option}
-                                                selected={selectedOption?.ratekey === option.ratekey}
-                                                onSelect={() => handleOptionSelect(option)}
-                                            />
-                                        ))
-                                    ) : (
-                                        <p className="text-gray-500 italic">No specific options found for this activity.</p>
-                                    )}
-                                </div>
+                                {availabilityLoading && (
+                                    <div className="text-center p-5">
+                                        <ArrowPathIcon className="h-6 w-6 text-blue-500 animate-spin mx-auto" />
+                                        <p className="mt-1 text-sm text-gray-500">Loading options...</p>
+                                    </div>
+                                )}
+                                {availabilityError && !availabilityLoading && (
+                                     <p className="text-red-600 italic px-3 py-2 bg-red-50 rounded border border-red-200">Error: {availabilityError}</p>
+                                )}
+                                {!availabilityLoading && !availabilityError && (
+                                     <div className="space-y-3">
+                                        {availableOptions.length > 0 ? (
+                                            availableOptions.map(option => (
+                                                <ActivityOptionCard
+                                                    key={option.ratekey}
+                                                    option={option}
+                                                    selected={selectedOption?.ratekey === option.ratekey}
+                                                    onSelect={() => handleOptionSelect(option)}
+                                                />
+                                            ))
+                                        ) : (
+                                            <p className="text-gray-500 italic">No specific options found for this activity.</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Price Comparison */}
@@ -549,7 +708,7 @@ const CrmChangeActivityDetailModal = ({
                             )}
 
                             {/* --- Manual Time Input --- */}
-                            {!detailsLoading && activityDetails && selectedOption && !selectedOption.departureTime && (
+                            {!productInfoLoading && !availabilityLoading && productInfoData && selectedOption && !selectedOption.departureTime && (
                                 <div className="mt-4">
                                     <label htmlFor="manualStartTime" className="block text-sm font-medium text-gray-700 mb-1">Select Start Time</label>
                                     <input

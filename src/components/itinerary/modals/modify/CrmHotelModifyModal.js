@@ -412,10 +412,9 @@ const CrmHotelModifyModal = ({
             if (replaceData.partialSuccess && replaceData.transferUpdateFailed) {
                 toast.warn("Hotel modified, but automatic transfer updates failed. Please check transfers manually.");
             }
-            if (onUpdateItinerary) {
-                onUpdateItinerary(); // Trigger itinerary refresh
-            }
-            onClose(); // Close modal
+
+            // Reload the page
+            window.location.reload(); 
 
         } catch (error) {
             console.error("Error during Confirm Selection / Replace Hotel:", error);

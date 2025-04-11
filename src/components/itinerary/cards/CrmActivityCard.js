@@ -4,6 +4,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { toast } from 'react-toastify';
 
+// Import the CHANGE Activity Detail modal
+import CrmChangeActivityDetailModal from '../modals/change/CrmChangeActivityDetailModal';
+// Import the RoomArrangementModal component
+import RoomArrangementModal from '../../booking/RoomArrangementModal';
+
 // --- Helper Functions ---
 const formatTime = (timeString) => {
     // Assuming timeString is already in a displayable format like "14:00" or includes AM/PM
@@ -52,6 +57,14 @@ const CrmActivityCard = ({
     date, 
     onUpdate
 }) => {
+    // State for the Modify modal flow
+    const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);         // Step 1: Room/Travelers Edit
+    const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);       // Step 2: Activity Change
+    const [initialRoomsForModal, setInitialRoomsForModal] = useState([]); // State for RoomArrangementModal, expects array of rooms
+    const [confirmedTravelersDetails, setConfirmedTravelersDetails] = useState(null); // State for final change modal, expects { rooms: [...] } format
+    // State to hold the activity data formatted for the modal
+    const [activityForModal, setActivityForModal] = useState(null);
+
     const navigate = useNavigate(); // Initialize navigate hook
     const [isRemoving, setIsRemoving] = useState(false); // State for loading indicator
 
@@ -182,7 +195,105 @@ const CrmActivityCard = ({
     };
 
     const handleModifyActivity = () => {
-        toast.info("Modify Activity action placeholder");
+        // Validate required data for opening the modal
+        if (!activity || !itineraryToken || !inquiryToken || !city || !date || !travelersDetails || !activity.searchId || !activity.activityCode) {
+            toast.error("Cannot modify activity: Missing required context.");
+            console.error("Missing data for modify modal:", { activity, itineraryToken, inquiryToken, city, date, travelersDetails });
+            return;
+        }
+
+        // --- Transform activity data for the CrmChangeActivityDetailModal --- 
+        const transformedActivity = {
+            // Map itinerary fields to fields expected by the modal (based on results page usage)
+            code: activity.activityCode,          // activityCode -> code
+            title: activity.activityName,         // activityName -> title
+            amount: activity.packageDetails?.amount || 0, // packageDetails.amount -> amount
+            imgURL: activity.images?.[0]?.variants?.[0]?.url || null, // First image -> imgURL
+            groupCode: activity.groupCode,         // Pass through groupCode
+            description: activity.description,     // Pass through description (modal might use this)
+            searchId: activity.searchId,           // Pass through searchId
+            activityType: activity.activityType,   // Pass through activityType
+            // Include other potential fields if the Add modal expects them from search results
+        };
+
+        console.log("Preparing activity for modification:", transformedActivity);
+        setActivityForModal(transformedActivity); // Store the transformed data
+
+        // --- Transform initial travelersDetails for RoomArrangementModal --- 
+        // RoomArrangementModal expects an array of rooms like [{ adults: [30, 25], children: [5] }]
+        // travelersDetails is { rooms: [{ adults: [30, 25], children: [5] }] }
+        const initialRooms = travelersDetails?.rooms?.map(room => ({ 
+            // Ensure adults/children are arrays of numbers (provide default age if needed)
+            adults: Array.isArray(room.adults) 
+                ? room.adults.map(age => age ?? 30) // Default age 30 if null/undefined
+                : Array(room.adults || 1).fill(30), // If it's just a count, create array
+            children: Array.isArray(room.children) 
+                ? room.children.map(age => age ?? 5) // Default age 5 if null/undefined
+                : [] 
+        })) || [{ adults: [30], children: [] }]; // Default if travelersDetails is missing
+
+        console.log("Initial rooms for RoomArrangementModal:", initialRooms);
+        setInitialRoomsForModal(initialRooms);
+
+        // Open the Room Arrangement modal first
+        setIsRoomModalOpen(true);
+    };
+
+    // Handler for saving changes from RoomArrangementModal
+    const handleRoomSave = (updatedRooms) => {
+        if (!activityForModal) { 
+            toast.error("Error: Activity data is missing.");
+            return;
+        }
+        console.log("Room arrangement confirmed:", updatedRooms);
+        
+        // --- Transform updatedRooms (array) back into itinerary format { rooms: [...] } --- 
+        const finalTravelersForChangeModal = {
+             // Assuming travelersDetails structure might have other props like 'type'
+             // If not, this can be simplified
+             ...(travelersDetails || {}),
+             rooms: updatedRooms.map(room => ({ // Map the updated rooms array
+                adults: room.adults.filter(age => age !== null && age !== undefined), // Ensure only valid ages are kept
+                children: room.children.filter(age => age !== null && age !== undefined)
+             }))
+        };
+        console.log("Final travelers for change modal:", finalTravelersForChangeModal);
+
+        // Store the final travelers details in state for the change modal
+        setConfirmedTravelersDetails(finalTravelersForChangeModal); 
+
+        setIsRoomModalOpen(false);    // Close room modal
+        setIsChangeModalOpen(true);    // Open activity change modal
+    };
+
+    // Handler for closing the Room Arrangement modal without saving
+    const handleCloseRoomModal = () => {
+        setIsRoomModalOpen(false);
+        // Optionally reset initialRoomsForModal if needed
+        // setInitialRoomsForModal([]);
+    };
+
+    // Handler for closing the final change modal
+    const handleCloseChangeModal = () => {
+        setIsChangeModalOpen(false);
+        setActivityForModal(null);
+        setConfirmedTravelersDetails(null); // Clear confirmed travelers state
+        // Optionally reset initialRoomsForModal if needed
+        // setInitialRoomsForModal([]);
+    };
+
+    // Callback for when the modal successfully modifies the activity
+    const handleActivityModifiedSuccessfully = () => {
+        handleCloseChangeModal(); // Close the change modal and cleanup state
+        toast.success("Activity modified successfully!");
+        // Call the onUpdate prop passed from CrmItineraryDay to refresh data
+        if (onUpdate) {
+            onUpdate(); 
+        } else {
+             // Fallback if onUpdate isn't provided
+             console.warn("onUpdate prop not provided to CrmActivityCard, attempting page reload.");
+             window.location.reload(); 
+        }
     };
 
     return (
@@ -296,6 +407,43 @@ const CrmActivityCard = ({
                     </div>
                 </div>
             </div>
+
+            {/* --- Step 1: Room Arrangement Modal --- */} 
+            {isRoomModalOpen && (
+                <RoomArrangementModal
+                    isOpen={isRoomModalOpen}
+                    onClose={handleCloseRoomModal} // Close handler for room modal
+                    initialRooms={initialRoomsForModal} // Pass the prepared initial rooms array
+                    onSave={handleRoomSave} // Save handler to process changes
+                    // Optional: Pass max constraints if needed, otherwise defaults are used
+                    // maxRooms={1} // Activities typically involve a single group/room concept
+                    // maxAdultsPerRoom={...} 
+                    // maxChildrenPerRoom={...}
+                />
+            )}
+
+            {/* --- Step 2: Activity Change Modal --- */} 
+            {isChangeModalOpen && activityForModal && (
+                <CrmChangeActivityDetailModal
+                    isOpen={isChangeModalOpen}
+                    onClose={handleCloseChangeModal} // Use specific close handler
+                    selectedActivity={activityForModal} // Pass potentially transformed activity
+                    itineraryToken={itineraryToken}
+                    inquiryToken={inquiryToken}
+                    // Use the searchId FROM THE CURRENT activity object
+                    searchId={activityForModal.searchId} 
+                    // Pass the travelers details transformed BACK to itinerary format
+                    travelersDetails={confirmedTravelersDetails} // Use the state variable instead
+                    city={city} // Pass city prop
+                    date={date} // Pass date prop
+                    // Pass oldActivityCode to signal modification intent
+                    oldActivityCode={activity.activityCode} // Use original activityCode here
+                    // Pass existing price separately if needed
+                    existingPrice={existingPrice} 
+                    // Use the correct prop for the change modal callback
+                    onActivityChanged={handleActivityModifiedSuccessfully} 
+                />
+            )}
         </div>
     );
 };

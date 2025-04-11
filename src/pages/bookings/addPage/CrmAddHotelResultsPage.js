@@ -6,6 +6,10 @@ import CrmAddHotelDetailsModal from '../../../components/itinerary/modals/add/Cr
 import CrmHotelSearchModifyModal from '../../../components/itinerary/modals/add/CrmHotelSearchModifyModal'; // Re-use modify search modal
 // import CrmAddHotelRateModal from '../../../components/itinerary/modals/add/CrmAddHotelRateModal'; // Import the new rate modal (will be created)
 
+// --- NEW: Import Hourglass loader ---
+import { Hourglass } from 'ldrs/react';
+import 'ldrs/react/Hourglass.css'; // Ensure CSS is imported
+
 // Simple currency formatter helper (can be moved to a utils file)
 const currencyFormatter = (amount, currencyCode = 'INR') => {
     if (typeof amount !== 'number' || isNaN(amount)) return 'N/A';
@@ -329,15 +333,17 @@ const CrmAddHotelResultsPage = () => {
             {/* Main Content Area */}
             <div className="mt-6">
                 {loading && (
-                    <div className="text-center py-10">
-                        <p className="text-gray-600">Loading available hotels...</p>
-                        {/* Optional: Add spinner */}
+                    <div className="text-center flex flex-row items-center justify-center py-10"> {/* Updated container */}
+                        <Hourglass size="40" color="#6366F1" />
+                        <p className="text-gray-600 ml-3">Loading available hotels...</p> {/* Updated text element */}
                     </div>
                 )}
                 {error && (
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
-                        <strong className="font-bold">Error: </strong>
-                        <span className="block sm:inline">{error}</span>
+                    <div className="flex-grow flex items-center justify-center py-10"> {/* Added flex container */}
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative max-w-2xl text-center" role="alert"> {/* Original error box styling, adjusted max-width */}
+                            <strong className="font-bold">Error: </strong>
+                            <span className="block sm:inline">{error}</span>
+                        </div>
                     </div>
                 )}
 

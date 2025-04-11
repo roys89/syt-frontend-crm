@@ -1,9 +1,12 @@
-import { ArrowLeft, Clock, Loader2, Users } from 'lucide-react';
+import { ArrowLeft, Clock, Users } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 // import bookingService from '../../../services/bookingService'; // Will uncomment later
 // import CrmTransferResultCard from '../../../components/itinerary/cards/CrmTransferResultCard'; // Will create later
 
+// --- NEW: Import Hourglass loader ---
+import { Hourglass } from 'ldrs/react';
+import 'ldrs/react/Hourglass.css'; // Ensure CSS is imported
 
 // Import the Quote Modal
 import CrmAddTransferQuoteModal from '../../../components/itinerary/modals/add/CrmAddTransferQuoteModal';
@@ -340,15 +343,17 @@ const CrmAddTransferResultsPage = () => {
             <div className="flex-grow overflow-y-auto p-4 md:p-6 lg:p-8">
                 {loading && (
                     <div className="flex justify-center items-center py-10">
-                        <Loader2 className="w-8 h-8 text-cyan-600 animate-spin" />
+                        <Hourglass size="40" color="#6366F1" />
                         <p className="ml-3 text-gray-600">Searching for transfers...</p>
                     </div>
                 )}
 
                 {error && (
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                        <strong className="font-bold">Error: </strong>
-                        <span className="block sm:inline">{error}</span>
+                    <div className="flex justify-center items-center py-10">
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative max-w-2xl text-center" role="alert">
+                            <strong className="font-bold">Error: </strong>
+                            <span className="block sm:inline">{error}</span>
+                        </div>
                     </div>
                 )}
 

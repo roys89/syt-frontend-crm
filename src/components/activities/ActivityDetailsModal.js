@@ -30,34 +30,52 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
     setTravelerAges(newAges);
   };
 
-  const categorizeTravelers = (ages) => {
-    let adultCount = 0;
-    let childCount = 0;
-    let infantCount = 0;
-    let seniorCount = 0;
-    let youthCount = 0;
+  const categorizeTravelers = (ages, apiAgeBands) => {
+    // Initialize counts based on standard band types
+    const counts = { ADULT: 0, CHILD: 0, INFANT: 0, SENIOR: 0, YOUTH: 0 };
+    const defaultBand = 'ADULT'; // Fallback if no band matches (should ideally not happen with validation)
 
-    ages.forEach(age => {
-      if (age >= 0 && age <= 3) {
-        infantCount++;
-      } else if (age >= 4 && age <= 12) {
-        childCount++;
-      } else if (age >= 13 && age <= 75) {
-        adultCount++;
-      } else if (age > 75) {
-        seniorCount++;
-      }
-    });
+    // Ensure apiAgeBands is an array
+    const validAgeBands = Array.isArray(apiAgeBands) ? apiAgeBands : [];
+    if (validAgeBands.length === 0) {
+        console.warn('categorizeTravelers: No valid ageBands provided, using default counts.');
+        // Assign all travelers to defaultBand if no bands are defined
+        counts[defaultBand] = ages.length;
+    } else {
+        ages.forEach(age => {
+            let matched = false;
+            for (const band of validAgeBands) {
+                // Ensure band properties exist and age is within range
+                if (band && typeof band.startAge === 'number' && typeof band.endAge === 'number' && band.ageBand &&
+                    age >= band.startAge && age <= band.endAge) {
+                    // Ensure the band type exists in our counts object
+                    if (counts.hasOwnProperty(band.ageBand)) {
+                        counts[band.ageBand]++;
+                        matched = true;
+                        break; // Found the matching band
+                    } else {
+                        console.warn(`categorizeTravelers: Unknown ageBand type '${band.ageBand}' found.`);
+                    }
+                }
+            }
+            // If no band matched, assign to the default band
+            if (!matched) {
+                counts[defaultBand]++;
+                console.warn(`categorizeTravelers: Age ${age} did not fit any defined band, assigned to ${defaultBand}.`);
+            }
+        });
+    }
 
-    const groupCode = `${adultCount}|${childCount}|${infantCount}|${seniorCount}|${youthCount}`;
+    // Construct the group code string in the expected order
+    const groupCodeString = `${counts.ADULT}|${counts.CHILD}|${counts.INFANT}|${counts.SENIOR}|${counts.YOUTH}`;
 
     return {
-      adultCount,
-      childCount,
-      infantCount,
-      seniorCount,
-      youthCount,
-      groupCode
+      adultCount: counts.ADULT,
+      childCount: counts.CHILD,
+      infantCount: counts.INFANT,
+      seniorCount: counts.SENIOR,
+      youthCount: counts.YOUTH,
+      groupCode: groupCodeString // Return the formatted string
     };
   };
 
@@ -76,12 +94,10 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
 
     // Convert ages to numbers
     const ages = travelerAges.map(t => parseInt(t.age));
-    const { adultCount, childCount, infantCount, seniorCount, youthCount } = categorizeTravelers(ages);
+    const { groupCode: ageDistribution } = categorizeTravelers(ages, details.ageBands);
 
     // Get the base group code from the activity
     const baseGroupCode = activity.groupCode.split('-')[0];
-    // Create the age distribution part
-    const ageDistribution = `${adultCount}|${childCount}|${infantCount}|${seniorCount}|${youthCount}`;
     // Combine them with a hyphen
     const fullGroupCode = `${baseGroupCode}-${ageDistribution}`;
 
@@ -147,13 +163,11 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
         }
         
         const ages = travelerAges.map(t => parseInt(t.age));
-        const { adultCount, childCount, infantCount, seniorCount, youthCount } = categorizeTravelers(ages);
+        const { adultCount, childCount, infantCount, seniorCount, youthCount, groupCode: ageDistribution } = categorizeTravelers(ages, details.ageBands);
 
         // Get the base group code from the activity
         const baseGroupCode = activity.groupCode.split('-')[0];
         // Create the age distribution part
-        const ageDistribution = `${adultCount}|${childCount}|${infantCount}|${seniorCount}|${youthCount}`;
-        // Combine them with a hyphen
         const fullGroupCode = `${baseGroupCode}-${ageDistribution}`;
 
         // Extract languages from langServices if available

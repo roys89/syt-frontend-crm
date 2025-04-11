@@ -7,8 +7,8 @@ import { toast } from 'react-toastify';
 // --- Import the filter component ---
 import CrmActivityFilterMdal from '../../../components/itinerary/modals/change/CrmActivityFilterMdal';
 
-// --- Import the Add modal instead of Change modal ---
-import CrmAddActivityDetailModal from '../../../components/itinerary/modals/add/CrmAddActivityDetailModal';
+// --- Import the CHANGE modal with the correct name ---
+import CrmChangeActivityDetailModal from '../../../components/itinerary/modals/change/CrmChangeActivityDetailModal';
 
 // Helper function to format currency (moved from card)
 const formatCurrency = (amount) => {
@@ -234,11 +234,11 @@ const CrmChangeActivitiesPage = () => {
         }
     };
 
-    // Callback for when activity is successfully ADDED via the modal
-    const handleActivityAddedSuccessfully = () => {
-        toast.success("Activity successfully added to the itinerary!");
+    // Callback for when activity is successfully CHANGED via the modal
+    const handleActivityChangedSuccessfully = () => {
+        toast.success("Activity successfully changed in the itinerary!");
         handleCloseAddModal();
-        handleBackToItinerary(); // Navigate back after adding
+        handleBackToItinerary();
     };
     // --- End Event Handlers ---
 
@@ -394,19 +394,20 @@ const CrmChangeActivitiesPage = () => {
                 </main>
             </div>
 
-            {/* Modal for Adding the selected activity */}
-             <CrmAddActivityDetailModal
+            {/* Modal for Changing the selected activity */}
+             <CrmChangeActivityDetailModal
                  isOpen={isAddModalOpen}
                  onClose={handleCloseAddModal}
                  selectedActivity={selectedActivityForAddModal}
-                  // Pass necessary context for the modal's API calls
+                  oldActivityCode={oldActivityCode}
                   itineraryToken={itineraryToken}
                   inquiryToken={inquiryToken}
                   searchId={searchId}
                   travelersDetails={travelersDetails}
                   city={city}
                   date={date}
-                  onActivityAdded={handleActivityAddedSuccessfully} // Use the correct callback prop
+                  existingPrice={existingPrice}
+                  onActivityChanged={handleActivityChangedSuccessfully}
              />
         </div>
     );

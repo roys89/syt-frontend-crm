@@ -1,5 +1,6 @@
 import { TicketIcon } from '@heroicons/react/24/outline';
 import { ArrowLeftIcon } from '@heroicons/react/24/solid';
+import { Hourglass } from 'ldrs/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -9,6 +10,9 @@ import CrmActivityFilterMdal from '../../../components/itinerary/modals/change/C
 
 // Import the detail modal for adding activities
 import CrmAddActivityDetailModal from '../../../components/itinerary/modals/add/CrmAddActivityDetailModal';
+
+// --- NEW: Import Hourglass CSS ---
+import 'ldrs/react/Hourglass.css'; // Ensure CSS is imported
 
 // Helper function to format currency
 const formatCurrency = (amount) => {
@@ -248,17 +252,15 @@ const CrmAddActivityResultsPage = () => {
                 <main className="flex-grow flex flex-col">
                     {/* Loading/Error State */}
                     {loading && (
-                        <div className="text-center py-10 flex-grow flex items-center justify-center">
-                            <p className="text-gray-600">Loading available activities...</p>
+                        <div className="text-center flex flex-row items-center justify-center flex-grow">
+                            <Hourglass size="40" color="#6366F1" />
+                            <p className="text-gray-600 ml-3">Loading available activities...</p>
                         </div>
                     )}
                     {error && !loading && (
-                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 flex-grow flex items-center justify-center" role="alert">
-                            <div>
-                                <strong className="font-bold">Error: </strong>
-                                <span className="block sm:inline">{error}</span>
-                                <button onClick={fetchActivities} className="ml-4 text-sm underline">Retry</button>
-                            </div>
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative max-w-2xl text-center flex-grow flex items-center justify-center" role="alert">
+                            <strong className="font-bold">Error: </strong>
+                            <span className="block sm:inline">{error}</span>
                         </div>
                     )}
 

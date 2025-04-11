@@ -117,6 +117,45 @@ const calculateEndTime = (startTimeStr, durationInMinutes) => {
   return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 };
 
+// --- ADD categorizeTravelers Helper Function ---
+const categorizeTravelers = (ages, apiAgeBands) => {
+  const counts = { ADULT: 0, CHILD: 0, INFANT: 0, SENIOR: 0, YOUTH: 0 };
+  const defaultBand = 'ADULT';
+  const validAgeBands = Array.isArray(apiAgeBands) ? apiAgeBands : [];
+
+  if (validAgeBands.length === 0) {
+    console.warn('categorizeTravelers (Add Modal): No valid ageBands provided, using default counts.');
+    counts[defaultBand] = ages.length;
+  } else {
+    ages.forEach(age => {
+      let matched = false;
+      for (const band of validAgeBands) {
+        if (band && typeof band.startAge === 'number' && typeof band.endAge === 'number' && band.ageBand &&
+            age >= band.startAge && age <= band.endAge) {
+          if (counts.hasOwnProperty(band.ageBand)) {
+            counts[band.ageBand]++;
+            matched = true;
+            break;
+          } else {
+            console.warn(`categorizeTravelers (Add Modal): Unknown ageBand type '${band.ageBand}' found.`);
+          }
+        }
+      }
+      if (!matched) {
+        counts[defaultBand]++;
+        console.warn(`categorizeTravelers (Add Modal): Age ${age} did not fit any defined band, assigned to ${defaultBand}.`);
+      }
+    });
+  }
+
+  const groupCodeString = `${counts.ADULT}|${counts.CHILD}|${counts.INFANT}|${counts.SENIOR}|${counts.YOUTH}`;
+
+  return {
+    groupCode: groupCodeString // Only need the string for modifiedGroupCode construction
+  };
+};
+// --- END categorizeTravelers ---
+
 // --- End Frontend Time Helper Functions ---
 
 const CrmAddActivityDetailModal = ({
@@ -131,52 +170,84 @@ const CrmAddActivityDetailModal = ({
     date,
     onActivityAdded
 }) => {
-    // State for the final Add API call status (renamed from isAdding)
-    const [bookingStatus, setBookingStatus] = useState({
+    // --- State Refactoring ---
+    const [productInfoLoading, setProductInfoLoading] = useState(false);
+    const [productInfoError, setProductInfoError] = useState(null);
+    const [productInfo, setProductInfo] = useState(null); // Stores response from /product-info
+
+    const [availabilityLoading, setAvailabilityLoading] = useState(false);
+    const [availabilityError, setAvailabilityError] = useState(null);
+    const [availabilityDetails, setAvailabilityDetails] = useState([]); // Stores packages from /availability-detail
+
+    const [selectedPackage, setSelectedPackage] = useState(null); // User's chosen package from availabilityDetails
+
+    // State for traveler inputs
+    const [numberOfTravelers, setNumberOfTravelers] = useState(1); // Default or derive from travelersDetails
+    const [travelerAges, setTravelerAges] = useState([{ age: '' }]);
+
+    const [manualStartTime, setManualStartTime] = useState('');
+
+    const [bookingStatus, setBookingStatus] = useState({ // For the final add action
         loading: false,
         error: null,
         success: false,
         message: ''
     });
+    // --- End State Refactoring ---
 
-    // --- State for fetching/displaying activity details ---
-    const [detailsLoading, setDetailsLoading] = useState(false);
-    const [detailsError, setDetailsError] = useState(null);
-    const [activityDetails, setActivityDetails] = useState(null); // Stores full response from /product-info
-    const [selectedOption, setSelectedOption] = useState(null); // Tracks user's selection or fallback
-    // --- End Details State ---
+    // --- Initialize Traveler Count/Ages from props ---
+    useEffect(() => {
+        if (isOpen && travelersDetails) {
+            let initialCount = 0;
+            const initialAges = [];
+            if (travelersDetails.rooms && travelersDetails.rooms.length > 0) {
+                travelersDetails.rooms.forEach(room => {
+                    if (Array.isArray(room.adults)) {
+                        initialCount += room.adults.length;
+                        room.adults.forEach(() => initialAges.push({ age: '' })); // Placeholder age for adults
+                    }
+                    if (Array.isArray(room.children)) {
+                        initialCount += room.children.length;
+                        room.children.forEach(age => initialAges.push({ age: age ? String(age) : '' })); // Use provided child age or empty string
+                    }
+                });
+            }
+            // Fallback if rooms structure is missing/empty but we have counts
+            else if (travelersDetails.adults || travelersDetails.children) {
+                 initialCount = (travelersDetails.adults || 0) + (travelersDetails.children || 0);
+                 for(let i=0; i < (travelersDetails.adults || 0); i++) initialAges.push({ age: ''}); // Adults placeholders
+                 // No direct ages available in this structure, use placeholders for children too
+                 for(let i=0; i < (travelersDetails.children || 0); i++) initialAges.push({ age: ''});
+            }
 
-    // --- State for Manual Time Input ---
-    const [manualStartTime, setManualStartTime] = useState('');
-    // --- End Manual Time State ---
+            if (initialCount < 1) initialCount = 1; // Ensure at least 1 traveler
+            if (initialAges.length === 0) initialAges.push({ age: '' }); // Ensure at least one age input
 
-    // --- Fetch detailed options when modal opens ---
-    const fetchActivityDetails = useCallback(async () => {
+            setNumberOfTravelers(initialCount);
+            setTravelerAges(initialAges.slice(0, initialCount)); // Ensure ages array matches count
+        }
+    }, [isOpen, travelersDetails]);
+    // --- End Traveler Init ---
+
+    // --- Fetch Product Info Only ---
+    const fetchProductInfoOnly = useCallback(async () => {
         if (!selectedActivity?.code || !searchId || !inquiryToken || !city || !date || !travelersDetails) {
-             console.error("Add Modal: Missing data for fetching activity details:", {
-                 selectedActivity, searchId, inquiryToken, city, date, travelersDetails
-             });
-             setDetailsError("Internal error: Missing required data to fetch details.");
-             // Set fallback immediately if fetch can't proceed
-             setSelectedOption({
-                 amount: selectedActivity?.amount ?? 0,
-                 currency: selectedActivity?.currency || 'INR',
-                 ratekey: null,
-                 title: selectedActivity?.title || 'Activity',
-                 departureTime: null,
-                 description: selectedActivity?.description || ''
-             });
+             console.error("Add Modal: Missing data for fetching product info:", { selectedActivity, searchId, inquiryToken, city, date, travelersDetails });
+             setProductInfoError("Internal error: Missing required data to fetch product info.");
              return;
         }
 
-        setDetailsLoading(true);
-        setDetailsError(null);
-        setSelectedOption(null); // Reset selection during load
-        setActivityDetails(null); // Clear previous details
+        setProductInfoLoading(true);
+        setProductInfoError(null);
+        setProductInfo(null); // Clear previous info
+        setAvailabilityDetails([]); // Clear old packages
+        setSelectedPackage(null); // Reset selection
+        setAvailabilityError(null); // Clear package errors
         setBookingStatus({ loading: false, error: null, success: false, message: '' }); // Reset final status
 
         try {
             console.log(`Add Modal: Fetching product info for activity code: ${selectedActivity.code} using searchId: ${searchId}`);
+            // Use the /product-info endpoint
             const response = await fetch(
                 `http://localhost:5000/api/itinerary/product-info/${selectedActivity.code}`,
                 {
@@ -187,101 +258,197 @@ const CrmAddActivityDetailModal = ({
                         'X-Inquiry-Token': inquiryToken,
                     },
                     body: JSON.stringify({
-                        city: { name: city },
+                        // Pass necessary context for the backend service call
+                        city: { name: city }, // Assuming backend controller expects city.name
                         date: date,
-                        travelersDetails: travelersDetails,
                         searchId: searchId,
-                        groupCode: selectedActivity.groupCode // Pass groupCode if available
+                        groupCode: selectedActivity.groupCode // Use groupCode from initial search
                     })
                 }
             );
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: response.statusText }));
-                throw new Error(errorData.message || `Failed to fetch activity details (${response.status})`);
+                throw new Error(errorData.message || `Failed to fetch activity product info (${response.status})`);
             }
 
             const data = await response.json();
             console.log("Add Modal: Fetched activity product info:", data);
 
-            if (!data) {
-                 throw new Error("Empty response received for activity details.");
+            // REMOVE: The check for modifiedGroupCode is no longer valid here
+            // Check if essential data like modifiedGroupCode is present in the flat structure
+            if (!data || !data.title || !data.productCode) { 
+                throw new Error("Invalid response structure received for product info (missing title or productCode).");
             }
-            setActivityDetails(data);
-
-            const firstOption = data?.availabilityDetails?.[0];
-            if (firstOption && typeof firstOption === 'object') {
-                handleOptionSelect(firstOption); // Automatically select first option if valid
-            } else {
-                 console.log("No specific options found or first option invalid, using fallback.");
-                 // Fallback using basic info
-                 setSelectedOption({
-                     amount: selectedActivity.amount ?? 0,
-                     currency: selectedActivity.currency || 'INR',
-                     ratekey: null,
-                     title: selectedActivity.title || 'Activity',
-                     departureTime: null,
-                     description: selectedActivity.description || ''
-                 });
-            }
+            setProductInfo(data); 
 
         } catch (err) {
-            console.error("Add Modal: Error fetching activity details:", err);
-            setDetailsError(err.message);
-             // Fallback on error
-            setSelectedOption({
-                amount: selectedActivity?.amount ?? 0,
-                currency: selectedActivity?.currency || 'INR',
-                ratekey: null,
-                title: selectedActivity?.title || 'Activity',
-                departureTime: null,
-                description: selectedActivity?.description || ''
-            });
+            console.error("Add Modal: Error fetching product info:", err);
+            setProductInfoError(err.message);
         } finally {
-            setDetailsLoading(false);
+            setProductInfoLoading(false);
         }
     }, [selectedActivity, searchId, inquiryToken, city, date, travelersDetails]);
+    // --- End Fetch Product Info ---
 
     // Trigger fetch when modal opens
     useEffect(() => {
         if (isOpen && selectedActivity) {
-            fetchActivityDetails();
+            fetchProductInfoOnly();
         }
          // Cleanup on close
         if (!isOpen) {
-            setActivityDetails(null);
-            setSelectedOption(null);
-            setDetailsError(null);
-            setDetailsLoading(false);
-            setManualStartTime(''); // Reset manual time on close
-             setBookingStatus({ loading: false, error: null, success: false, message: '' });
+            setProductInfo(null);
+            setAvailabilityDetails([]);
+            setSelectedPackage(null);
+            setProductInfoError(null);
+            setAvailabilityError(null);
+            setManualStartTime('');
+            setTravelerAges([{ age: '' }]); // Reset ages
+            setNumberOfTravelers(1);
+            setBookingStatus({ loading: false, error: null, success: false, message: '' });
         }
-    }, [isOpen, selectedActivity, fetchActivityDetails]);
+    }, [isOpen, selectedActivity, fetchProductInfoOnly]);
 
-    // --- Handle option selection ---
-    const handleOptionSelect = (option) => {
-        // Basic validation of the option before setting
-        if (option && typeof option === 'object' && typeof option.amount === 'number') {
-            console.log("Add Modal: Selecting option:", option);
-            setSelectedOption(option);
-        } else {
-            console.warn("Add Modal: Attempted to select invalid option:", option);
-             // Optionally fall back again or show an error
-             setSelectedOption({
-                 amount: selectedActivity?.amount ?? 0,
-                 currency: selectedActivity?.currency || 'INR',
-                 ratekey: null,
-                 title: selectedActivity?.title || 'Activity',
-                 departureTime: null,
-                 description: selectedActivity?.description || ''
-             });
+    // --- Traveler Input Handlers ---
+    const handleTravelerCountChange = (newCount) => {
+        if (newCount >= 1 && newCount <= (productInfo?.bookingRequirements?.maxTravelersPerBooking || 15)) { // Use max from productInfo if available
+          setNumberOfTravelers(newCount);
+          const newAges = Array(newCount).fill().map((_, index) =>
+            travelerAges[index] || { age: '' }
+          );
+          setTravelerAges(newAges);
+           setAvailabilityDetails([]); // Reset packages if travelers change
+           setSelectedPackage(null);
+           setAvailabilityError(null);
+        } else if (newCount > (productInfo?.bookingRequirements?.maxTravelersPerBooking || 15)) {
+            toast.warn(`Maximum ${productInfo?.bookingRequirements?.maxTravelersPerBooking || 15} travelers allowed.`);
         }
     };
 
-    // --- Handle final Add Confirmation (Renamed from handleAddActivity) ---
+    const handleAgeChange = (index, value) => {
+        const newAges = [...travelerAges];
+        newAges[index] = { age: value };
+        setTravelerAges(newAges);
+         setAvailabilityDetails([]); // Reset packages if ages change
+         setSelectedPackage(null);
+         setAvailabilityError(null);
+    };
+    // --- End Traveler Input Handlers ---
+
+    // --- Fetch Availability Details (Packages) ---
+    const fetchAvailabilityDetails = async () => {
+        // Validation
+        if (!productInfo) { // Basic check if initial product info is loaded
+            setAvailabilityError("Product info not loaded yet.");
+            return;
+        }
+        if (travelerAges.some(t => !t.age || isNaN(parseInt(t.age)))) {
+             setAvailabilityError("Please enter a valid age for all travelers.");
+             return;
+        }
+        // Age band validation (remains the same)
+        const ages = travelerAges.map(t => parseInt(t.age));
+        const ageBands = productInfo.ageBands || [];
+        let validAges = true;
+        ages.forEach(age => {
+            const band = ageBands.find(b => age >= b.startAge && age <= b.endAge);
+            if (!band) {
+                validAges = false;
+            }
+        });
+        if (!validAges) {
+             setAvailabilityError("One or more traveler ages do not fit the allowed age bands for this activity.");
+             return; // Block the call if ages are invalid based on bands
+        }
+
+        setAvailabilityLoading(true);
+        setAvailabilityError(null);
+        setAvailabilityDetails([]); // Clear previous results
+        setSelectedPackage(null); // Reset selection
+
+        try {
+            // --- Calculate modifiedGroupCode --- 
+            const baseGroupCode = selectedActivity?.groupCode?.split('-')[0];
+            if (!baseGroupCode) {
+                throw new Error("Could not determine base group code from selected activity.");
+            }
+            const currentAges = travelerAges.map(t => parseInt(t.age));
+            const { groupCode: ageDistribution } = categorizeTravelers(currentAges, productInfo.ageBands);
+            const calculatedModifiedGroupCode = `${baseGroupCode}-${ageDistribution}`;
+            console.log(`Add Modal: Calculated modifiedGroupCode: ${calculatedModifiedGroupCode}`);
+            // --- End Calculation --- 
+
+            // --- Fetch Availability Details using calculated modifiedGroupCode --- 
+            console.log(`Add Modal: Fetching availability details using searchId ${searchId} and calculated modifiedGroupCode ${calculatedModifiedGroupCode}`);
+            const availabilityResponse = await fetch(
+                `http://localhost:5000/api/itinerary/availability-detail/${selectedActivity.code}`, // activityCode in URL
+                {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem('crmToken')}`,
+                        'Content-Type': 'application/json',
+                        'X-Inquiry-Token': inquiryToken,
+                    },
+                    body: JSON.stringify({
+                        searchId: searchId,
+                        modifiedGroupCode: calculatedModifiedGroupCode, // ADD: Send calculated code
+                        city: { name: city },
+                        date: date,
+                    })
+                }
+            );
+
+            if (!availabilityResponse.ok) {
+                const errorData = await availabilityResponse.json().catch(() => ({ message: availabilityResponse.statusText }));
+                throw new Error(errorData.message || `Failed to fetch availability details (${availabilityResponse.status})`);
+            }
+
+            const data = await availabilityResponse.json(); // Expecting the array of options directly
+            console.log("Add Modal: Fetched availability details (packages):", data);
+            // --- End Step 2 (Now only step) ---
+
+            if (!Array.isArray(data)) {
+                 throw new Error("Invalid response structure received for availability details.");
+            }
+
+            if (data.length === 0) {
+                setAvailabilityError("No packages found for the selected criteria and traveler ages.");
+            } else {
+                setAvailabilityDetails(data);
+                 // Optionally auto-select the first package
+                 handlePackageSelect(data[0]);
+            }
+
+        } catch (err) {
+            console.error("Add Modal: Error fetching availability details:", err);
+            setAvailabilityError(err.message);
+        } finally {
+            setAvailabilityLoading(false);
+        }
+    };
+    // --- End Fetch Availability Details ---
+
+    // --- Handle Package Selection ---
+    const handlePackageSelect = (pkg) => {
+        if (pkg && typeof pkg === 'object') { // Basic validation
+            console.log("Add Modal: Selecting package:", pkg);
+            setSelectedPackage(pkg);
+        } else {
+             console.warn("Add Modal: Attempted to select invalid package:", pkg);
+        }
+    };
+    // --- End Package Selection ---
+
+    // --- Handle final Add Confirmation ---
     const handleConfirmAdd = async () => {
-        if (!selectedOption) {
-            toast.error("Activity details are still loading or missing. Cannot add.");
+        // **Updated Validation**
+        if (!selectedPackage) { // Check if a package is selected
+            toast.error("Please select an available package first.");
+            return;
+        }
+        if (!productInfo) {
+            toast.error("Activity product details are missing. Cannot add.");
             return;
         }
         if (!itineraryToken || !inquiryToken || !city || !date) {
@@ -293,27 +460,27 @@ const CrmAddActivityDetailModal = ({
         setBookingStatus({ loading: true, error: null, success: false, message: 'Adding activity...' });
 
         try {
-            // --- Determine Start Time --- 
+            // --- Determine Start Time ---
             let finalStartTime = null;
-            const hasDepartureTime = selectedOption.departureTime && validateAndNormalizeTime(selectedOption.departureTime);
+            // Use departure time from the SELECTED PACKAGE
+            const hasDepartureTime = selectedPackage.departureTime && validateAndNormalizeTime(selectedPackage.departureTime);
 
             if (hasDepartureTime) {
-                finalStartTime = selectedOption.departureTime;
-                console.log(`Add Modal: Using provided departure time: ${finalStartTime}`);
+                finalStartTime = selectedPackage.departureTime;
+                console.log(`Add Modal: Using package departure time: ${finalStartTime}`);
             } else {
                 finalStartTime = validateAndNormalizeTime(manualStartTime);
                 console.log(`Add Modal: Using manual start time: ${finalStartTime}`);
                 if (!finalStartTime) {
                      setBookingStatus({ loading: false, success: false, error: true, message: 'Please enter a valid start time (HH:MM).' });
-                     return; // Stop if manual time is invalid
+                     return;
                 }
             }
 
-            // --- Parse Duration to Minutes --- 
-            const durationInMinutes = parseDurationToMinutes(activityDetails?.productInfo?.duration);
-            console.log(`Add Modal: Parsed duration '${activityDetails?.productInfo?.duration}' to ${durationInMinutes} minutes.`);
+            // --- Parse Duration from Product Info ---
+            const durationInMinutes = parseDurationToMinutes(productInfo.duration); // Use productInfo
+            console.log(`Add Modal: Parsed duration '${productInfo.duration}' to ${durationInMinutes} minutes.`);
             if (durationInMinutes === null) {
-                // Handle case where duration couldn't be parsed (might need user input too? For now, error out)
                 console.error("Add Modal: Could not parse duration from product info.");
                 setBookingStatus({ loading: false, success: false, error: true, message: 'Could not determine activity duration.' });
                 return;
@@ -324,59 +491,81 @@ const CrmAddActivityDetailModal = ({
             const finalTimeSlot = getTimeSlot(finalStartTime);
             console.log(`Add Modal: Calculated End Time: ${finalEndTime}, Time Slot: ${finalTimeSlot}`);
 
+            // --- Recalculate modifiedGroupCode for the final payload ---
+            const baseGroupCode = selectedActivity?.groupCode?.split('-')[0];
+            if (!baseGroupCode) {
+                setBookingStatus({ loading: false, success: false, error: true, message: 'Could not determine base group code.'});
+                return;
+            }
+            const currentAges = travelerAges.map(t => parseInt(t.age));
+            const { groupCode: ageDistribution } = categorizeTravelers(currentAges, productInfo.ageBands);
+            const finalModifiedGroupCode = `${baseGroupCode}-${ageDistribution}`;
+            console.log(`Add Modal: Final modifiedGroupCode for add request: ${finalModifiedGroupCode}`);
+            // --- End Recalculation ---
 
-            // Construct the newActivityDetails payload
+            // Construct the newActivityDetails payload using ProductInfo and SelectedPackage
             const newActivityDetailsPayload = {
-                searchId: searchId, // Include searchId
-                activityType: activityDetails?.productInfo?.activityType || 'online', // Use fetched type or default
+                searchId: searchId,
+                activityType: productInfo.activityType || 'online',
                 activityCode: selectedActivity.code,
-                activityName: selectedOption.title || selectedActivity.title,
+                activityName: selectedPackage.title || productInfo.title || selectedActivity.title, // Prefer package title
                 activityProvider: 'GRNC',
-                selectedTime: finalStartTime, // Use determined start time
-                endTime: finalEndTime, // Include calculated end time
-                timeSlot: finalTimeSlot, // Include determined time slot
-                isFlexibleTiming: !hasDepartureTime, // Indicate if time was manually set
+                selectedTime: finalStartTime,
+                endTime: finalEndTime,
+                timeSlot: finalTimeSlot,
+                isFlexibleTiming: !hasDepartureTime,
                 bookingStatus: 'pending',
-                departureTime: { // Structure based on backend assignTimeSlots
+                departureTime: {
                     time: finalStartTime,
-                    code: selectedOption?.ratekey || null // Use ratekey as the code identifier for the selected option
+                    code: selectedPackage.code // Use Tour Grade Code from the selected package
                 },
-                packageDetails: { // Details from the *selected option* or fallback
-                    amount: selectedOption.amount,
-                    currency: selectedOption.currency,
-                    ratekey: selectedOption.ratekey, // Can be null
-                    title: selectedOption.title,
-                    departureTime: selectedOption.departureTime, // Optional
-                    description: selectedOption.description // Optional
+                packageDetails: { // Use details from the selected package
+                    amount: selectedPackage.amount,
+                    currency: selectedPackage.currency,
+                    ratekey: selectedPackage.ratekey,
+                    title: selectedPackage.title,
+                    departureTime: selectedPackage.departureTime, // Optional departure time from package
+                    description: selectedPackage.description // Optional description from package
                 },
-                images: activityDetails?.productInfo?.images || (selectedActivity.imgURL ? [{variants:[{url: selectedActivity.imgURL}]}] : []),
-                description: activityDetails?.productInfo?.description || selectedActivity.description || '',
-                groupCode: selectedActivity.groupCode || null,
-                // Add other fields if needed based on what backend expects for 'add'
-                duration: durationInMinutes, // Use the parsed number value (minutes)
-                departurePoint: activityDetails?.productInfo?.departurePoint || null,
-                inclusions: activityDetails?.productInfo?.inclusions || [],
-                exclusions: activityDetails?.productInfo?.exclusions || [],
-                additionalInfo: activityDetails?.productInfo?.additionalInfo || [],
-                itinerary: activityDetails?.productInfo?.itinerary || null,
-                bookingRequirements: activityDetails?.productInfo?.bookingRequirements || null,
-                pickupHotellist: activityDetails?.productInfo?.PickupHotellist || null,
-                bookingQuestions: activityDetails?.productInfo?.bookingQuestions || [],
-                cancellationFromTourDate: activityDetails?.productInfo?.cancellationFromTourDate || [],
-                tourGrade: activityDetails?.productInfo?.tourGrades?.[0] || null,
-                ageBands: activityDetails?.productInfo?.ageBands || [],
+                // General info primarily from productInfo
+                images: productInfo.images || (selectedActivity.imgURL ? [{variants:[{url: selectedActivity.imgURL}]}] : []),
+                description: productInfo.description || selectedActivity.description || '',
+                groupCode: finalModifiedGroupCode, // Use the code calculated based on current traveler ages
+                duration: durationInMinutes,
+                departurePoint: productInfo.departurePoint || null,
+                inclusions: productInfo.inclusions || [],
+                exclusions: productInfo.exclusions || [],
+                additionalInfo: productInfo.additionalInfo || [],
+                itinerary: productInfo.itinerary || null,
+                bookingRequirements: productInfo.bookingRequirements || null,
+                pickupHotellist: productInfo.PickupHotellist || null, // Note casing diff
+                bookingQuestions: productInfo.bookingQuestions || [],
+                cancellationFromTourDate: productInfo.cancellationFromTourDate || [],
+                ageBands: productInfo.ageBands || [],
             };
+
+            // --- Format currentTravelersDetails for the final add request ---
+             const adultThreshold = productInfo.ageBands?.find(b => b.ageBand === 'ADULT')?.startAge || 12;
+             const finalTravelersDetails = { 
+                 rooms: [{ 
+                     adults: travelerAges.filter(t => parseInt(t.age) >= adultThreshold).map(t => parseInt(t.age)), 
+                     children: travelerAges.filter(t => parseInt(t.age) < adultThreshold).map(t => parseInt(t.age))
+                 }]
+             };
+             console.log("Add Modal: Final Travelers Details for add request:", finalTravelersDetails);
+             // --- End Formatting ---
 
             const requestBody = {
                 cityName: city,
                 date: date,
-                newActivityDetails: newActivityDetailsPayload, // Send the structured payload
+                newActivityDetails: newActivityDetailsPayload,
                 searchId: searchId,
-                travelersDetails: travelersDetails // Send traveler details too, as backend might need it for adding
+                
             };
 
             console.log("Add Modal: Submitting POST /activity request:", JSON.stringify(requestBody, null, 2));
 
+            // Call the existing POST /activity endpoint
             const response = await fetch(
                 `http://localhost:5000/api/itinerary/${itineraryToken}/activity`,
                 {
@@ -393,43 +582,35 @@ const CrmAddActivityDetailModal = ({
             const responseData = await response.json();
 
             if (!response.ok) {
-                // Try to parse backend error message
                 let errorMessage = `Failed to add activity (${response.status})`;
-                if (responseData && responseData.message) {
-                    errorMessage = responseData.message;
-                } else if (responseData && responseData.error) {
-                     errorMessage = responseData.error;
-                 }
+                if (responseData && responseData.message) errorMessage = responseData.message;
+                else if (responseData && responseData.error) errorMessage = responseData.error;
                 throw new Error(errorMessage);
             }
 
-            // Success
             setBookingStatus({ loading: false, success: true, error: null, message: 'Activity added successfully!' });
-            // Give user time to see success message before triggering callback
-            setTimeout(() => {
-                if (onActivityAdded) {
-                     onActivityAdded();
-                }
-            }, 1500); // 1.5 second delay
+            setTimeout(() => { if (onActivityAdded) onActivityAdded(); }, 1500);
 
         } catch (err) {
             console.error("Add Modal: Error confirming activity add:", err);
             setBookingStatus({ loading: false, success: false, error: true, message: err.message || "An unknown error occurred." });
-            // No need for separate toast, status message is shown
         }
     };
     // --- End Handlers ---
 
     if (!isOpen || !selectedActivity) return null;
 
-    // Extract details for rendering
-    const availableOptions = activityDetails?.availabilityDetails || [];
-    const productInfo = activityDetails?.productInfo || {};
+    // Derived Display Values (use productInfo primarily now)
     const displayTitle = productInfo?.title || selectedActivity?.title || 'Activity Details';
-    const displayImages = productInfo.images && productInfo.images.length > 0
+    const displayImages = productInfo?.images && productInfo.images.length > 0
         ? productInfo.images
         : (selectedActivity.imgURL ? [{ variants: [{ url: selectedActivity.imgURL }], caption: 'Activity Image' }] : []);
     const displayDescription = productInfo?.description || selectedActivity?.description || '';
+    const ageBands = productInfo?.ageBands || [];
+    const bookingRequirements = productInfo?.bookingRequirements || {};
+
+    // Updated check: Only depends on valid ages now
+    const canGetPackages = !travelerAges.some(t => !t.age || isNaN(parseInt(t.age)));
 
     return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in">
@@ -442,54 +623,36 @@ const CrmAddActivityDetailModal = ({
                     <button
                         onClick={onClose}
                         className="p-1.5 text-gray-500 hover:text-gray-800 rounded-full hover:bg-gray-100 transition-colors"
-                        disabled={bookingStatus.loading}
+                        disabled={productInfoLoading || availabilityLoading || bookingStatus.loading} // Disable if any loading
                     >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                {/* Body */} 
-                <div className="flex-grow overflow-y-auto p-5">
-                    {detailsLoading && (
+                {/* Body */}
+                <div className="flex-grow overflow-y-auto p-5 space-y-6">
+                    {productInfoLoading && (
                         <div className="text-center p-10">
                             <ArrowPathIcon className="h-8 w-8 text-blue-500 animate-spin mx-auto" />
                             <p className="mt-2 text-gray-600">Loading activity details...</p>
                         </div>
                     )}
-                     {detailsError && !detailsLoading && (
-                        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 mb-4 rounded relative" role="alert">
-                            <strong className="font-bold">Warning! </strong>
-                            <span className="block sm:inline">Could not load full details: {detailsError}. Basic info will be used.</span>
+                     {productInfoError && !productInfoLoading && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                            <strong className="font-bold">Error! </strong>
+                            <span className="block sm:inline">Could not load activity details: {productInfoError}</span>
                         </div>
                     )}
-                     {!detailsLoading && (
-                        <div className="space-y-4">
-                             {/* Image Gallery */}
+                     {!productInfoLoading && productInfo && (
+                        <>
+                             {/* --- Images, Description, Duration etc. from productInfo --- */}
                              {displayImages.length > 0 && (
-                                <div className="flex gap-2 overflow-x-auto pb-2 -mx-5 px-5"> {/* Negative margin trick for scroll edge */} 
-                                    {displayImages.map((image, index) => (
-                                        <img
-                                            key={index}
-                                            src={image.variants[0].url}
-                                            alt={image.caption || `Activity image ${index + 1}`}
-                                            className="h-48 w-auto max-w-xs object-cover rounded-lg flex-shrink-0 border border-gray-200" // Added border 
-                                            onError={(e) => { e.target.style.display = 'none'; }} // Hide broken images
-                                        />
-                                    ))}
+                                <div className="flex gap-2 overflow-x-auto pb-2 -mx-5 px-5">
+                                    {displayImages.map((image, index) => ( <img key={index} src={image.variants[0].url} alt={image.caption || `Activity image ${index + 1}`} className="h-48 w-auto max-w-xs object-cover rounded-lg flex-shrink-0 border border-gray-200" onError={(e) => { e.target.style.display = 'none'; }} /> ))}
                                 </div>
-                            )}
-
-                            {/* Description */} 
-                            {displayDescription && (
-                                <div className="text-gray-700">
-                                    <h3 className="text-base font-semibold mb-1">Description</h3>
-                                    {/* Render HTML safely if description contains it */}
-                                    <p className="text-sm prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: displayDescription }} />
-                                </div>
-                            )}
-
-                            {/* Duration & Departure */} 
-                            {(productInfo.duration || productInfo.departurePoint) && (
+                             )}
+                             {displayDescription && ( <div className="text-gray-700"> <h3 className="text-base font-semibold mb-1">Description</h3> <p className="text-sm prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: displayDescription }} /> </div> )}
+                             {(productInfo.duration || productInfo.departurePoint) && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm border-t border-b border-gray-100 py-3">
                                     {productInfo.duration && (
                                         <div>
@@ -504,105 +667,145 @@ const CrmAddActivityDetailModal = ({
                                         </div>
                                     )}
                                 </div>
-                            )}
-
-                            {/* Inclusions / Exclusions / Additional Info / Itinerary (if fetched) */} 
-                            {activityDetails && productInfo && (
-                                <>
-                                    {productInfo.inclusions?.length > 0 && (
-                                        <div>
-                                            <h3 className="text-base font-semibold mb-1">Inclusions</h3>
-                                            <ul className="list-disc list-inside text-sm space-y-0.5 text-gray-600">
-                                                {productInfo.inclusions.map((inc, i) => <li key={`inc-${i}`}>{inc.description || inc.otherDescription}</li>)}
-                                            </ul>
-                                        </div>
-                                    )}
-                                    {/* Add similar sections for exclusions, additionalInfo, itinerary if needed */}
-                                </>
-                            )}
-
-                            {/* Display Options (if available) */} 
-                            {activityDetails && availableOptions.length > 0 && (
+                             )}
+                             {productInfo.inclusions?.length > 0 && (
                                 <div>
-                                    <h3 className="text-base font-semibold mb-2">Available Options</h3>
-                                    <div className="space-y-3">
-                                        {availableOptions.map(option => (
-                                            <ActivityOptionCard
-                                                key={option.ratekey || option.title} // Use title as fallback key
-                                                option={option}
-                                                selected={selectedOption?.ratekey === option.ratekey}
-                                                onSelect={() => handleOptionSelect(option)}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Summary / Fallback Info */} 
-                             {selectedOption && (
-                                <div className="mt-4 p-4 bg-gray-50 rounded border border-gray-200">
-                                    <h3 className="text-base font-semibold mb-2">Summary</h3>
-                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                                        {selectedOption.title && selectedOption.title !== displayTitle && (
-                                             <div className="md:col-span-2">
-                                                <span className="text-gray-500">Selected Option:</span>
-                                                <p className="mt-0.5 text-gray-900 font-medium">{selectedOption.title}</p>
-                                            </div>
-                                        )}
-                                        <div>
-                                            <span className="text-gray-500">Date:</span>
-                                            <p className="mt-0.5 text-gray-900">{date}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-500">Location:</span>
-                                            <p className="mt-0.5 text-gray-900">{city}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-500">Price:</span>
-                                            <p className="mt-0.5 text-gray-900 font-medium">{formatCurrency(selectedOption.amount, selectedOption.currency)}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-500">Travelers:</span>
-                                            <p className="mt-0.5 text-gray-900">
-                                                {travelersDetails?.adults || 0} Adults, {travelersDetails?.children || 0} Children
-                                            </p>
-                                        </div>
-                                     </div>
+                                    <h3 className="text-base font-semibold mb-1">Inclusions</h3>
+                                    <ul className="list-disc list-inside text-sm space-y-0.5 text-gray-600">
+                                        {productInfo.inclusions.map((inc, i) => <li key={`inc-${i}`}>{inc.description || inc.otherDescription}</li>)}
+                                    </ul>
                                 </div>
                              )}
+                             {/* ... Exclusions, Additional Info etc. ... */}
+                             {/* --- End Product Info Display --- */}
 
-                            {/* --- Manual Time Input --- */}
-                            {!detailsLoading && activityDetails && selectedOption && !selectedOption.departureTime && (
-                                <div className="mt-4">
-                                    <label htmlFor="manualStartTime" className="block text-sm font-medium text-gray-700 mb-1">Select Start Time</label>
-                                    <input
-                                        type="time"
-                                        id="manualStartTime"
-                                        name="manualStartTime"
-                                        value={manualStartTime}
-                                        onChange={(e) => setManualStartTime(e.target.value)}
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                        required // Make it visually required, validation is in handleConfirmAdd
-                                    />
-                                     <p className="mt-1 text-xs text-gray-500">Please select the desired start time for this activity.</p>
-                                </div>
-                            )}
-                            {/* --- End Manual Time Input --- */}
 
-                            {/* Display Determined Time Info */} 
-                            {selectedOption && (selectedOption.departureTime || manualStartTime) && (
-                                <div>
-                                    <span className="text-gray-500">Selected Time:</span>
-                                    <p className="mt-0.5 text-gray-900">{selectedOption.departureTime || manualStartTime || 'N/A'}</p>
+                             {/* --- Traveler Inputs & Tour Grade --- */}
+                             <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-4">
+                                 {/* Row 1: Heading and Traveler Count */} 
+                                 <div className="flex justify-between items-center mb-3">
+                                     <h3 className="text-base font-semibold text-gray-800">Configure Travelers & Options</h3>
+                                     {/* Traveler Count Controls */} 
+                                     <div className="flex items-center gap-2">
+                                         <span className="text-sm font-medium text-gray-700 hidden sm:inline">Travelers:</span>
+                                         <button 
+                                            onClick={() => handleTravelerCountChange(numberOfTravelers - 1)} 
+                                            className="p-1.5 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                                            disabled={numberOfTravelers <= 1}
+                                         >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 12H6" /></svg>
+                                        </button>
+                                         <span className="font-medium text-gray-900 text-lg w-8 text-center">{numberOfTravelers}</span>
+                                         <button 
+                                            onClick={() => handleTravelerCountChange(numberOfTravelers + 1)} 
+                                            className="p-1.5 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                                            disabled={numberOfTravelers >= (productInfo?.bookingRequirements?.maxTravelersPerBooking || 15)}
+                                         >
+                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v12m6-6H6" /></svg>
+                                         </button>
+                                     </div>
+                                 </div>
+
+                                {/* Row 2: Traveler Ages Grid */} 
+                                {numberOfTravelers > 0 && (
+                                     <div>
+                                         <label className="block text-sm font-medium text-gray-700 mb-2">Traveler Ages</label>
+                                         {/* Grid for Age Inputs - Reworked Styling */}
+                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                             {travelerAges.map((traveler, index) => (
+                                                 // --- Input directly in the grid cell --- 
+                                                 <div key={index}> {/* Simple div container for key */}
+                                                     <input 
+                                                        type="number" 
+                                                        min="0" 
+                                                        max="120" 
+                                                        value={traveler.age} 
+                                                        onChange={(e) => handleAgeChange(index, e.target.value)} 
+                                                        // --- Apply modern styling directly to input --- 
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition duration-150 ease-in-out" 
+                                                        placeholder={`Age (Traveler ${index + 1})`} 
+                                                     />
+                                                 </div>
+                                             ))}
+                                         </div>
+                                     </div>
+                                )}
+
+                                {/* Row 3: Age Bands and Get Packages Button */} 
+                                <div className="flex flex-col sm:flex-row justify-between items-center pt-3 gap-3">
+                                    {/* Display Age Bands Info */}
+                                     <div className="text-xs text-gray-500 flex-shrink-0 pr-4 text-left w-full sm:w-auto">
+                                        {ageBands.length > 0 ? (
+                                           <> 
+                                            <strong>Age Bands:</strong> {ageBands.map(b => `${b.ageBand} (${b.startAge}-${b.endAge})`).join(', ')}
+                                           </>
+                                        ) : ( 
+                                            <span>Age band info not available.</span> 
+                                        )}
+                                    </div>
+                                    {/* "Get Packages" Button */} 
+                                    <div className="w-full sm:w-auto flex-shrink-0">
+                                        <button
+                                            onClick={fetchAvailabilityDetails}
+                                            disabled={!canGetPackages || availabilityLoading}
+                                            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+                                        >
+                                            {availabilityLoading && <ArrowPathIcon className="h-4 w-4 animate-spin" />}
+                                            {availabilityLoading ? 'Loading Packages...' : 'Get Available Packages'}
+                                        </button>
+                                        {availabilityError && <p className="text-red-600 text-xs mt-1 sm:text-right">{availabilityError}</p>}
+                                    </div>
                                 </div>
-                            )}
-                        </div>
+                             </div>
+                             {/* --- End Traveler & Tour Grade --- */}
+
+
+                             {/* --- Display Available Packages --- */}
+                             {!availabilityLoading && availabilityDetails.length > 0 && (
+                                 <div className="mt-4">
+                                     <h3 className="text-base font-semibold mb-2">Available Packages</h3>
+                                     <div className="space-y-3">
+                                         {availabilityDetails.map(pkg => (
+                                             <ActivityOptionCard
+                                                 key={pkg.ratekey || pkg.title}
+                                                 option={pkg} // Pass the package object as option
+                                                 selected={selectedPackage?.ratekey === pkg.ratekey}
+                                                 onSelect={() => handlePackageSelect(pkg)}
+                                             />
+                                         ))}
+                                     </div>
+                                 </div>
+                             )}
+                            {/* --- End Packages --- */}
+
+                             {/* --- Manual Time Input (Conditional) --- */}
+                             {selectedPackage && !selectedPackage.departureTime && (
+                                 <div className="mt-4">
+                                     <label htmlFor="manualStartTime" className="block text-sm font-medium text-gray-700 mb-1">Select Start Time</label>
+                                     <input type="time" id="manualStartTime" name="manualStartTime" value={manualStartTime} onChange={(e) => setManualStartTime(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required />
+                                     <p className="mt-1 text-xs text-gray-500">This package has flexible timing. Please select a start time.</p>
+                                 </div>
+                             )}
+                             {/* --- End Manual Time --- */}
+
+                             {/* --- Selected Package Summary (optional) --- */}
+                              {selectedPackage && (
+                                <div className="mt-4 p-3 bg-green-50 rounded border border-green-200 text-sm">
+                                    <h4 className="font-semibold text-green-800 mb-1">Selected Package: {selectedPackage.title}</h4>
+                                    <p>Price: {formatCurrency(selectedPackage.amount, selectedPackage.currency)}</p>
+                                    <p>Time: {selectedPackage.departureTime || (manualStartTime ? `${manualStartTime} (Manual)` : 'Requires manual time selection')}</p>
+                                    {/* Add other relevant summary details */}
+                                </div>
+                              )}
+                             {/* --- End Summary --- */}
+                        </>
                      )}
                 </div>
 
-                {/* Footer */} 
+                {/* Footer */}
                 <div className="sticky bottom-0 bg-white p-4 border-t border-gray-200 rounded-b-lg flex-shrink-0">
-                    {bookingStatus.message && (
+                     {/* Booking Status Message */}
+                     {bookingStatus.message && (
                         <div className={`mb-3 p-3 rounded-md text-sm flex items-center gap-2 ${
                             bookingStatus.success
                                 ? 'bg-green-50 text-green-700'
@@ -615,19 +818,14 @@ const CrmAddActivityDetailModal = ({
                             {!bookingStatus.success && !bookingStatus.error && bookingStatus.loading && <ArrowPathIcon className="h-5 w-5 animate-spin flex-shrink-0" />}
                             <span className="flex-grow">{bookingStatus.message}</span>
                         </div>
-                    )}
+                     )}
+                     {/* Action Buttons */}
                     <div className="flex justify-end gap-3">
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm font-medium"
-                            disabled={bookingStatus.loading}
-                        >
-                            Cancel
-                        </button>
+                        <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm font-medium" disabled={bookingStatus.loading || productInfoLoading || availabilityLoading}>Cancel</button>
                         <button
                             onClick={handleConfirmAdd}
                             className="px-5 py-2 rounded-md text-white text-sm font-medium bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                            disabled={!selectedOption || detailsLoading || bookingStatus.loading || bookingStatus.success}
+                            disabled={!selectedPackage || productInfoLoading || availabilityLoading || bookingStatus.loading || bookingStatus.success || (!selectedPackage.departureTime && !validateAndNormalizeTime(manualStartTime))} // More robust disabling
                         >
                             {bookingStatus.loading && <ArrowPathIcon className="h-4 w-4 animate-spin" />}
                             {bookingStatus.loading ? 'Adding...' : 'Confirm Add'}

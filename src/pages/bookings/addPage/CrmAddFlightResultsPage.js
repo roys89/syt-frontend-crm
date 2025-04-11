@@ -5,6 +5,9 @@ import { toast } from 'react-toastify';
 import CrmAddFlightDetailsModal from '../../../components/itinerary/modals/add/CrmAddFlightDetailsModal';
 // --- NEW: Import Heroicon ---
 import { ArrowLeftIcon } from '@heroicons/react/24/solid';
+// --- NEW: Import Hourglass loader ---
+import { Hourglass } from 'ldrs/react';
+import 'ldrs/react/Hourglass.css'; // <-- Add CSS import
 
 // Renamed from PlaceholderFlightCard to CrmFlightResultCard
 const CrmFlightResultCard = ({ flight, onSelect, isLoading }) => {
@@ -377,7 +380,7 @@ const CrmAddFlightResultsPage = () => {
     };
 
     return (
-        <div className="px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-1 md:pt-2 lg:pt-3 bg-gray-100 min-h-screen">
+        <div className="px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-1 md:pt-2 lg:pt-3 bg-gray-100 min-h-screen flex flex-col">
 
             {/* --- NEW: Sticky Header (similar to CrmAddHotelResultsPage) --- */}
             <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-200 bg-white p-4 py-3 rounded-lg shadow-lg sticky top-0 z-10">
@@ -408,44 +411,45 @@ const CrmAddFlightResultsPage = () => {
             </div>
             {/* --- END NEW Header --- */}
 
-            {loading && (
-                <div className="text-center py-16">
-                    <p className="text-gray-600">Loading flight results...</p>
-                    {/* Optional: Add a spinner */}
-                </div>
-            )}
+            {/* --- UPDATED: Main Content Area for Centering --- */}
+            <div className="flex-grow flex items-center justify-center overflow-auto">
 
-            {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 mx-auto max-w-2xl" role="alert">
-                    <strong className="font-bold">Error: </strong>
-                    <span className="block sm:inline"> {error}</span>
-                </div>
-            )}
+                {/* Loading State */} 
+                {loading && ( 
+                    <div className="text-center flex flex-row items-center justify-center">
+                        <Hourglass size="40" color="#6366F1" /> 
+                        <p className="text-gray-600 ml-3">Loading flight results...</p>
+                    </div>
+                )}
 
-            {!loading && !error && flights.length > 0 && (
-                <div className="mt-6">
-                    {flights.length > 0 ? (
-                        flights.map((flight) => (
+                {/* Error State */} 
+                {error && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative max-w-2xl text-center" role="alert">
+                        <strong className="font-bold">Error: </strong>
+                        <span className="block sm:inline"> {error}</span>
+                    </div>
+                )}
+
+                {/* Results Container */} 
+                {!loading && !error && flights.length > 0 && (
+                    <div className="w-full">
+                        {flights.map((flight) => (
                             <CrmFlightResultCard 
                                 key={flight.rI} 
                                 flight={flight} 
                                 onSelect={() => handleSelectFlight(flight.rI)} 
                                 isLoading={selectingFlight && selectedFlightDetails?.resultIndex === flight.rI} 
                             />
-                        ))
-                    ) : (
-                         <div className="text-center py-10 text-gray-500">
-                            <p>No flights found matching your search criteria.</p>
-                        </div>
-                    )}
-                     {/* TODO: Add Load More button if implementing pagination */}
-                </div>
-            )}
+                        ))}
+                    </div>
+                )}
 
-            {/* --- NEW: No Results State --- */}
-            {!loading && !error && flights.length === 0 && (
-                <p className="text-center text-gray-500 mt-10">No flights found matching the criteria.</p>
-            )}
+                {/* No Results State */} 
+                {!loading && !error && flights.length === 0 && (
+                    <p className="text-center text-gray-500">No flights found matching the criteria.</p>
+                )}
+
+            </div>
 
             <CrmAddFlightDetailsModal
                 isOpen={isDetailsModalOpen}
