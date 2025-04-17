@@ -1,5 +1,7 @@
 // src/pages/bookings/ActivityBookingPage.js
 import { ArrowPathIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { ConfigProvider, DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import ActivityDestination from '../../components/activities/ActivityDestination';
@@ -47,6 +49,20 @@ const ActivityBookingPage = () => {
 
   // Form validation
   const [errors, setErrors] = useState({});
+
+  // Define the shared theme configuration
+  const datePickerTheme = {
+    token: {
+      colorPrimary: '#093923', // Main theme green (use your theme color)
+    },
+    components: {
+      DatePicker: {
+        cellActiveWithRangeBg: '#13804e26', // Selected range background
+        cellHoverWithRangeBg: '#0939231A', // Hover background within range
+        cellHoverBg: '#0939231A', // Hover background for single date
+      },
+    },
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -105,6 +121,18 @@ const ActivityBookingPage = () => {
   // Handle filter change
   const handleFilterChange = (filters) => {
     setActiveFilters(filters);
+  };
+
+  // NEW: Handle date change for the DatePicker
+  const handleDateChange = (date, dateString) => {
+    setFormData(prev => ({
+      ...prev,
+      fromDate: dateString || '' // Update fromDate with the formatted string
+    }));
+    // Clear the date error if a date is selected
+    if (errors.fromDate && dateString) {
+       setErrors(prev => ({ ...prev, fromDate: undefined }));
+    }
   };
 
   // Handle search submission
@@ -348,20 +376,21 @@ const ActivityBookingPage = () => {
                 <label htmlFor="fromDate" className="block text-sm font-medium text-gray-700 mb-1">
                   Activity Date
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <CalendarIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
-                  </div>
-                  <input
-                    type="date"
-                    name="fromDate"
+                <ConfigProvider theme={datePickerTheme}>
+                  <DatePicker
                     id="fromDate"
-                    min={new Date().toISOString().split('T')[0]}
-                    className={`block w-full pl-10 pr-3 py-2 border ${errors.fromDate ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                    value={formData.fromDate}
-                    onChange={handleChange}
+                    className="w-full rounded-md border-gray-300"
+                    format="YYYY-MM-DD"
+                    value={formData.fromDate ? dayjs(formData.fromDate) : null}
+                    onChange={handleDateChange}
+                    disabledDate={current => current && current < dayjs().startOf('day')}
+                    placeholder="Select Date"
+                    size="large"
+                    style={{ height: '42px' }} 
+                    allowClear={true}
+                    suffixIcon={<CalendarIcon className="h-5 w-5 text-gray-400" />}
                   />
-                </div>
+                </ConfigProvider>
                 {errors.fromDate && (
                   <p className="mt-1 text-sm text-red-600">{errors.fromDate}</p>
                 )}
@@ -422,7 +451,7 @@ const ActivityBookingPage = () => {
             <div className="mt-6">
               <button
                 type="submit"
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
                 disabled={isLoading}
               >
                 {isLoading ? (

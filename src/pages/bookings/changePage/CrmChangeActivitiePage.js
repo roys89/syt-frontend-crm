@@ -5,7 +5,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 // --- Import the filter component ---
-import CrmActivityFilterMdal from '../../../components/itinerary/modals/change/CrmActivityFilterMdal';
+import CrmActivityFilterMdal from '../../../components/itinerary/modals/change/CrmActivityFilterModal';
 
 // --- Import the CHANGE modal with the correct name ---
 import CrmChangeActivityDetailModal from '../../../components/itinerary/modals/change/CrmChangeActivityDetailModal';

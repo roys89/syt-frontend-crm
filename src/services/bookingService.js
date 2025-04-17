@@ -276,43 +276,49 @@ const searchHotelLocations = async (searchString) => {
 
 const searchHotels = async ({ provider = 'TC', ...hotelSearchData }) => {
   try {
-    // Clean up the request data
-    const cleanData = Object.entries(hotelSearchData).reduce((acc, [key, value]) => {
-      // Skip null/undefined values
-      if (value === null || value === undefined) {
+    // Clean up the request data - including the filterBy object
+    const cleanData = { ...hotelSearchData }; // Start with a copy
+    
+    // Process filterBy specifically if it exists
+    if (cleanData.filterBy) {
+      const cleanFilterBy = Object.entries(cleanData.filterBy).reduce((acc, [key, value]) => {
+        // Skip if value is null, undefined, empty array, or false boolean (unless specifically needed)
+        if (value === null || value === undefined) return acc;
+        if (Array.isArray(value) && value.length === 0) return acc;
+        // Keep 'false' for booleans like freeBreakfast, isRefundable if needed by backend
+        // if (typeof value === 'boolean' && !value) return acc; 
+        acc[key] = value;
         return acc;
+      }, {});
+
+      // Replace original filterBy or remove if empty
+      if (Object.keys(cleanFilterBy).length > 0) {
+        cleanData.filterBy = cleanFilterBy;
+      } else {
+        delete cleanData.filterBy; 
       }
-      
-      // Skip empty arrays
-      if (Array.isArray(value) && value.length === 0) {
-        return acc;
-      }
-      
-      // Skip arrays with only null/empty values
-      if (Array.isArray(value) && value.every(item => item === null || item === '')) {
-        return acc;
-      }
-      
-      // Skip empty objects
-      if (typeof value === 'object' && Object.keys(value).length === 0) {
-        return acc;
-      }
-      
-      acc[key] = value;
-      return acc;
-    }, {});
+    }
+
+    // Remove other top-level null/undefined/empty values (optional, backend might handle)
+    // Object.keys(cleanData).forEach(key => {
+    //   if (cleanData[key] === null || cleanData[key] === undefined || 
+    //       (Array.isArray(cleanData[key]) && cleanData[key].length === 0)) {
+    //     delete cleanData[key];
+    //   }
+    // });
 
     console.log('📡 API REQUEST: searchHotels', {
       provider,
       ...cleanData
     });
 
+    // Send the cleaned data, including the potentially present filterBy object
     const response = await authAxios.post(
       `${HOTEL_API_URL}/${provider}/search`, 
-      cleanData
+      cleanData 
     );
     
-    console.log('📡 API RESPONSE:', {
+    console.log('�� API RESPONSE:', {
       status: response.status,
       success: response.data?.success,
       hotelsCount: response.data?.data?.hotels?.length,
@@ -325,15 +331,7 @@ const searchHotels = async ({ provider = 'TC', ...hotelSearchData }) => {
     
     return transformedResponse;
   } catch (error) {
-    console.error('📡 API ERROR:', error);
-    
-    if (error.response) {
-      console.error('📡 Error response:', {
-        status: error.response.status,
-        data: error.response.data
-      });
-    }
-    
+    console.error('Error searching locations:', error);
     throw error;
   }
 };

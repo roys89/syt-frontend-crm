@@ -1,11 +1,12 @@
 // src/pages/bookings/FlightBookingPage.js
 import { ArrowLongRightIcon, ArrowPathIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ConfigProvider, DatePicker } from 'antd';
 import { format } from 'date-fns';
+import dayjs from 'dayjs';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import AirportSelector from '../../components/booking/AirportSelector';
-import ProviderSelector from '../../components/common/ProviderSelector';
 import TravelersForm from '../../components/common/TravelersForm';
 import FlightBookingVoucherModal from '../../components/flights/FlightBookingVoucherModal';
 import FlightFilters from '../../components/flights/FlightFilters';
@@ -126,6 +127,21 @@ const FlightBookingPage = () => {
 
   // Inbound options expansion state for INTERNATIONAL_ROUND_TRIP
   const [expandedStates, setExpandedStates] = useState([]);
+
+  // Define the shared theme configuration
+  const datePickerTheme = {
+    token: {
+      colorPrimary: '#093923', // Main theme green
+    },
+    components: {
+      DatePicker: {
+        cellActiveWithRangeBg: '#13804e26', // Selected range background (#13804e with 15% opacity)
+        cellHoverWithRangeBg: '#0939231A', // Hover background within range (theme green with 10% opacity)
+        // You might need cellHoverBg for single date hover
+        cellHoverBg: '#0939231A', 
+      },
+    },
+  };
 
   // Function to load more flights
   const loadMoreItems = () => {
@@ -511,7 +527,7 @@ const FlightBookingPage = () => {
       }
 
       // Set the itinerary details for the modal
-      setItineraryDetails(response.data);
+      setItineraryDetails(response);
       
       // Move to the next step
       setStep(3);
@@ -948,6 +964,33 @@ const FlightBookingPage = () => {
     });
   };
 
+  // Update handleDepartureDateChange function
+  const handleDepartureDateChange = (date, dateString) => {
+    setFormData(prev => {
+      const newState = {
+        ...prev,
+        departureDate: dateString || ''
+      };
+      // If round trip is selected, pre-populate return date with the same date
+      // This gives the user a starting point for the return date picker
+      if (prev.isRoundTrip) {
+        newState.returnDate = dateString || ''; 
+      }
+      return newState;
+    });
+    // Optionally clear return date error if departure date changes
+    if (errors.returnDate) {
+      setErrors(prev => ({ ...prev, returnDate: undefined }));
+    }
+  };
+
+  const handleReturnDateChange = (date, dateString) => {
+    setFormData(prev => ({
+      ...prev,
+      returnDate: dateString || ''
+    }));
+  };
+
   // Render content based on current step
   const renderContent = () => {
     switch (step) {
@@ -956,17 +999,36 @@ const FlightBookingPage = () => {
         return (
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="space-y-8">
-              <div>
-                <h2 className="text-2xl font-semibold text-gray-900 mb-2">Search Flights</h2>
-                <p className="text-gray-600">Find the best flights for your journey</p>
+              {/* Modified Header with Provider Selection */}
+              <div className="flex justify-between items-center">
+                {/* Left Side: Title and Subtitle */}
+                <div>
+                  <h2 className="text-2xl font-semibold text-gray-900 mb-1">Search Flights</h2>
+                  <p className="text-gray-600">Find the best flights for your journey</p>
+                </div>
+                {/* Right Side: Provider Selection */}
+                <div className="flex items-center space-x-4">
+                  <h3 className="text-base font-medium text-gray-700">Select Provider:</h3>
+                  <div className="flex space-x-2">
+                    {FLIGHT_PROVIDERS.map((provider) => (
+                      <button
+                        key={provider.value}
+                        type="button"
+                        onClick={() => handleProviderChange(provider.value)}
+                        // Apply theme colors and adjust styling for inline header display
+                        className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors duration-200 ${ 
+                          selectedProvider === provider.value
+                            ? 'border-[#093923] bg-[#093923]/10 text-[#093923]' 
+                            : 'border-gray-300 text-gray-700 hover:border-[#093923]/50 hover:bg-[#093923]/5'
+                        }`}
+                      >
+                        {provider.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              <ProviderSelector
-                providers={FLIGHT_PROVIDERS}
-                selectedProvider={selectedProvider}
-                onChange={handleProviderChange}
-              />
-              
               <form onSubmit={handleSearch} className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="h-full">
@@ -996,7 +1058,7 @@ const FlightBookingPage = () => {
                             id="isRoundTrip"
                             checked={formData.isRoundTrip}
                             onChange={handleRoundTripToggle}
-                            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            className="h-4 w-4 text-[#093923] focus:ring-[#093923] border-gray-300 rounded"
                           />
                           <label htmlFor="isRoundTrip" className="text-sm font-medium text-gray-700">
                             Round Trip
@@ -1006,15 +1068,19 @@ const FlightBookingPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700">Departure Date</label>
-                            <input
-                              type="date"
-                              name="departureDate"
-                              value={formData.departureDate}
-                              onChange={handleChange}
-                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
-                              required
-                              min={new Date().toISOString().split('T')[0]}
-                            />
+                            <ConfigProvider theme={datePickerTheme}>
+                              <DatePicker
+                                className="w-full rounded-md border-gray-300"
+                                format="YYYY-MM-DD"
+                                value={formData.departureDate ? dayjs(formData.departureDate) : null}
+                                onChange={handleDepartureDateChange}
+                                disabledDate={current => current && current < dayjs().startOf('day')}
+                                placeholder="Select Date"
+                                size="large"
+                                style={{ height: '42px' }}
+                                allowClear={true}
+                              />
+                            </ConfigProvider>
                             {errors.departureDate && (
                               <p className="text-red-500 text-sm">{errors.departureDate}</p>
                             )}
@@ -1026,7 +1092,8 @@ const FlightBookingPage = () => {
                               name="departureTime"
                               value={formData.departureTime}
                               onChange={handleChange}
-                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
+                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#093923] focus:ring-[#093923] py-2 px-3"
+                              style={{ height: '42px' }}
                             />
                           </div>
                         </div>
@@ -1035,15 +1102,24 @@ const FlightBookingPage = () => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <label className="block text-sm font-medium text-gray-700">Return Date</label>
-                              <input
-                                type="date"
-                                name="returnDate"
-                                value={formData.returnDate}
-                                onChange={handleChange}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
-                                required
-                                min={formData.departureDate || new Date().toISOString().split('T')[0]}
-                              />
+                              <ConfigProvider theme={datePickerTheme}>
+                                <DatePicker
+                                  className="w-full rounded-md border-gray-300"
+                                  format="YYYY-MM-DD"
+                                  value={formData.returnDate ? dayjs(formData.returnDate) : null}
+                                  onChange={handleReturnDateChange}
+                                  disabledDate={current => 
+                                    current && (
+                                      current < dayjs().startOf('day') || 
+                                      (formData.departureDate && current < dayjs(formData.departureDate))
+                                    )
+                                  }
+                                  placeholder="Select Date"
+                                  size="large"
+                                  style={{ height: '42px' }}
+                                  allowClear={true}
+                                />
+                              </ConfigProvider>
                               {errors.returnDate && (
                                 <p className="text-red-500 text-sm">{errors.returnDate}</p>
                               )}
@@ -1055,7 +1131,8 @@ const FlightBookingPage = () => {
                                 name="returnTime"
                                 value={formData.returnTime}
                                 onChange={handleChange}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#093923] focus:ring-[#093923] py-2 px-3"
+                                style={{ height: '42px' }}
                               />
                             </div>
                           </div>
@@ -1076,22 +1153,29 @@ const FlightBookingPage = () => {
                           <label className="block text-sm font-medium text-gray-700">Cabin Class</label>
                           <div className="grid grid-cols-3 gap-2">
                             {[
-                              { value: 1, label: 'ALL', color: 'bg-gray-200', selectedColor: 'bg-gray-400' },
-                              { value: 2, label: 'ECONOMY', color: 'bg-green-200', selectedColor: 'bg-green-400' },
-                              { value: 3, label: 'PREMIUM ECONOMY', color: 'bg-teal-200', selectedColor: 'bg-teal-400' },
-                              { value: 4, label: 'BUSINESS', color: 'bg-blue-200', selectedColor: 'bg-blue-400' },
-                              { value: 5, label: 'PREMIUM BUSINESS', color: 'bg-indigo-200', selectedColor: 'bg-indigo-400' },
-                              { value: 6, label: 'FIRST', color: 'bg-purple-200', selectedColor: 'bg-purple-400' }
-                            ].map(option => (
-                              <button
-                                key={option.value}
-                                type="button"
-                                onClick={() => handleCabinClassChange(option.value)}
-                                className={`w-full py-2 rounded-md shadow-sm text-sm font-medium text-gray-700 transition-colors duration-200 ${formData.cabinClass === option.value ? option.selectedColor : option.color}`}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
+                              { value: 1, label: 'ALL' },
+                              { value: 2, label: 'ECONOMY' },
+                              { value: 3, label: 'PREMIUM ECONOMY' },
+                              { value: 4, label: 'BUSINESS' },
+                              { value: 5, label: 'PREMIUM BUSINESS' },
+                              { value: 6, label: 'FIRST' }
+                            ].map(option => {
+                              const isSelected = formData.cabinClass === option.value;
+                              const bgColor = isSelected ? 'bg-[#093923]/60' : 'bg-[#093923]/10';
+                              const textColor = isSelected ? 'text-white' : 'text-gray-900';
+                              const hoverBgColor = isSelected ? 'hover:bg-[#093923]/70' : 'hover:bg-[#093923]/20';
+                              
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => handleCabinClassChange(option.value)}
+                                  className={`w-full py-2 rounded-md shadow-sm text-sm font-medium transition-colors duration-200 ${bgColor} ${textColor} ${hoverBgColor}`}
+                                >
+                                  {option.label}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
@@ -1103,16 +1187,16 @@ const FlightBookingPage = () => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors duration-200"
+                    className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50 transition-colors duration-200"
                   >
                     {isLoading ? (
                       <>
-                        <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-5 w-5" />
+                        <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" />
                         Searching...
                       </>
                     ) : (
                       <>
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         Search Flights
@@ -1136,17 +1220,25 @@ const FlightBookingPage = () => {
                   <p className="text-gray-600 mt-1">
                     {outboundFlights.length} outbound flights and {inboundFlights.length} inbound flights 
                     for {formData.origin.city || formData.origin.name} to {formData.destination.city || formData.destination.name}
+                    <span className="text-sm text-gray-500 ml-2">
+                      ({formData.departureDate ? format(new Date(formData.departureDate), 'MMM dd, yyyy') : ''}
+                      {formData.returnDate ? ` - ${format(new Date(formData.returnDate), 'MMM dd, yyyy')}` : ''})
+                    </span>
                   </p>
                 ) : (
                   <p className="text-gray-600 mt-1">
                     {filteredFlights.length} flights found
                     for {formData.origin.city || formData.origin.name} to {formData.destination.city || formData.destination.name}
+                    <span className="text-sm text-gray-500 ml-2">
+                      ({formData.departureDate ? format(new Date(formData.departureDate), 'MMM dd, yyyy') : ''}
+                      {formData.returnDate ? ` - ${format(new Date(formData.returnDate), 'MMM dd, yyyy')}` : ''})
+                    </span>
                   </p>
                 )}
               </div>
               <button
                 onClick={() => setStep(1)}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -1157,8 +1249,8 @@ const FlightBookingPage = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
               {/* Sidebar with filters */}
-              <div className="md:col-span-3">
-                <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="md:col-span-3"> {/* Filters Column */} 
+                <div className="bg-white rounded-lg shadow-sm p-6 h-full">
                   <FlightFilters
                     flights={flightStructureType === 'DOMESTIC_ROUND_TRIP' 
                       ? (activeTab === 'outbound' ? outboundFlights : inboundFlights)
@@ -1173,12 +1265,12 @@ const FlightBookingPage = () => {
               </div>
               
               {/* Flight search results */}
-              <div className="md:col-span-6">
+              <div className="md:col-span-6"> {/* Results Column - Default Width */} 
                 {renderFlightResults()}
               </div>
 
               {/* Flight summary panel */}
-              <div className="md:col-span-3">
+              <div className="md:col-span-3"> {/* Summary Column - Default Width */} 
                 <div>
                   <FlightSummaryPanel
                     selectedOutboundFlight={selectedOutboundFlight}
@@ -1207,7 +1299,7 @@ const FlightBookingPage = () => {
                   <button
                     onClick={handleViewVoucher}
                     disabled={isLoadingVoucher}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
                   >
                     {isLoadingVoucher ? (
                       <span className="flex items-center">
@@ -1222,16 +1314,16 @@ const FlightBookingPage = () => {
                     )}
                   </button>
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <div className="bg-[#22c35e]/10 border border-[#22c35e]/30 rounded-lg p-4 mb-6">
                   <div className="flex">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="h-5 w-5 text-[#22c35e]" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <h3 className="text-sm font-medium text-green-800">Booking Successful</h3>
-                      <div className="mt-2 text-sm text-green-700">
+                      <h3 className="text-sm font-medium text-[#22c35e]/90">Booking Successful</h3>
+                      <div className="mt-2 text-sm text-[#22c35e]/80">
                         <p>Your booking has been confirmed. Booking code: {bookingDetails.details[0].bmsBookingCode}</p>
                       </div>
                     </div>
@@ -1258,7 +1350,7 @@ const FlightBookingPage = () => {
     if (isLoading) {
       return (
         <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#093923] mx-auto mb-4"></div>
           <p className="text-gray-500">Loading flights...</p>
         </div>
       );
@@ -1275,26 +1367,26 @@ const FlightBookingPage = () => {
                 onClick={() => setActiveTab('outbound')}
                 className={`${
                   activeTab === 'outbound'
-                    ? 'border-indigo-500 text-indigo-600'
+                    ? 'border-[#093923] text-[#093923]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 } w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm`}
               >
-                Outbound Flights
+                {formData.origin?.city || formData.origin?.name || 'Origin'} to {formData.destination?.city || formData.destination?.name || 'Destination'}
                 {selectedOutboundFlight && activeTab !== 'outbound' && (
-                  <span className="ml-2 text-green-500">✓</span>
+                  <span className="ml-2 text-[#22c35e]">✓</span>
                 )}
               </button>
               <button
                 onClick={() => setActiveTab('inbound')}
                 className={`${
                   activeTab === 'inbound'
-                    ? 'border-indigo-500 text-indigo-600'
+                    ? 'border-[#093923] text-[#093923]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 } w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm`}
               >
-                Inbound Flights
+                {formData.destination?.city || formData.destination?.name || 'Destination'} to {formData.origin?.city || formData.origin?.name || 'Origin'}
                 {selectedInboundFlight && activeTab !== 'inbound' && (
-                  <span className="ml-2 text-green-500">✓</span>
+                  <span className="ml-2 text-[#22c35e]">✓</span>
                 )}
               </button>
             </nav>
@@ -1348,13 +1440,13 @@ const FlightBookingPage = () => {
                 }}
                 className={`${
                   activeTab === 'outbound'
-                    ? 'border-indigo-500 text-indigo-600'
+                    ? 'border-[#093923] text-[#093923]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 } w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm`}
               >
-                Outbound Flights
+                {formData.origin?.city || formData.origin?.name || 'Origin'} to {formData.destination?.city || formData.destination?.name || 'Destination'}
                 {selectedOutboundFlight && activeTab !== 'outbound' && (
-                  <span className="ml-2 text-green-500">✓</span>
+                  <span className="ml-2 text-[#22c35e]">✓</span>
                 )}
               </button>
               <button
@@ -1366,15 +1458,15 @@ const FlightBookingPage = () => {
                 disabled={!selectedOutboundFlight}
                 className={`${
                   activeTab === 'inbound'
-                    ? 'border-indigo-500 text-indigo-600'
+                    ? 'border-[#093923] text-[#093923]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 } w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${
                   !selectedOutboundFlight && 'opacity-50 cursor-not-allowed'
                 }`}
               >
-                Inbound Options
+                {formData.destination?.city || formData.destination?.name || 'Destination'} to {formData.origin?.city || formData.origin?.name || 'Origin'}
                 {selectedInboundOptionIndex !== null && activeTab !== 'inbound' && (
-                  <span className="ml-2 text-green-500">✓</span>
+                  <span className="ml-2 text-[#22c35e]">✓</span>
                 )}
               </button>
             </nav>
@@ -1442,7 +1534,7 @@ const FlightBookingPage = () => {
                         <div 
                           className={`bg-white rounded-lg shadow-sm border p-4 ${
                             selectedInboundOptionIndex === index 
-                              ? 'border-blue-500 ring-2 ring-blue-200' 
+                              ? 'border-[#093923] ring-2 ring-[#093923]/30' 
                               : 'border-gray-200'
                           } hover:shadow-md transition-shadow cursor-pointer`}
                           onClick={() => handleSelectInboundOption(index)}
@@ -1486,7 +1578,7 @@ const FlightBookingPage = () => {
                                         e.stopPropagation(); // Prevent card selection
                                         toggleExpanded(index);
                                       }}
-                                      className="text-blue-600 text-sm font-medium flex items-center ml-6"
+                                      className="text-[#093923] text-sm font-medium flex items-center ml-6"
                                     >
                                       {isExpanded ? 'Hide' : 'View'} {groupFlights.length} more option{groupFlights.length !== 1 ? 's' : ''}
                                       <svg 
@@ -1510,7 +1602,7 @@ const FlightBookingPage = () => {
                           
                           {/* Render group flights if expanded */}
                           {isExpanded && hasGroupFlights && (
-                            <div className="space-y-4 pl-4 border-l-2 border-blue-100">
+                            <div className="space-y-4 pl-4 border-l-2 border-[#093923]/20">
                               <div className="text-sm font-medium text-gray-700 pb-2">More options with this airline</div>
                               {groupFlights.map((groupFlight, groupIndex) => {
                                 // Get segments for this group flight
@@ -1570,7 +1662,7 @@ const FlightBookingPage = () => {
                                             </div>
                                             
                                             <button
-                                              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+                                              className="px-3 py-1 bg-[#093923] text-white rounded hover:bg-[#093923]/90 text-sm font-medium"
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 // Create a copy of the selected outbound flight
@@ -1670,18 +1762,18 @@ const FlightBookingPage = () => {
               key={stepName}
               className={`flex items-center ${
                 index + 1 === step
-                  ? 'text-indigo-600'
+                  ? 'text-[#093923]'
                   : index + 1 < step
-                  ? 'text-green-600'
+                  ? 'text-[#22c35e]'
                   : 'text-gray-400'
               }`}
             >
               <span
                 className={`w-8 h-8 flex items-center justify-center rounded-full border-2 ${
                   index + 1 === step
-                    ? 'border-indigo-600 bg-indigo-50'
+                    ? 'border-[#093923] bg-[#093923]/10'
                     : index + 1 < step
-                    ? 'border-green-600 bg-green-50'
+                    ? 'border-[#22c35e] bg-[#22c35e]/10'
                     : 'border-gray-300'
                 }`}
               >

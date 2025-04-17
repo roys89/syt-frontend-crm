@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { AlertTriangle, Briefcase, Calendar, ChevronDown, ChevronUp, Clock, HelpCircle, Plane, Shield } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import bookingService from '../../services/bookingService';
@@ -12,6 +13,7 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
   const [isAllocated, setIsAllocated] = useState(false);
   const [priceDetails, setPriceDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedSegment, setExpandedSegment] = useState(null);
 
   const handleBookNow = async () => {
     if (!isAllocated) {
@@ -23,8 +25,8 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
       setIsLoading(true);
       const response = await bookingService.bookFlight({
         provider: 'TC',
-        traceId: priceDetails?.traceIdDetails?.traceId || itineraryDetails?.results?.traceId,
-        itineraryCode: priceDetails?.itineraryCode || itineraryDetails?.results?.itineraryCode
+        traceId: priceDetails?.traceIdDetails?.traceId || itineraryDetails?.data?.results?.traceId,
+        itineraryCode: priceDetails?.itineraryCode || itineraryDetails?.data?.results?.itineraryCode
       });
 
       if (response.success) {
@@ -50,9 +52,9 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
       setPriceDetails(response.recheck);
       // Update itineraryDetails with new price if changed
       if (response.recheck.isPriceChanged) {
-        itineraryDetails.results.totalAmount = response.recheck.totalAmount;
-        itineraryDetails.results.baseFare = response.recheck.baseFare;
-        itineraryDetails.results.taxAndSurcharge = response.recheck.taxAndSurcharge;
+        itineraryDetails.data.results.totalAmount = response.recheck.totalAmount;
+        itineraryDetails.data.results.baseFare = response.recheck.baseFare;
+        itineraryDetails.data.results.taxAndSurcharge = response.recheck.taxAndSurcharge;
       }
     }
   };
@@ -67,6 +69,16 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
     }
   };
 
+  const formatDate = (timeStr) => {
+    if (!timeStr) return 'N/A';
+    try {
+      return format(new Date(timeStr), 'dd MMM yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', error, timeStr);
+      return 'Invalid date';
+    }
+  };
+
   const formatDuration = (duration) => {
     if (!duration) return 'N/A';
     const hours = Math.floor(duration / 60);
@@ -74,12 +86,188 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
     return `${hours}h ${minutes}m`;
   };
 
+  const toggleSegmentExpand = (index) => {
+    if (expandedSegment === index) {
+      setExpandedSegment(null);
+    } else {
+      setExpandedSegment(index);
+    }
+  };
+
+  // Extract data from itineraryDetails
+  const results = itineraryDetails?.data?.results;
+  const itineraryItems = results?.itineraryItems || [];
+  const isInternational = results?.isDomestic === false;
+  const flightType = itineraryDetails?.flightType || 
+    (isInternational ? 'INTERNATIONAL_ROUND_TRIP' : 
+     (itineraryItems.length > 1 ? 'DOMESTIC_ROUND_TRIP' : 'ONE_WAY'));
+
+  const outboundFlightItem = itineraryItems[0] || {};
+  const inboundFlightItem = flightType === 'DOMESTIC_ROUND_TRIP' ? (itineraryItems[1] || {}) : null;
+  const internationalReturnSegments = flightType === 'INTERNATIONAL_ROUND_TRIP' ? outboundFlightItem.itemFlight?.segments?.[1] : null;
+
+  const getFlight = (item) => item?.itemFlight || {};
+  const getSegments = (itemFlight, legIndex = 0) => {
+    if (flightType === 'INTERNATIONAL_ROUND_TRIP') {
+      return itemFlight?.segments?.[legIndex] || []; // 0 for outbound, 1 for inbound
+    }
+    // For ONE_WAY and DOMESTIC_ROUND_TRIP, segments are always in itemFlight.segments[0]
+    return itemFlight?.segments?.[0] || [];
+  };
+
+  const outboundFlight = getFlight(outboundFlightItem);
+  const outboundSegments = getSegments(outboundFlight, 0);
+  const inboundFlight = flightType === 'DOMESTIC_ROUND_TRIP' ? getFlight(inboundFlightItem) : outboundFlight; // Use outbound for intl return
+  const inboundSegments = flightType === 'DOMESTIC_ROUND_TRIP' 
+    ? getSegments(inboundFlight, 0) // Domestic inbound uses its own itemFlight.segments[0]
+    : internationalReturnSegments || []; // International inbound uses outboundFlight.segments[1]
+
+  // Helper to render a single flight leg (outbound or inbound)
+  const renderFlightLeg = (title, flightData, segments, legIndex) => {
+    if (!flightData || segments.length === 0) return null;
+
+    return (
+      <div className="border rounded-lg overflow-hidden">
+        {/* Flight Header */}
+        <div className="p-4 bg-gray-50 border-b flex justify-between items-start">
+          <div>
+            <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+            <div className="flex items-center text-sm text-gray-600 mt-1">
+              <span className="font-medium text-[#093923]">{flightData.airlineName} {flightData.flightNumber}</span>
+              <span className="mx-2">•</span>
+              <span>{formatDate(flightData.departureAt)}</span>
+            </div>
+          </div>
+          {/* Conditionally hide price for International Round Trip */}
+          {flightType !== 'INTERNATIONAL_ROUND_TRIP' && (
+            <div className="text-right">
+              <p className="text-lg font-semibold text-[#093923]">
+                {flightData.fareQuote.currency} {flightData.fareQuote.finalFare.toLocaleString()}
+              </p>
+              <p className="text-sm text-gray-500">
+                {flightData.fareIdentifier.name}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Flight Segments */}
+        <div className="p-4">
+          {segments.map((segment, segIndex) => (
+            <div key={segIndex} className="mb-4 last:mb-0">
+              {/* Main segment info */}
+              <div className="flex items-start">
+                {/* Departure */}
+                <div className="w-1/4">
+                  <p className="text-lg font-semibold">{formatTime(segment.or.dT)}</p>
+                  <p className="text-xs font-medium">{formatDate(segment.or.dT)}</p>
+                  <p className="text-sm text-gray-600">{segment.or.cN}</p>
+                  <p className="text-xs text-gray-500">{segment.or.aN}</p>
+                  <p className="text-xs text-gray-500">Terminal {segment.or.tr}</p>
+                </div>
+
+                {/* Flight path */}
+                <div className="flex-1 px-4">
+                  <div className="flex flex-col items-center">
+                    <p className="text-xs text-gray-500 mb-1">{formatDuration(segment.dr)}</p>
+                    <div className="w-full flex items-center">
+                      <div className="h-2 w-2 rounded-full bg-[#093923]"></div>
+                      <div className="flex-1 h-0.5 bg-gray-300 mx-1 relative">
+                        <div className="absolute top-1/2 left-1/2 transform -translate-y-1/2 -translate-x-1/2">
+                          <Plane className="h-3 w-3 text-[#093923]" />
+                        </div>
+                      </div>
+                      <div className="h-2 w-2 rounded-full bg-[#093923]"></div>
+                    </div>
+                    <div className="flex items-center justify-center mt-2 space-x-2">
+                      <img 
+                        src={`https://pics.avs.io/80/40/${segment.al.alC}.png`} 
+                        alt={segment.al.alN}
+                        className="h-6 w-auto object-contain rounded-sm flex-shrink-0"
+                        onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.classList.remove('hidden'); }}
+                      />
+                      <span className="hidden w-6 h-6 bg-gray-200 rounded-sm text-gray-500 flex items-center justify-center text-xs">?</span> {/* Placeholder icon */}
+                      <p className="text-xs text-gray-600 truncate" title={`${segment.al.alN} ${segment.al.fN}`}>
+                        {segment.al.alN} {segment.al.fN}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Arrival */}
+                <div className="w-1/4 text-right">
+                  <p className="text-lg font-semibold">{formatTime(segment.ds.aT)}</p>
+                  <p className="text-xs font-medium">{formatDate(segment.ds.aT)}</p>
+                  <p className="text-sm text-gray-600">{segment.ds.cN}</p>
+                  <p className="text-xs text-gray-500">{segment.ds.aN}</p>
+                  <p className="text-xs text-gray-500">Terminal {segment.ds.tr}</p>
+                </div>
+              </div>
+
+              {/* Expandable details (baggage, class) */}
+              <div className="mt-2">
+                <button 
+                  className="w-full flex justify-between items-center px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 rounded"
+                  onClick={() => toggleSegmentExpand(legIndex * 100 + segIndex)} // Use legIndex for unique key
+                >
+                  <div className="flex items-center">
+                    <Briefcase className="h-4 w-4 mr-1 text-[#093923]" />
+                    <span>
+                      Baggage: {segment.bg} • Cabin: {segment.cBg} • 
+                      Class: {segment.al.fC}
+                    </span>
+                  </div>
+                  {expandedSegment === (legIndex * 100 + segIndex) ? 
+                    <ChevronUp className="h-4 w-4" /> : 
+                    <ChevronDown className="h-4 w-4" />
+                  }
+                </button>
+                
+                {expandedSegment === (legIndex * 100 + segIndex) && (
+                  <div className="mt-2 p-3 bg-[#093923]/10 rounded-md text-sm">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <p className="font-medium">Check-in Baggage:</p>
+                        <p>{segment.bg}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium">Cabin Baggage:</p>
+                        <p>{segment.cBg}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium">Cabin Class:</p>
+                        <p>{segment.al.fC}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium">Aircraft:</p>
+                        <p>{segment.al.alC} {segment.al.fN}</p>
+                      </div>
+                      {segment.sO && (
+                        <div className="col-span-2">
+                          <p className="font-medium text-orange-600">This is a stopover flight</p>
+                          {segment.sD && <p>Duration: {formatDuration(segment.sD)}</p>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm">
       {/* Header */}
       <div className="border-b border-gray-200 p-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-900">Flight Itinerary</h2>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Flight Itinerary</h2>
+            <p className="text-sm text-gray-500">{flightType.replace(/_/g, ' ')}</p>
+          </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-500"
@@ -99,9 +287,9 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`${
+              className={`${ 
                 activeTab === tab
-                  ? 'border-blue-500 text-blue-600'
+                  ? 'border-[#093923] text-[#093923]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               } flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm capitalize`}
             >
@@ -115,10 +303,10 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
       <div className="p-6">
         {/* Price change alert */}
         {priceDetails && (priceDetails.isPriceChanged || priceDetails.isBaggageChanged) && (
-          <div className={`mb-4 p-4 rounded-md ${
+          <div className={`mb-4 p-4 rounded-md ${ 
             priceDetails.totalAmount > priceDetails.previousTotalAmount 
-              ? 'bg-red-50 text-red-700' 
-              : 'bg-green-50 text-green-700'
+              ? 'bg-[#093923]/10 text-[#093923]' 
+              : 'bg-[#22c35e]/10 text-[#22c35e]'
           }`}>
             <div className="flex items-center justify-between">
               <div>
@@ -132,7 +320,7 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
               </div>
               {priceDetails.isBaggageChanged && (
                 <div className="text-sm">
-                  <p className="font-medium">Baggage Policy Changed</p>
+                  <p className="font-medium text-[#093923]">Baggage Policy Changed</p>
                   <p>Please review the updated baggage details</p>
                 </div>
               )}
@@ -142,58 +330,53 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
 
         {activeTab === 'flightDetails' && (
           <div className="space-y-6">
-            {itineraryDetails?.results?.itineraryItems?.map((item, index) => (
-              <div key={index} className="border rounded-lg p-4">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {index === 0 ? 'Outbound Flight' : 'Return Flight'}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {item.itemFlight.airlineName} {item.itemFlight.flightNumber}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold text-blue-600">
-                      {item.itemFlight.fareQuote.currency} {item.itemFlight.fareQuote.finalFare.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {item.itemFlight.fareIdentifier.name}
-                    </p>
-                  </div>
+            {/* Itinerary Summary */}
+            <div className="mb-4 p-4 bg-[#093923]/10 rounded-lg">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
+                <div className="flex items-center mb-2 sm:mb-0">
+                  <Plane className="h-5 w-5 text-[#093923] mr-2" />
+                  <span className="font-medium">
+                    {outboundFlight.origin} - {outboundFlight.destination}
+                    {/* Show return origin only if it's a round trip */}
+                    {(flightType === 'DOMESTIC_ROUND_TRIP' || flightType === 'INTERNATIONAL_ROUND_TRIP') && 
+                     outboundFlight.origin && ` - ${outboundFlight.origin}`}
+                  </span>
                 </div>
-
-                <div className="space-y-4">
-                  {item.itemFlight.segments[0].map((segment, segIndex) => (
-                    <div key={segIndex} className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-lg font-semibold">{formatTime(segment.or.dT)}</span>
-                          <span className="text-gray-500">{segment.or.aC}</span>
-                        </div>
-                        <p className="text-sm text-gray-500">{segment.or.aN}</p>
-                      </div>
-
-                      <div className="flex-1 text-center">
-                        <p className="text-sm text-gray-500">{formatDuration(segment.dr)}</p>
-                        <div className="h-0.5 bg-gray-200 my-2"></div>
-                        <p className="text-sm text-gray-500">
-                          {item.itemFlight.stopCount.stops > 0 ? `${item.itemFlight.stopCount.stops} stop(s)` : 'Non-stop'}
-                        </p>
-                      </div>
-
-                      <div className="flex-1 text-right">
-                        <div className="flex items-center justify-end space-x-2">
-                          <span className="text-gray-500">{segment.ds.aC}</span>
-                          <span className="text-lg font-semibold">{formatTime(segment.ds.aT)}</span>
-                        </div>
-                        <p className="text-sm text-gray-500">{segment.ds.aN}</p>
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-sm text-gray-600 flex items-center">
+                  <Calendar className="h-4 w-4 mr-1 text-[#093923]" />
+                  {outboundFlight.departureAt && formatDate(outboundFlight.departureAt)}
+                  {/* Show return arrival date only if it's a round trip and available */}
+                  {(flightType === 'DOMESTIC_ROUND_TRIP' && inboundFlight?.arrivalAt) && (
+                    <><span className="mx-2">-</span>{formatDate(inboundFlight.arrivalAt)}</>
+                  )}
+                  {(flightType === 'INTERNATIONAL_ROUND_TRIP' && outboundFlight?.arrivalAt) && (
+                     <><span className="mx-2">-</span>{formatDate(outboundFlight.arrivalAt)}</>
+                  )}
                 </div>
               </div>
-            ))}
+              <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+                <div className="flex items-center">
+                  <Shield className="h-3 w-3 mr-1 text-[#093923]" />
+                  <span>{outboundFlight.isRefundable ? 'Refundable' : 'Non-Refundable'}</span>
+                </div>
+                <div className="flex items-center">
+                  <Briefcase className="h-3 w-3 mr-1 text-[#093923]" />
+                  <span>Cabin: {outboundSegments?.[0]?.al?.fC || 'Economy'}</span>
+                </div>
+                <div className="flex items-center">
+                  <Clock className="h-3 w-3 mr-1 text-[#093923]" />
+                  <span>TraceID Valid: {results?.traceIdDetails?.remainingTime || 0} seconds</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Render Outbound Leg */}
+            {renderFlightLeg('Departure Flight', outboundFlight, outboundSegments, 0)}
+
+            {/* Render Inbound Leg (if applicable) */}
+            {(flightType === 'DOMESTIC_ROUND_TRIP' || flightType === 'INTERNATIONAL_ROUND_TRIP') &&
+              renderFlightLeg('Return Flight', inboundFlight, inboundSegments, 1)}
+            
           </div>
         )}
 
@@ -201,24 +384,97 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
           <div className="space-y-4">
             <div className="border rounded-lg p-4">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Fare Breakdown</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Base Fare</span>
-                  <span className="font-medium">{itineraryDetails?.results?.baseFare?.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Taxes & Fees</span>
-                  <span className="font-medium">{itineraryDetails?.results?.taxAndSurcharge?.toLocaleString()}</span>
-                </div>
-                <div className="border-t pt-2">
+              
+              {/* Detailed price breakdown */}
+              <div className="space-y-4">
+                <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-900 font-semibold">Total Amount</span>
-                    <span className="text-lg font-semibold text-blue-600">
-                      {itineraryDetails?.results?.totalAmount?.toLocaleString()}
-                    </span>
+                    <span className="text-gray-600">Base Fare</span>
+                    <span className="font-medium">₹{results?.baseFare?.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Taxes & Fees</span>
+                    <span className="font-medium">₹{results?.taxAndSurcharge?.toLocaleString()}</span>
+                  </div>
+                  
+                  {/* Additional fees if available */}
+                  {results?.tcDiscount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Discount</span>
+                      <span>-₹{results?.tcDiscount?.toLocaleString()}</span>
+                    </div>
+                  )}
+                  
+                  {results?.insuranceAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Insurance</span>
+                      <span className="font-medium">₹{results?.insuranceAmount?.toLocaleString()}</span>
+                    </div>
+                  )}
+                  
+                  <div className="border-t pt-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-900 font-semibold">Total Amount</span>
+                      <span className="text-lg font-semibold text-blue-600">
+                        ₹{results?.totalAmount?.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Passenger Breakdown */}
+                <div className="border-t pt-3 mt-3">
+                  <h4 className="text-base font-medium text-gray-900 mb-2">Per Passenger Breakdown</h4>
+                  <div className="bg-gray-50 p-3 rounded">
+                    {/* Use outbound flight for pax breakdown, assuming it's consistent */}
+                    {outboundFlight?.fareQuote?.paxFareBreakUp?.map((pax, idx) => (
+                      <div key={idx} className="mb-2 last:mb-0">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">
+                            {pax.paxType === 1 ? 'Adult' : pax.paxType === 2 ? 'Child' : 'Infant'} 
+                          </span>
+                          <span>₹{(pax.baseFare + pax.tax).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-600 pl-4">
+                          <span>Base Fare</span>
+                          <span>₹{pax.baseFare?.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-600 pl-4">
+                          <span>Taxes & Fees</span>
+                          <span>₹{pax.tax?.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Add Refund/Change Fee Summary */}
+            <div className="border rounded-lg p-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <HelpCircle className="h-5 w-5 mr-2 text-[#093923]" />
+                Refund & Change Policy Summary
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-[#093923]/10 p-3 rounded-md">
+                  <h4 className="font-medium text-[#093923] mb-1">Cancellation Charges</h4>
+                  <p className="text-sm text-[#093923]/80">
+                    {outboundFlight?.isRefundable ? 
+                      'This ticket is refundable, subject to airline policy and applicable fees.' : 
+                      'This ticket is non-refundable.'}
+                  </p>
+                </div>
+                <div className="bg-[#093923]/10 p-3 rounded-md">
+                  <h4 className="font-medium text-[#093923] mb-1">Date Change Policy</h4>
+                  <p className="text-sm text-[#093923]/80">
+                    Date changes are permitted subject to airline policy and applicable fees.
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-3">
+                * See 'Fare Rules' tab for complete details on cancellation and change policies.
+              </p>
             </div>
           </div>
         )}
@@ -227,13 +483,38 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
           <div className="space-y-4">
             <div className="border rounded-lg p-4">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Fare Rules</h3>
-              <div className="prose max-w-none">
-                {itineraryDetails?.results?.itineraryItems?.[0]?.itemFlight?.fareRule?.[0]?.fareRuleDetail ? (
-                  <div dangerouslySetInnerHTML={{ __html: itineraryDetails.results.itineraryItems[0].itemFlight.fareRule[0].fareRuleDetail }} />
+              
+              {/* Outbound Fare Rules */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Outbound Flight Fare Rules</h4>
+                {outboundFlight?.fareRule?.[0]?.fareRuleDetail ? (
+                  <div className="bg-gray-50 p-4 rounded-md prose max-w-none">
+                    <div dangerouslySetInnerHTML={{ __html: outboundFlight.fareRule[0].fareRuleDetail }} />
+                  </div>
                 ) : (
-                  <p className="text-gray-500">No fare rules available.</p>
+                  <div className="flex items-center p-4 bg-[#093923]/10 rounded-md text-gray-500">
+                    <AlertTriangle className="h-5 w-5 mr-2 text-[#093923]" />
+                    <p>No outbound fare rules available.</p>
+                  </div>
                 )}
               </div>
+              
+              {/* Inbound Fare Rules (if applicable) */}
+              {(flightType === 'DOMESTIC_ROUND_TRIP' || flightType === 'INTERNATIONAL_ROUND_TRIP') && (
+                <div className="mt-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Return Flight Fare Rules</h4>
+                  {inboundFlight?.fareRule?.[0]?.fareRuleDetail ? (
+                    <div className="bg-gray-50 p-4 rounded-md prose max-w-none">
+                      <div dangerouslySetInnerHTML={{ __html: inboundFlight.fareRule[0].fareRuleDetail }} />
+                    </div>
+                  ) : (
+                    <div className="flex items-center p-4 bg-[#093923]/10 rounded-md text-gray-500">
+                      <AlertTriangle className="h-5 w-5 mr-2 text-[#093923]" />
+                      <p>No return fare rules available.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -251,7 +532,7 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
           <button
             onClick={handleBookNow}
             disabled={isLoading}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
           >
             {isLoading ? (
               <span className="flex items-center">
@@ -269,12 +550,12 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
       <PassengerInfoModal
         isOpen={showPassengerInfo}
         onClose={() => setShowPassengerInfo(false)}
-        itineraryDetails={{
-          ...itineraryDetails?.results,
+        itineraryDetails={{ 
+          ...results,
           paxCount: {
-            adults: itineraryDetails?.results?.adultCount || 1,
-            children: itineraryDetails?.results?.childCount || 0,
-            infants: itineraryDetails?.results?.infantCount || 0
+            adults: results?.adultCount || 1,
+            children: results?.childCount || 0,
+            infants: results?.infantCount || 0
           }
         }}
         onSuccess={handlePassengerSuccess}
@@ -283,4 +564,4 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
   );
 };
 
-export default FlightItineraryModal; 
+export default FlightItineraryModal;

@@ -1,9 +1,10 @@
 import { ArrowLeftIcon } from '@heroicons/react/24/solid'; // Use solid icons
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import CrmHotelSearchModifyModal from '../../../components/itinerary/modals/add/CrmHotelSearchModifyModal'; // Import the search modify modal
 import CrmChangeHotelDetailModal from '../../../components/itinerary/modals/change/CrmChangeHotelDetailModal'; // Import the new modal
+import CrmHotelFilterModal from '../../../components/itinerary/modals/change/CrmHotelFilterModal'; // Import the filter modal
 
 // Simple currency formatter helper (can be moved to a utils file)
 const currencyFormatter = (amount, currencyCode = 'INR') => {
@@ -96,43 +97,135 @@ const CrmChangeHotelsPage = () => {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedHotelForModal, setSelectedHotelForModal] = useState(null);
 
-    // Fetch hotels function
-    const fetchHotels = useCallback(async () => {
-        // Guard clause: Wait until currentTravelersDetails is properly set from useEffect
+    // --- NEW: State from CrmAddHotelResultsPage for Filters/Sorting/Pagination ---
+    const [serverFilters, setServerFilters] = useState({
+        freeBreakfast: false,
+        isRefundable: false,
+        hotelName: '',
+        ratings: [],
+        facilities: [],
+        reviewRatings: null,
+        type: null,
+        tags: null
+    });
+    const [priceRange, setPriceRange] = useState({ min: 0, max: 10000 }); // For modal range limits
+    const [currentSort, setCurrentSort] = useState('relevance'); // Default sort
+    const [maxPriceFilter, setMaxPriceFilter] = useState(null); // Actual max price value for sortBy
+    const [isMaxPriceFilterActive, setIsMaxPriceFilterActive] = useState(false);
+    const [selectedPricePointValue, setSelectedPricePointValue] = useState('max'); // UI state for price points
+    const [totalCount, setTotalCount] = useState(0);
+    const [filteredCount, setFilteredCount] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const loadingRef = useRef(null);
+    const fetchInitiatedRef = useRef(false); // To prevent double initial fetch
+    // --- END: New State ---
+
+    // --- NEW: Helper to get the sort object --- 
+    const getCurrentSortObject = (sortValue) => {
+        const sortMapping = {
+            'priceAsc': { finalRate: 'asc', label: 'Price: Low to High' },
+            'priceDesc': { finalRate: 'desc', label: 'Price: High to Low' },
+            'ratingDesc': { rating: 'desc', label: 'Rating: High to Low' },
+            'nameAsc': { name: 'asc', label: 'Name: A to Z' },
+            'relevance': { label: 'Relevance' }
+        };
+        return sortMapping[sortValue] || sortMapping['relevance']; // Default to relevance
+    };
+    // --- END: Helper --- 
+
+    // Fetch hotels function - Modified to accept params and handle pagination
+    const fetchHotels = useCallback(async (pageNumber = 1, filters = null, sortBy = null, directMaxPrice = null) => {
+        // Guard clause: Wait until currentTravelersDetails is properly set
         if (!currentTravelersDetails || !inquiryToken || !city || !checkIn || !checkOut) {
-             console.log("Skipping fetch: Required data or synchronized traveler details missing.", { currentTravelersDetails, inquiryToken, city, checkIn, checkOut });
-             // Don't set loading/error here, just wait for state sync
+             console.log("ChangePage: Skipping fetch: Required data or traveler details missing.");
              return;
         }
         
-        // Construct occupancies from the SYNCHRONIZED state
-        let occupancies = [];
-        if (currentTravelersDetails && currentTravelersDetails.rooms) {
-            occupancies = currentTravelersDetails.rooms.map(room => ({
+        // Construct occupancies from the current state
+        let occupancies = currentTravelersDetails.rooms.map(room => ({
                 numOfAdults: room.adults?.length || 0,
-                childAges: room.children?.map(age => age ?? 0) || [] // Handle potential null ages
+            childAges: room.children?.map(age => age ?? 0) || []
             }));
-             // Basic validation
              if (occupancies.some(occ => occ.numOfAdults < 1)) {
                  setError("Invalid guest configuration: Each room needs at least one adult.");
-                 setLoading(false); // Can set loading false here as it's an error state
-                 return; // Stop fetch if guest config is invalid
-             }
+            setLoading(pageNumber === 1 ? false : true); // Stop initial loading, keep loadingMore
+            setLoadingMore(false);
+            return;
         }
 
+        // Set loading states based on page number
+        if (pageNumber === 1) {
         setLoading(true);
+            setHotels([]); // Clear hotels only when fetching page 1
+            setCurrentPage(1);
+            setHasMore(true);
+            setTraceId(null); // Reset traceId for new searches/filter changes
+        } else {
+            setLoadingMore(true);
+        }
         setError(null);
-        setHotels([]);
-        setTraceId(null);
-        console.log(`Fetching hotels via POST for ${city} from ${checkIn} to ${checkOut} using inquiry ${inquiryToken}. Occupancy:`, occupancies); 
+
+        console.log(`ChangePage: Fetching hotels page ${pageNumber} via POST for ${city}... Filters:`, filters, `Sort:`, sortBy, `MaxPrice:`, directMaxPrice);
         
         try {
             const apiUrl = `http://localhost:5000/api/itinerary/hotels/${inquiryToken}/${encodeURIComponent(city)}/${checkIn}/${checkOut}`; 
+
+            // --- Construct API request body --- 
             const requestBody = {
                 occupancies: occupancies, 
-                page: 1, 
-                limit: 100 
+                page: pageNumber,
+                nationality: "IN" // Assuming default, adjust if needed
             };
+
+            // Add traceId for pagination (page > 1)
+            if (pageNumber > 1 && traceId) {
+                requestBody.traceId = traceId;
+            }
+
+            // Add filterBy if filters are provided
+            if (filters && Object.keys(filters).length > 0) {
+                const cleanFilters = { ...filters }; // Copy to avoid mutating state
+                // Ensure no null/empty values are sent in filterBy
+                Object.keys(cleanFilters).forEach(key => {
+                    if (cleanFilters[key] === null || cleanFilters[key] === '' || (Array.isArray(cleanFilters[key]) && cleanFilters[key].length === 0)) {
+                        delete cleanFilters[key];
+                    }
+                });
+                if (Object.keys(cleanFilters).length > 0) {
+                    requestBody.filterBy = cleanFilters;
+                }
+            }
+
+            // Construct and add sortBy (including finalRate)
+            let finalSortBy = {};
+            const baseSortObject = sortBy || getCurrentSortObject(currentSort); // Use provided sortBy or current state
+            if (baseSortObject) {
+                finalSortBy = { label: baseSortObject.label }; // Start with label
+                const sortKeyMapping = {
+                    'priceAsc': { finalRate: 'asc' }, 'priceDesc': { finalRate: 'desc' },
+                    'ratingDesc': { rating: 'desc' }, 'nameAsc': { name: 'asc' }, 'relevance': {}
+                };
+                const apiSortKeys = sortKeyMapping[currentSort] || sortKeyMapping['relevance'];
+                finalSortBy = { ...finalSortBy, ...apiSortKeys };
+
+                const activeMaxPrice = directMaxPrice !== null ? directMaxPrice : (isMaxPriceFilterActive ? maxPriceFilter : null);
+                if (activeMaxPrice !== null && typeof activeMaxPrice === 'number' && !isNaN(activeMaxPrice)) {
+                    finalSortBy.finalRate = activeMaxPrice;
+                }
+                // Add default relevance id/value if needed (handled by backend service now)
+            } else {
+                 finalSortBy = { label: 'Relevance' }; // Default
+                 const activeMaxPrice = directMaxPrice !== null ? directMaxPrice : (isMaxPriceFilterActive ? maxPriceFilter : null);
+                 if (activeMaxPrice !== null && typeof activeMaxPrice === 'number' && !isNaN(activeMaxPrice)) {
+                    finalSortBy.finalRate = activeMaxPrice;
+                }
+            }
+            requestBody.sortBy = finalSortBy;
+            // --- END: Construct API request body --- 
+
+            console.log("ChangePage: Sending API Request Body:", JSON.stringify(requestBody, null, 2));
             
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -149,28 +242,198 @@ const CrmChangeHotelsPage = () => {
                 throw new Error(errorData.message || `Failed to fetch hotels (${response.status})`);
             }
 
-            const data = await response.json();
-            console.log("API Response (POST):", data);
+            const responseData = await response.json();
+            console.log("ChangePage: API Response (POST):", responseData);
 
-            const fetchedHotels = data?.data?.hotels || [];
-            setHotels(fetchedHotels);
+            const resultData = responseData?.data?.results?.[0]; // Access results correctly
+            const newHotels = resultData?.data || []; // Access hotels within results.data
 
-            const fetchedTraceId = data?.data?.traceId;
-            if (fetchedTraceId) {
-                setTraceId(fetchedTraceId);
-                console.log("Captured traceId:", fetchedTraceId);
+            if (responseData?.success && resultData) {
+                 setHotels(prev => pageNumber === 1 ? newHotels : [...prev, ...newHotels]);
+                 if (resultData.traceId) setTraceId(resultData.traceId);
+                 setCurrentPage(resultData.currentPage || pageNumber);
+                 setHasMore(!!resultData.nextPage);
+                 if (resultData.totalCount !== undefined) setTotalCount(resultData.totalCount);
+                 if (resultData.filteredCount !== undefined) {
+                     setFilteredCount(resultData.filteredCount);
+                 } else if (resultData.totalCount !== undefined) {
+                     setFilteredCount(resultData.totalCount); // Fallback if filteredCount is missing
+                 }
+                 // Update price range based on new results (optional, might cause shifts)
+                 // updatePriceRange(newHotels); 
             } else {
-                console.warn("traceId not found in hotels API response");
+                 if (pageNumber === 1) setHotels([]);
+                 setHasMore(false);
+                 const message = responseData?.data?.message || responseData?.message || "No hotels found matching criteria.";
+                 console.warn("ChangePage: " + message);
+                 if (pageNumber === 1 && !error) setError(message); // Set error only on page 1 if no other error exists
             }
 
         } catch (err) {
-            console.error("Error fetching hotels:", err);
+            console.error("ChangePage: Error fetching hotels:", err);
             setError(err.message);
-            setHotels([]);
+            if (pageNumber === 1) setHotels([]);
+            setHasMore(false);
         } finally {
+            if (pageNumber === 1) {
             setLoading(false);
+            } else {
+                setLoadingMore(false);
+            }
         }
-    }, [inquiryToken, city, checkIn, checkOut, currentTravelersDetails]);
+    // MODIFIED Dependencies
+    }, [inquiryToken, city, checkIn, checkOut, currentTravelersDetails, traceId, currentSort, isMaxPriceFilterActive, maxPriceFilter]);
+
+    // --- NEW: Load More Hotels function --- 
+    const loadMoreHotels = useCallback(() => {
+        if (loading || loadingMore || !hasMore) {
+            return;
+        }
+        console.log("ChangePage: Loading more hotels...");
+        // Fetch next page using current filters/sort state
+        const currentSortObject = getCurrentSortObject(currentSort);
+        fetchHotels(currentPage + 1, serverFilters, currentSortObject, maxPriceFilter);
+    }, [loading, loadingMore, hasMore, currentPage, fetchHotels, serverFilters, currentSort, maxPriceFilter]);
+    // --- END: Load More --- 
+
+    // --- NEW: Filter/Sort Handlers from CrmAddHotelResultsPage ---
+    // Handle filter changes (no-op, apply button triggers action)
+    const handleFilterChange = useCallback((type, value) => {
+        console.log(`Filter change (type: ${type}) - skipping immediate update`);
+    }, []);
+
+    // Handle Apply Filters button click
+    const handleServerFilterApply = useCallback((newFilters) => {
+        console.log("Applying server filters to API request:", newFilters);
+
+        // --- Processing logic copied from CrmAddHotelResultsPage --- 
+        const processedFilters = { ...newFilters };
+        // Boolean filters
+        if ('freeBreakfast' in processedFilters) processedFilters.freeBreakfast = Boolean(processedFilters.freeBreakfast);
+        if ('isRefundable' in processedFilters) processedFilters.isRefundable = Boolean(processedFilters.isRefundable);
+        // Review Ratings
+        if (processedFilters.reviewRatings && Array.isArray(processedFilters.reviewRatings)) {
+            processedFilters.reviewRatings = processedFilters.reviewRatings
+                .map(r => Number(r))
+                .filter(r => !isNaN(r) && r >= 1 && r <= 5);
+            if (processedFilters.reviewRatings.length === 0) delete processedFilters.reviewRatings;
+        }
+        // Type filter
+        if ('type' in processedFilters && typeof processedFilters.type === 'string' && processedFilters.type.trim() !== '') {
+            processedFilters.type = processedFilters.type.trim();
+        } else { delete processedFilters.type; }
+        // Tags filter
+        if ('tags' in processedFilters && Array.isArray(processedFilters.tags) && processedFilters.tags.length > 0) {
+            processedFilters.tags = processedFilters.tags.map(tag => String(tag).trim()).filter(tag => tag);
+            if (processedFilters.tags.length === 0) delete processedFilters.tags;
+        } else { delete processedFilters.tags; }
+        // Hotel Name
+        if (!processedFilters.hotelName || processedFilters.hotelName.trim() === '') {
+             delete processedFilters.hotelName;
+        }
+        // Ratings
+        if (processedFilters.ratings && Array.isArray(processedFilters.ratings)) {
+            processedFilters.ratings = processedFilters.ratings.map(r => Number(r)).filter(r => !isNaN(r));
+            if (processedFilters.ratings.length === 0) delete processedFilters.ratings;
+        } else { delete processedFilters.ratings; }
+        // Facilities
+        if (processedFilters.facilities && Array.isArray(processedFilters.facilities)) {
+            processedFilters.facilities = processedFilters.facilities.map(f => String(f).trim()).filter(f => f);
+            if (processedFilters.facilities.length === 0) delete processedFilters.facilities;
+        } else { delete processedFilters.facilities; }
+
+        // --- Separate finalRate --- 
+        let newMaxPrice = null;
+        const originalPricePoint = processedFilters.finalRate;
+        setSelectedPricePointValue(originalPricePoint === null ? 'max' : originalPricePoint);
+
+        if (originalPricePoint !== null && typeof originalPricePoint === 'number' && !isNaN(originalPricePoint)) {
+            const perNightPerAdultRate = originalPricePoint;
+            const startDate = new Date(checkIn);
+            const endDate = new Date(checkOut);
+            const numberOfNights = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)));
+            let totalAdults = currentTravelersDetails?.rooms?.reduce((sum, room) => sum + (Array.isArray(room.adults) ? room.adults.length : 0), 0) || 1;
+            totalAdults = Math.max(1, totalAdults);
+            newMaxPrice = perNightPerAdultRate * numberOfNights * totalAdults;
+        }
+        delete processedFilters.finalRate;
+        setMaxPriceFilter(newMaxPrice);
+        setIsMaxPriceFilterActive(newMaxPrice !== null);
+        
+        // Update main filter state
+        setServerFilters(processedFilters);
+
+        // Reset pagination and fetch page 1
+        setCurrentPage(1);
+        setHasMore(true);
+        const currentSortObject = getCurrentSortObject(currentSort);
+        
+        // Fetch hotels with the newly processed filters and price
+        fetchHotels(1, processedFilters, currentSortObject, newMaxPrice); // Pass page number and filters/sort/price
+
+    }, [checkIn, checkOut, currentTravelersDetails, fetchHotels, currentSort]);
+
+    // Handle Sort Change
+    const handleSortChange = useCallback((sortValue) => {
+        setCurrentSort(sortValue);
+        const newSortObject = getCurrentSortObject(sortValue);
+        // Re-fetch page 1 with current filters and new sort
+        setCurrentPage(1);
+        setHasMore(true);
+        fetchHotels(1, serverFilters, newSortObject, maxPriceFilter); // Pass page number and filters/sort/price
+    }, [serverFilters, maxPriceFilter, fetchHotels]);
+
+    // Handle Filter Reset
+    const handleFilterReset = useCallback(() => {
+        const resetFilters = {
+            freeBreakfast: false, isRefundable: false, hotelName: '', ratings: [],
+            facilities: [], reviewRatings: null, type: null, tags: null
+        };
+        setServerFilters(resetFilters);
+        setCurrentSort('relevance');
+        setMaxPriceFilter(null);
+        setIsMaxPriceFilterActive(false);
+        setSelectedPricePointValue('max');
+        setCurrentPage(1);
+        setHasMore(true);
+        const defaultSortObject = getCurrentSortObject('relevance');
+        // Fetch page 1 with no filters and default sort
+        fetchHotels(1, null, defaultSortObject, null); // Pass page number and null filters/price
+    }, [fetchHotels]);
+    // --- END: Filter/Sort Handlers ---
+
+    // --- NEW: Infinite Scroll useEffects --- 
+    useEffect(() => {
+        // Intersection Observer setup
+        if (loading || hotels.length === 0 || loadingMore || !hasMore) return;
+        const options = { root: null, rootMargin: '300px', threshold: 0.1 };
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0]?.isIntersecting) {
+                loadMoreHotels();
+            }
+        }, options);
+        const currentLoadingRef = loadingRef.current;
+        if (currentLoadingRef) observer.observe(currentLoadingRef);
+        return () => {
+            if (currentLoadingRef) observer.unobserve(currentLoadingRef);
+            observer.disconnect();
+        };
+    }, [loading, loadingMore, hasMore, loadMoreHotels, hotels.length]);
+
+    useEffect(() => {
+        // Scroll event listener fallback
+        if (loading || hotels.length === 0 || loadingMore || !hasMore) return;
+        const handleScroll = () => {
+            if (loading || loadingMore || !hasMore) return;
+            const { scrollTop, clientHeight, scrollHeight } = document.documentElement;
+            if (scrollTop + clientHeight >= scrollHeight - 300) {
+                loadMoreHotels();
+            }
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [loading, loadingMore, hasMore, loadMoreHotels, hotels.length]);
+    // --- END: Infinite Scroll --- 
 
     // Effect for Initialization and Synchronization
     useEffect(() => {
@@ -195,18 +458,22 @@ const CrmChangeHotelsPage = () => {
         }
 
         // If state is synchronized and populated, proceed to fetch.
-        if (currentTravelersDetails) {
-            console.log("Traveler details synchronized, calling fetchHotels.");
-            fetchHotels();
-        } else {
-             console.log("Traveler details synchronized but null/empty, skipping fetch.");
-             // If details are intentionally empty/null after sync, ensure loading is false
+        if (currentTravelersDetails && !fetchInitiatedRef.current) {
+            console.log("ChangePage: Traveler details synchronized, calling initial fetchHotels (Page 1).");
+            fetchInitiatedRef.current = true; // Mark initial fetch as initiated
+            // Initial fetch (Page 1) with no filters and default sort
+            const defaultSortObject = getCurrentSortObject('relevance');
+            fetchHotels(1, null, defaultSortObject, null); // Explicitly call page 1, no filters/price
+        } else if (!currentTravelersDetails && !fetchInitiatedRef.current) {
+            console.log("ChangePage: Traveler details synchronized but null/empty, skipping fetch.");
              if (loading) setLoading(false); 
+        } else if (fetchInitiatedRef.current) {
+            console.log("ChangePage: Initial fetch already initiated, skipping.");
         }
 
     // Depend on location.state object itself (for changes via navigate) and the core IDs.
     // Also depend on fetchHotels and currentTravelersDetails for the synchronization logic.
-    }, [location.state, navigate, itineraryToken, inquiryToken, oldHotelCode, fetchHotels, currentTravelersDetails]);
+    }, [location.state, navigate, itineraryToken, inquiryToken, oldHotelCode, fetchHotels, currentTravelersDetails, fetchInitiatedRef.current]);
 
     // --- Hotel Detail Modal Control ---
     const handleSelectHotel = (hotel) => {
@@ -313,16 +580,41 @@ const CrmChangeHotelsPage = () => {
                  </div>
             </div>
 
-            {/* Main Content Area */}
-            <div className="mt-6">
+            {/* --- NEW: Main Content Area with Filter --- */}
+            <div className="mt-6 flex flex-col md:flex-row gap-6">
+                 {/* Left Sidebar with Filter */} 
+                 <aside className="w-full md:w-72 lg:w-80 flex-shrink-0">
+                    <CrmHotelFilterModal
+                        initialFilters={{
+                            search: serverFilters.hotelName || '',
+                            price: [priceRange.min, serverFilters.finalRate ?? priceRange.max], // This structure might need review based on modal's expectation
+                            starRating: serverFilters.ratings || [],
+                            amenities: [], // UI only - needs mapping if modal expects it
+                            reviewRatingsSelected: serverFilters.reviewRatings || [],
+                            serverFilters: serverFilters // Pass the raw serverFilters
+                        }}
+                        priceRange={priceRange} // Overall min/max bounds for the modal UI
+                        currentSort={currentSort}
+                        currentPricePoint={selectedPricePointValue} // Pass the selected price point
+                        onFilterChange={handleFilterChange}
+                        onSortChange={handleSortChange}
+                        onServerFilterApply={handleServerFilterApply}
+                        onFilterReset={handleFilterReset}
+                        totalCount={totalCount}
+                        filteredCount={filteredCount}
+                        isServerFiltering={true}
+                    />
+                 </aside>
+                 
+                 {/* Right Content Area */} 
+                 <main className="flex-1 flex flex-col">
                 {/* Loading/Error State */}
-                {loading && (
+                     {loading && currentPage === 1 && (
                     <div className="text-center py-10">
                         <p className="text-gray-600">Loading available hotels...</p>
-                        {/* Optional: Add a spinner here */}
                     </div>
                 )}
-                {error && (
+                     {error && !loadingMore && (
                     <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
                         <strong className="font-bold">Error: </strong>
                         <span className="block sm:inline">{error}</span>
@@ -330,11 +622,11 @@ const CrmChangeHotelsPage = () => {
                 )}
 
                 {/* Hotels Grid */}
-                {!loading && !error && hotels.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
+                     {!loading && hotels.length > 0 && (
+                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
                         {hotels.map((hotel, index) => (
                             <CrmChangeHotelOptionCard
-                                key={hotel.id || `hotel-${index}`} // Use hotel.id if available, otherwise fallback
+                                     key={hotel.id || `hotel-${index}`}
                                 hotel={hotel}
                                 existingHotelPrice={existingHotelPrice || 0}
                                 onSelectHotel={handleSelectHotel}
@@ -343,12 +635,35 @@ const CrmChangeHotelsPage = () => {
                     </div>
                 )}
 
-                {!loading && !error && hotels.length === 0 && !loading && ( // Ensure not loading before showing no results
+                     {/* No Results Message */} 
+                     {!loading && !error && hotels.length === 0 && (
                     <p className="text-center text-gray-500 mt-10">No alternative hotels found matching the criteria.</p>
                 )}
+                     
+                     {/* Pagination Loader / End Message */} 
+                     {!loading && (
+                         <div 
+                             ref={loadingRef}
+                             className="py-8 text-center"
+                             style={{ minHeight: '100px' }}
+                             id="scroll-loader"
+                         >
+                             {loadingMore ? (
+                                 <div className="flex flex-col items-center">
+                                     {/* Replace Hourglass with a simpler loader if needed */} 
+                                     {/* <Hourglass size="30" color="#6366F1" /> */}
+                                     <p className="text-sm text-gray-500 mt-2">Loading more hotels...</p>
+                                 </div>
+                             ) : !hasMore && hotels.length > 0 ? (
+                                 <p className="text-center text-gray-500 py-2 text-sm">You've reached the end of the results.</p>
+                             ) : hasMore && hotels.length > 0 ? (
+                                 <p className="text-gray-400 text-xs">Scroll for more</p>
+                             ) : null}
+                         </div>
+                     )}
+                 </main>
             </div>
-
-            {/* TODO: Add Load More / Pagination controls here */} 
+            {/* --- END: New Layout --- */}
 
             {/* Detail Modal - Rendered conditionally */} 
             {isDetailModalOpen && selectedHotelForModal && (

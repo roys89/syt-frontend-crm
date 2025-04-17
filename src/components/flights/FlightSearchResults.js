@@ -614,7 +614,7 @@ const FlightCard = ({
       <div key={`inbound-option-${optionIndex}`} className="border border-gray-200 rounded-md mb-3">
         {/* Main inbound option */}
         <div 
-          className={`p-4 ${(selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null ? 'bg-blue-50' : 'bg-white'}`}
+          className={`p-4 ${(selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null ? 'bg-[#eefbf3]' : 'bg-white'}`}
           onClick={() => selectInboundOption(optionIndex)}
         >
           
@@ -630,7 +630,7 @@ const FlightCard = ({
           {/* Price and selection */}
           <div className="flex justify-between items-center mt-4">
             <div className="text-left">
-              <div className="text-lg font-semibold text-blue-600">
+              <div className="text-lg font-semibold text-[#13804e]">
                 {option.price?.currency || 'INR'} {(option.price?.amount || 0).toLocaleString()}
               </div>
               <div className="text-sm text-gray-500">
@@ -647,7 +647,7 @@ const FlightCard = ({
                     e.stopPropagation();
                     handleToggleInboundGroup(optionIndex);
                   }}
-                  className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-sm font-medium flex items-center"
+                  className="text-white bg-[#093923] hover:bg-[#062918] px-3 py-2 rounded text-sm font-medium flex items-center"
                 >
                   {isExpanded ? 'Hide' : 'View'} {option.groupOptions.length} more
                   <svg 
@@ -681,13 +681,20 @@ const FlightCard = ({
                     selectInboundOption(optionIndex);
                   }
                 }}
-                className={`px-4 py-2 text-sm font-medium rounded-md ${
-                  (selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-blue-600 border border-blue-600'
+                className={`relative group px-4 py-2 text-sm font-medium rounded-md overflow-hidden transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#a7e0ba] focus:ring-opacity-50 ${ 
+                  (selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null 
+                    ? 'bg-[#093923] text-white' // Selected State: Solid dark green
+                    : 'bg-white text-[#13804e] border border-[#13804e]' // Default State: White bg, green text/border
                 }`}
               >
-                {(selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null ? 'Selected' : 'Select'}
+                {/* Background fill for hover (only when not selected) */}
+                {!((selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null) && (
+                  <span className="absolute inset-0 bg-[#093923] w-0 group-hover:w-full transition-all duration-300 ease-in-out z-0"></span>
+                )}
+                {/* Text element */}
+                <span className={`relative z-10 ${!((selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null) ? 'group-hover:text-white' : ''}`}> 
+                  {(selectedInboundIndex === optionIndex || isOptionSelected) && selectedGroupIndex === null ? 'Selected' : 'Select'}
+                </span>
               </button>
             </div>
           </div>
@@ -708,7 +715,7 @@ const FlightCard = ({
                     key={`group-option-${optionIndex}-${groupIndex}`}
                     className={`p-3 border rounded-md ${
                       (selectedInboundIndex === optionIndex && selectedGroupIndex === groupIndex) || isGroupOptionSelected
-                        ? 'border-blue-500 ring-2 ring-blue-200 bg-white'
+                        ? 'border-[#13804e] ring-2 ring-[#a7e0ba] bg-white'
                         : 'border-gray-200 bg-white'
                     }`}
                     onClick={(e) => handleSelectGroupInboundOption(groupOption, groupIndex, optionIndex, e)}
@@ -725,7 +732,7 @@ const FlightCard = ({
                     {/* Price and selection */}
                     <div className="flex justify-between items-center mt-3">
                       <div className="text-left">
-                        <div className="text-lg font-semibold text-blue-600">
+                        <div className="text-lg font-semibold text-[#13804e]">
                           {groupOption.price?.currency || 'INR'} {(groupOption.price?.amount || 0).toLocaleString()}
                         </div>
                         <div className="text-sm text-gray-500">
@@ -753,13 +760,20 @@ const FlightCard = ({
                             handleSelectGroupInboundOption(groupOption, groupIndex, optionIndex, e);
                           }
                         }}
-                        className={`px-4 py-2 text-sm font-medium rounded-md ${
-                          (selectedInboundIndex === optionIndex && selectedGroupIndex === groupIndex) || isGroupOptionSelected
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-white text-blue-600 border border-blue-600'
+                        className={`relative group px-4 py-2 text-sm font-medium rounded-md overflow-hidden transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#a7e0ba] focus:ring-opacity-50 ${ 
+                          (selectedInboundIndex === optionIndex && selectedGroupIndex === groupIndex) || isGroupOptionSelected 
+                            ? 'bg-[#093923] text-white' // Selected state
+                            : 'bg-white text-[#13804e] border border-[#13804e]' // Default state
                         }`}
                       >
-                        {(selectedInboundIndex === optionIndex && selectedGroupIndex === groupIndex) || isGroupOptionSelected ? 'Selected' : 'Select'}
+                        {/* Background fill for hover (only when not selected) */}
+                        {!((selectedInboundIndex === optionIndex && selectedGroupIndex === groupIndex) || isGroupOptionSelected) && (
+                          <span className="absolute inset-0 bg-[#093923] w-0 group-hover:w-full transition-all duration-300 ease-in-out z-0"></span>
+                        )}
+                        {/* Text element */}
+                        <span className={`relative z-10 ${!((selectedInboundIndex === optionIndex && selectedGroupIndex === groupIndex) || isGroupOptionSelected) ? 'group-hover:text-white' : ''}`}> 
+                          {(selectedInboundIndex === optionIndex && selectedGroupIndex === groupIndex) || isGroupOptionSelected ? 'Selected' : 'Select'}
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -818,7 +832,7 @@ const FlightCard = ({
             return (
               <div 
                 key={`group-flight-${index}`}
-                className={`p-4 border rounded-md ${isGroupFlightSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'} bg-white shadow-sm hover:shadow-md transition-shadow`}
+                className={`p-4 border rounded-md ${isGroupFlightSelected ? 'border-[#13804e] ring-2 ring-[#a7e0ba]' : 'border-gray-200'} bg-white shadow-sm hover:shadow-md transition-shadow`}
                 onClick={(e) => handleSelectGroupFlight(groupFlight, index, e)}
               >
                 {/* One-way flight */}
@@ -838,7 +852,7 @@ const FlightCard = ({
                 {isDomesticRoundTripCombined && (
                   <div className="space-y-4">
                     <div>
-                      <div className="text-sm font-medium text-blue-600 mb-2">Outbound</div>
+                      <div className="text-sm font-medium text-[#13804e] mb-2">Outbound</div>
                       <div className="flex-1">
                         {getSegments(groupFlight.outbound).length > 0 ? (
                           getSegments(groupFlight.outbound).map((segment, segIndex) => 
@@ -850,7 +864,7 @@ const FlightCard = ({
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-blue-600 mb-2">Inbound</div>
+                      <div className="text-sm font-medium text-[#13804e] mb-2">Inbound</div>
                       <div className="flex-1">
                         {getSegments(groupFlight.inbound).length > 0 ? (
                           getSegments(groupFlight.inbound).map((segment, segIndex) => 
@@ -869,7 +883,7 @@ const FlightCard = ({
                   <div className="space-y-6">
                     {/* Outbound section */}
                     <div>
-                      <div className="text-sm font-semibold text-blue-600 mb-2">Outbound</div>
+                      <div className="text-sm font-semibold text-[#13804e] mb-2">Outbound</div>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           {outboundSegments.length > 0 ? (
@@ -896,7 +910,7 @@ const FlightCard = ({
                 {/* Price and select button for each group flight */}
                 <div className="mt-4 flex justify-between items-center">
                   <div className="text-left">
-                    <div className="text-lg font-semibold text-blue-600">
+                    <div className="text-lg font-semibold text-[#13804e]">
                       {groupFlight.price?.currency || displayPrice.currency} {(groupFlight.price?.amount || displayPrice.amount).toLocaleString()}
                     </div>
                     <div className="text-sm text-gray-500">
@@ -927,10 +941,10 @@ const FlightCard = ({
                         handleSelectGroupFlight(groupFlight, index, e);
                       }
                     }}
-                    className={`px-4 py-2 text-sm font-medium rounded-md ${
+                    className={`relative group px-4 py-2 text-sm font-medium rounded-md overflow-hidden transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#a7e0ba] focus:ring-opacity-50 ${ 
                       isGroupFlightSelected
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-blue-600 border border-blue-600'
+                        ? 'bg-[#093923] text-white'
+                        : 'bg-white text-[#13804e] border border-[#13804e]'
                     }`}
                   >
                     {isGroupFlightSelected ? 'Selected' : 'Select'}
@@ -965,7 +979,7 @@ const FlightCard = ({
     <>
       <div 
         className={`bg-white rounded-lg shadow-sm border p-4 ${
-          isThisFlightSelected() ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'
+          isThisFlightSelected() ? 'border-[#13804e] ring-2 ring-[#a7e0ba]' : 'border-gray-200'
         } hover:shadow-md transition-shadow cursor-pointer`}
         onClick={handleMainFlightSelect}
       >
@@ -990,7 +1004,7 @@ const FlightCard = ({
             <div className="space-y-6">
               {/* Outbound section */}
               <div>
-                <div className="text-sm font-semibold text-blue-600 mb-2">Outbound</div>
+                <div className="text-sm font-semibold text-[#13804e] mb-2">Outbound</div>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     {outboundSegments.length > 0 ? (
@@ -1004,7 +1018,7 @@ const FlightCard = ({
               
               {/* Inbound section */}
               <div>
-                <div className="text-sm font-semibold text-blue-600 mb-2">Inbound</div>
+                <div className="text-sm font-semibold text-[#13804e] mb-2">Inbound</div>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     {inboundSegments.length > 0 ? (
@@ -1023,7 +1037,7 @@ const FlightCard = ({
             <div className="space-y-6">
               {/* Outbound section */}
               <div>
-                <div className="text-sm font-semibold text-blue-600 mb-2">Outbound</div>
+                <div className="text-sm font-semibold text-[#13804e] mb-2">Outbound</div>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     {outboundSegments.length > 0 ? (
@@ -1050,7 +1064,7 @@ const FlightCard = ({
         
         <div className="mt-4 flex justify-between items-center">
           <div className="text-left">
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-[#13804e]">
               {displayPrice.currency} {displayPrice.amount.toLocaleString()}
             </div>
             <div className="text-sm text-gray-500">
@@ -1067,7 +1081,7 @@ const FlightCard = ({
                   e.stopPropagation();
                   toggleGroupExpanded();
                 }}
-                className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-sm font-medium flex items-center"
+                className="text-white bg-[#093923] hover:bg-[#062918] px-3 py-2 rounded text-sm font-medium flex items-center"
               >
                 {groupExpanded ? 'Hide' : 'View'} {groupFlights.length} more
                 <svg 
@@ -1105,10 +1119,10 @@ const FlightCard = ({
                   handleMainFlightSelect(e);
                 }
               }}
-              className={`px-4 py-2 text-sm font-medium rounded-md ${
+              className={`relative group px-4 py-2 text-sm font-medium rounded-md overflow-hidden transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#a7e0ba] focus:ring-opacity-50 ${ 
                 isThisFlightSelected()
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-blue-600 border border-blue-600'
+                  ? 'bg-[#093923] text-white'
+                  : 'bg-white text-[#13804e] border border-[#13804e]'
               }`}
             >
               {isThisFlightSelected() ? 'Selected' : 'Select'}
@@ -1128,15 +1142,15 @@ const FlightSummaryPanel = ({
   selectedOutboundFlight, 
   selectedInboundFlight, 
   flightStructureType,
-  selectedInboundOptionIndex = 0,
+  selectedInboundOptionIndex = null, // Default to null to clearly indicate no selection
   onCreateItinerary 
 }) => {
   // Debug log for component inputs
   useEffect(() => {
     console.log('FlightSummaryPanel received props:', {
       flightStructureType,
-      outboundFlightId: selectedOutboundFlight?.resultIndex,
-      inboundFlightId: selectedInboundFlight?.resultIndex,
+      outboundFlightId: selectedOutboundFlight?.resultIndex || selectedOutboundFlight?.rI, // Added rI fallback
+      inboundFlightId: selectedInboundFlight?.resultIndex || selectedInboundFlight?.rI, // Added rI fallback
       selectedInboundOptionIndex
     });
     
@@ -1164,107 +1178,110 @@ const FlightSummaryPanel = ({
     if (!selectedOutboundFlight) {
       return { amount: 0, currency };
     }
-    
-    if (flightStructureType === 'ONE_WAY') {
-      // For one-way flights, use direct price
+
+    // --- INTERNATIONAL_ROUND_TRIP Logic ---
+    if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP') {
+      // If an inbound option IS selected, its price is the total round trip price
+      if (selectedInboundOptionIndex !== null && 
+          selectedOutboundFlight.inboundOptions &&
+          selectedInboundOptionIndex >= 0 && // Ensure index is valid
+          selectedInboundOptionIndex < selectedOutboundFlight.inboundOptions.length) {
+        
+        const selectedOptionData = selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex];
+        const option = Array.isArray(selectedOptionData) ? selectedOptionData[0] : selectedOptionData;
+
+        if (option) {
+          if (option.price?.amount !== undefined) {
+            total = option.price.amount;
+            currency = option.price.currency || currency;
+          } else if (typeof option.pF === 'number') { // Legacy format
+            total = option.pF;
+            currency = option.cr || currency;
+          }
+          console.log('International RT - Using Inbound Option Price as Total:', { total, currency });
+          return { amount: total, currency };
+        }
+      }
+      
+      // If NO inbound option is selected yet, show the outbound flight's price (might be just outbound leg)
       if (selectedOutboundFlight.price?.amount !== undefined) {
         total = selectedOutboundFlight.price.amount;
         currency = selectedOutboundFlight.price.currency || currency;
-      } else if (typeof selectedOutboundFlight.pF === 'number') {
-        // Legacy format
+      } else if (selectedOutboundFlight.outbound?.price?.amount !== undefined) { // Handle nested outbound price
+        total = selectedOutboundFlight.outbound.price.amount;
+        currency = selectedOutboundFlight.outbound.price.currency || currency;
+      } else if (typeof selectedOutboundFlight.pF === 'number') { // Legacy format
         total = selectedOutboundFlight.pF;
         currency = selectedOutboundFlight.cr || currency;
       }
+      console.log('International RT - Using Outbound Price (Inbound not selected):', { total, currency });
+      return { amount: total, currency };
+    }
+
+    // --- ONE_WAY Logic ---
+    if (flightStructureType === 'ONE_WAY') {
+      if (selectedOutboundFlight.price?.amount !== undefined) {
+        total = selectedOutboundFlight.price.amount;
+        currency = selectedOutboundFlight.price.currency || currency;
+      } else if (typeof selectedOutboundFlight.pF === 'number') { // Legacy format
+        total = selectedOutboundFlight.pF;
+        currency = selectedOutboundFlight.cr || currency;
+      }
+      console.log('One Way - Using Outbound Price:', { total, currency });
       return { amount: total, currency };
     }
     
-    // For round trips (domestic or international)
-    
-    // Add outbound flight price
-    let outboundPrice = 0;
-    
-    // Check all possible price formats
-    if (selectedOutboundFlight.price?.amount !== undefined) {
-      outboundPrice = selectedOutboundFlight.price.amount;
-      currency = selectedOutboundFlight.price.currency || currency;
-    } else if (selectedOutboundFlight.outbound?.price?.amount !== undefined) {
-      outboundPrice = selectedOutboundFlight.outbound.price.amount;
-      currency = selectedOutboundFlight.outbound.price.currency || currency;
-    } else if (typeof selectedOutboundFlight.pF === 'number') {
-      // Legacy format
-      outboundPrice = selectedOutboundFlight.pF;
-      currency = selectedOutboundFlight.cr || currency;
-    }
-    
-    total += outboundPrice;
-    console.log('Outbound price added:', outboundPrice);
-    
-    // Add inbound flight price based on flight type
+    // --- DOMESTIC_ROUND_TRIP Logic (Summing parts) ---
     if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
-      if (selectedOutboundFlight.inbound?.price?.amount !== undefined) {
-        // For combined structure in single flight object
-        total += selectedOutboundFlight.inbound.price.amount;
-        console.log('Inbound price from outbound flight:', selectedOutboundFlight.inbound.price.amount);
-      } else if (selectedInboundFlight) {
-        // For separate outbound and inbound flights
+      let outboundPrice = 0;
+      // Get outbound price (check multiple formats)
+      if (selectedOutboundFlight.price?.amount !== undefined) {
+        outboundPrice = selectedOutboundFlight.price.amount;
+        currency = selectedOutboundFlight.price.currency || currency;
+      } else if (selectedOutboundFlight.outbound?.price?.amount !== undefined) {
+        outboundPrice = selectedOutboundFlight.outbound.price.amount;
+        currency = selectedOutboundFlight.outbound.price.currency || currency;
+      } else if (typeof selectedOutboundFlight.pF === 'number') { // Legacy format
+        outboundPrice = selectedOutboundFlight.pF;
+        currency = selectedOutboundFlight.cr || currency;
+      }
+      total += outboundPrice;
+      console.log('Domestic RT - Outbound price added:', outboundPrice);
+
+      // Get inbound price if selected
+      if (selectedInboundFlight) {
         let inboundPrice = 0;
-        
-        // Check all possible price formats for inbound
         if (selectedInboundFlight.price?.amount !== undefined) {
           inboundPrice = selectedInboundFlight.price.amount;
         } else if (selectedInboundFlight.inbound?.price?.amount !== undefined) {
           inboundPrice = selectedInboundFlight.inbound.price.amount;
-        } else if (typeof selectedInboundFlight.pF === 'number') {
-          // Legacy format
+        } else if (typeof selectedInboundFlight.pF === 'number') { // Legacy format
           inboundPrice = selectedInboundFlight.pF;
         }
-        
         total += inboundPrice;
-        console.log('Inbound price from separate flight:', inboundPrice);
+        console.log('Domestic RT - Inbound price added:', inboundPrice);
       }
-    } else if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && 
-              selectedOutboundFlight.inboundOptions && 
-              selectedInboundOptionIndex !== null) {
-      // For international round trips, get price from the selected inbound option
-      const selectedOption = selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex];
-      
-      if (selectedOption) {
-        let inboundPrice = 0;
-        
-        // Check if it's an array (some API formats nest it)
-        if (Array.isArray(selectedOption) && selectedOption.length > 0) {
-          const option = selectedOption[0];
-          if (option.price?.amount !== undefined) {
-            inboundPrice = option.price.amount;
-          } else if (typeof option.pF === 'number') {
-            inboundPrice = option.pF;
-          }
-        } else {
-          // Direct option object
-          if (selectedOption.price?.amount !== undefined) {
-            inboundPrice = selectedOption.price.amount;
-          } else if (typeof selectedOption.pF === 'number') {
-            inboundPrice = selectedOption.pF;
-          }
-        }
-        
-        total += inboundPrice;
-        console.log('International inbound option price:', inboundPrice);
-      }
+      console.log('Domestic RT - Final Total:', { total, currency });
+      return { amount: total, currency };
     }
-    
-    return { amount: total, currency };
+
+    // Fallback if type is unknown (should not happen)
+    console.warn('Unknown flightStructureType in calculateTotalPrice:', flightStructureType);
+    return { amount: 0, currency };
   };
   
-  // Extract relevant data for outbound flight
+  // Function to extract relevant data for outbound flight
   const getOutboundFlightData = () => {
     if (!selectedOutboundFlight) return null;
-    
+
+    // Log the received object for debugging
+    console.log('[DEBUG] getOutboundFlightData - Received selectedOutboundFlight:', JSON.stringify(selectedOutboundFlight, null, 2));
+
     let segments = [];
     let airline = '';
     let flightNumber = '';
-    let departure = {};
-    let arrival = {};
+    let departure = { airport: {}, city: {} }; // Initialize nested objects
+    let arrival = { airport: {}, city: {} };   // Initialize nested objects
     let price = { amount: 0, currency: 'INR' };
     let baseFare = 0;
     let tax = 0;
@@ -1274,107 +1291,120 @@ const FlightSummaryPanel = ({
     let baggage = '';
     let cabinBaggage = '';
     
-
-    
+    // --- Define the segment source based on flight type ---
+    let segmentsToUse = [];
     if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
-      // For domestic round trip, use the direct structure
-      segments = selectedOutboundFlight.sg || [];
-      if (segments.length > 0) {
-        airline = segments[0].al?.alN || '';
-        flightNumber = segments[0].al?.fN || '';
-        fareClass = segments[0].al?.fC || '';
-        departure = {
-          airport: {
-            code: segments[0].or?.aC || '',
-            terminal: segments[0].or?.tr || ''
-          },
-          time: segments[0].or?.dT
-        };
-        arrival = {
-          airport: {
-            code: segments[segments.length - 1].ds?.aC || '',
-            terminal: segments[segments.length - 1].ds?.tr || ''
-          },
-          time: segments[segments.length - 1].ds?.aT
-        };
-        baggage = segments[0].bg || '';
-        cabinBaggage = segments[0].cBg || '';
-        
-        // Calculate total duration and stops
-        duration = segments.reduce((total, segment) => total + (segment.dr || 0), 0);
-        stops = segments.length > 1 ? segments.length - 1 : 0;
+      segmentsToUse = selectedOutboundFlight.sg || []; // Domestic uses sg
+    } else if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP') {
+      // Intl RT: Prioritize outboundSegments, then outboundFlight, then segments, then sg
+      if (selectedOutboundFlight.outboundSegments && Array.isArray(selectedOutboundFlight.outboundSegments)) {
+        segmentsToUse = selectedOutboundFlight.outboundSegments;
+        console.log('Using selectedOutboundFlight.outboundSegments for segments', segmentsToUse);
+      } else if (selectedOutboundFlight.outboundFlight && Array.isArray(selectedOutboundFlight.outboundFlight)) {
+        segmentsToUse = selectedOutboundFlight.outboundFlight;
+        console.log('Using selectedOutboundFlight.outboundFlight for segments', segmentsToUse);
+      } else if (selectedOutboundFlight.segments && Array.isArray(selectedOutboundFlight.segments)) {
+        segmentsToUse = selectedOutboundFlight.segments;
+        console.log('Using selectedOutboundFlight.segments for segments', segmentsToUse);
+      } else if (selectedOutboundFlight.sg && Array.isArray(selectedOutboundFlight.sg)) {
+        segmentsToUse = selectedOutboundFlight.sg; // Legacy fallback
+        console.log('Using selectedOutboundFlight.sg for segments', segmentsToUse);
       }
+    } else { // ONE_WAY
+      // One Way: Prioritize segments, then sg
+      if (selectedOutboundFlight.segments && Array.isArray(selectedOutboundFlight.segments)) {
+        segmentsToUse = selectedOutboundFlight.segments;
+      } else if (selectedOutboundFlight.sg && Array.isArray(selectedOutboundFlight.sg)) {
+        segmentsToUse = selectedOutboundFlight.sg; // Legacy fallback
+      }
+    }
+    // ------------------------------------------------------
+
+    // --- Extract details using segmentsToUse ---
+    if (segmentsToUse.length > 0) {
+      const firstSegment = segmentsToUse[0];
+      const lastSegment = segmentsToUse[segmentsToUse.length - 1];
+
+      // Use optional chaining and nullish coalescing for robust access
+      airline = firstSegment.al?.alN ?? firstSegment.airline?.name ?? '';
+      flightNumber = firstSegment.al?.fN?.trim() ?? firstSegment.airline?.flightNumber ?? ''; // Added trim for legacy fN
+      // Prioritize full fare class code, format it, fallback to simple code
+      fareClass = firstSegment.al?.fCFC 
+        ? firstSegment.al.fCFC.replace(/_/g, ' ').replace(/^.*?_/, '') // Remove prefix like E_
+        : (firstSegment.al?.fC ?? firstSegment.airline?.fareClass ?? 'Economy'); // Fallback includes default
       
-      // Price extraction with fallbacks
+      // Departure extraction (Prioritize normalized, then legacy)
+      departure = {
+        airport: {
+          code: firstSegment.departure?.airport?.code ?? firstSegment.or?.aC ?? '',
+          terminal: firstSegment.departure?.airport?.terminal ?? firstSegment.or?.tr ?? '',
+          name: firstSegment.departure?.airport?.name ?? firstSegment.or?.aN ?? '' // Added fallback for airport name
+        },
+        city: {
+          // Check both normalized and legacy locations for city name
+          name: firstSegment.departure?.city?.name ?? firstSegment.or?.cN ?? '' 
+        },
+        time: firstSegment.departure?.time ?? firstSegment.or?.dT
+      };
+      
+      // Arrival extraction (Prioritize normalized, then legacy)
+      arrival = {
+        airport: {
+          code: lastSegment.arrival?.airport?.code ?? lastSegment.ds?.aC ?? '',
+          terminal: lastSegment.arrival?.airport?.terminal ?? lastSegment.ds?.tr ?? '',
+          name: lastSegment.arrival?.airport?.name ?? lastSegment.ds?.aN ?? '' // Added fallback for airport name
+        },
+        city: {
+          // Check both normalized and legacy locations for city name
+          name: lastSegment.arrival?.city?.name ?? lastSegment.ds?.cN ?? '' 
+        },
+        time: lastSegment.arrival?.time ?? lastSegment.ds?.aT
+      };
+      
+      baggage = firstSegment.bg ?? firstSegment.baggage ?? '';
+      cabinBaggage = firstSegment.cBg ?? firstSegment.cabinBaggage ?? '';
+      
+      // Calculate total duration and stops
+      duration = segmentsToUse.reduce((total, segment) => {
+        // Check both dr (legacy) and duration (normalized)
+        const segmentDuration = segment.dr ?? segment.duration ?? 0;
+        console.log(`Segment duration (from ${segment.dr !== undefined ? 'dr' : 'duration'}):`, segmentDuration);
+        return total + segmentDuration;
+      }, 0);
+      console.log('Calculated total duration (minutes):', duration);
+      stops = segmentsToUse.length > 1 ? segmentsToUse.length - 1 : 0;
+    } else {
+        console.log('No segments found to extract details from.');
+    }
+    // ---------------------------------------------
+    
+    // --- Price extraction (remains mostly the same, uses selectedOutboundFlight directly) ---
+    if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
       if (selectedOutboundFlight.pF) {
         price = { 
           amount: selectedOutboundFlight.pF, 
           currency: selectedOutboundFlight.cr || 'INR' 
         };
+        baseFare = selectedOutboundFlight.bF || Math.round(price.amount * 0.85) || 0;
+        tax = price.amount - baseFare;
       }
-      
-      baseFare = selectedOutboundFlight.bF || Math.round(price.amount * 0.85) || 0;
-      tax = price.amount - baseFare;
-    }
-    else if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP') {
-      segments = selectedOutboundFlight.segments || [];
-      if (segments.length > 0) {
-        airline = segments[0].airline?.name || '';
-        flightNumber = segments[0].airline?.flightNumber || '';
-        fareClass = segments[0].airline?.fareClass || '';
-        departure = segments[0].departure || {};
-        arrival = segments[segments.length - 1].arrival || {};
-        baggage = segments[0].baggage || '';
-        cabinBaggage = segments[0].cabinBaggage || '';
-        
-        // Calculate total duration and stops
-        duration = segments.reduce((total, segment) => total + (segment.duration || 0), 0);
-        stops = segments.length > 1 ? segments.length - 1 : 0;
-      }
-      
-      // Price extraction with fallbacks
+    } else { // Intl RT or One Way
       if (selectedOutboundFlight.price?.amount) {
         price = selectedOutboundFlight.price;
-      } else if (typeof selectedOutboundFlight.pF === 'number') {
+        // Pax breakdown might be available for base/tax
+        const paxBreakdown = selectedOutboundFlight.paxFareBreakUp?.[0];
+        baseFare = paxBreakdown?.baseFare ?? Math.round(price.amount * 0.85) ?? 0;
+        tax = paxBreakdown?.tax ?? Math.round(price.amount * 0.15) ?? 0;
+      } else if (typeof selectedOutboundFlight.pF === 'number') { // Legacy
         price = { 
           amount: selectedOutboundFlight.pF, 
           currency: selectedOutboundFlight.cr || 'INR' 
         };
+        baseFare = selectedOutboundFlight.bF || Math.round(price.amount * 0.85) || 0;
+        tax = price.amount - baseFare;
       }
-      
-      baseFare = price.baseFare || Math.round(price.amount * 0.85) || 0;
-      tax = price.tax || Math.round(price.amount * 0.15) || 0;
     }
-    else {
-      // ONE_WAY
-      segments = selectedOutboundFlight.segments || [];
-      if (segments.length > 0) {
-        airline = segments[0].airline?.name || '';
-        flightNumber = segments[0].airline?.flightNumber || '';
-        fareClass = segments[0].airline?.fareClass || '';
-        departure = segments[0].departure || {};
-        arrival = segments[segments.length - 1].arrival || {};
-        baggage = segments[0].baggage || '';
-        cabinBaggage = segments[0].cabinBaggage || '';
-        
-        // Calculate total duration and stops
-        duration = segments.reduce((total, segment) => total + (segment.duration || 0), 0);
-        stops = segments.length > 1 ? segments.length - 1 : 0;
-      }
-      
-      // Price extraction with fallbacks
-      if (selectedOutboundFlight.price?.amount) {
-        price = selectedOutboundFlight.price;
-      } else if (typeof selectedOutboundFlight.pF === 'number') {
-        price = { 
-          amount: selectedOutboundFlight.pF, 
-          currency: selectedOutboundFlight.cr || 'INR' 
-        };
-      }
-      
-      baseFare = price.baseFare || Math.round(price.amount * 0.85) || 0;
-      tax = price.tax || Math.round(price.amount * 0.15) || 0;
-    }
+    // ------------------------------------------------------------------------------
     
     console.log('Extracted outbound data:', { airline, flightNumber, price, duration, stops });
     
@@ -1394,362 +1424,402 @@ const FlightSummaryPanel = ({
     };
   };
   
-  // Extract relevant data for inbound flight
+  // Function to extract relevant data for inbound flight
   const getInboundFlightData = () => {
-    if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
-      console.log('Getting domestic inbound data:', {
-        fromInbound: !!selectedInboundFlight,
-        inboundPrice: selectedInboundFlight?.pF,
-        inboundCurrency: selectedInboundFlight?.cr
-      });
-      
-      if (selectedInboundFlight) {
-        const segments = selectedInboundFlight.sg || [];
-        let airline = '';
-        let flightNumber = '';
-        let departure = {};
-        let arrival = {};
-        let price = { amount: 0, currency: 'INR' };
-        let duration = 0;
-        let stops = 0;
-        let fareClass = '';
-        let baggage = '';
-        let cabinBaggage = '';
-        
-        if (segments.length > 0) {
-          airline = segments[0].al?.alN || '';
-          flightNumber = segments[0].al?.fN || '';
-          fareClass = segments[0].al?.fC || '';
-          departure = {
-            airport: {
-              code: segments[0].or?.aC || '',
-              terminal: segments[0].or?.tr || ''
-            },
-            time: segments[0].or?.dT
-          };
-          arrival = {
-            airport: {
-              code: segments[segments.length - 1].ds?.aC || '',
-              terminal: segments[segments.length - 1].ds?.tr || ''
-            },
-            time: segments[segments.length - 1].ds?.aT
-          };
-          baggage = segments[0].bg || '';
-          cabinBaggage = segments[0].cBg || '';
-          
-          // Calculate total duration and stops
-          duration = segments.reduce((total, segment) => total + (segment.dr || 0), 0);
-          stops = segments.length > 1 ? segments.length - 1 : 0;
-        }
-        
-        // Price extraction with fallbacks
-        if (selectedInboundFlight.pF) {
-          price = { 
-            amount: selectedInboundFlight.pF, 
-            currency: selectedInboundFlight.cr || 'INR' 
-          };
-        }
-        
-        console.log('Extracted inbound price:', price);
-        
-        return {
-          airline,
-          flightNumber,
-          departure,
-          arrival,
-          baseFare: selectedInboundFlight.bF || Math.round(price.amount * 0.85) || 0,
-          tax: price.amount - (selectedInboundFlight.bF || Math.round(price.amount * 0.85) || 0),
-          price,
-          duration,
-          stops,
-          fareClass,
-          baggage,
-          cabinBaggage
-        };
-      }
-      
+    let inboundDataSource = null;
+    let isDomestic = flightStructureType === 'DOMESTIC_ROUND_TRIP';
+    let isInternational = flightStructureType === 'INTERNATIONAL_ROUND_TRIP';
+
+    // Determine the source of inbound data
+    if (isDomestic) {
+      inboundDataSource = selectedInboundFlight;
+    } else if (isInternational && selectedInboundOptionIndex !== null && selectedOutboundFlight?.inboundOptions) {
+      let optionContainer = selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex];
+      inboundDataSource = Array.isArray(optionContainer) ? optionContainer[0] : optionContainer;
+    }
+
+    if (!inboundDataSource) {
+      // console.log('No valid source for inbound flight data.'); // Keep logs minimal
       return null;
     }
-    else if (flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && 
-             selectedInboundOptionIndex !== null && 
-             selectedOutboundFlight?.inboundOptions) {
-      
-      // For international round trips, extract from selected inbound option
-      let inboundOption;
-      
-      // Handle array of arrays format
-      if (Array.isArray(selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex])) {
-        inboundOption = selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex][0];
-      } 
-      // Handle direct object format
-      else {
-        inboundOption = selectedOutboundFlight.inboundOptions[selectedInboundOptionIndex];
-      }
-      
-      if (!inboundOption) return null;
-      
-      const segments = inboundOption.segments || [];
-      let airline = '';
-      let flightNumber = '';
-      let departure = {};
-      let arrival = {};
-      let price = { amount: 0, currency: 'INR' };
-      let duration = 0;
-      let stops = 0;
-      let fareClass = '';
-      let baggage = '';
-      let cabinBaggage = '';
-      
+
+    // Initialize variables
+    let segments = [];
+    let airline = '';
+    let flightNumber = '';
+    let departure = { airport: {}, city: {} };
+    let arrival = { airport: {}, city: {} };
+    let price = { amount: 0, currency: 'INR' };
+    let baseFare = 0;
+    let tax = 0;
+    let duration = 0;
+    let stops = 0;
+    let baggage = '';
+    let cabinBaggage = '';
+
+    // --- Extract Data Based on Flight Type ---
+    if (isDomestic) {
+      segments = inboundDataSource.sg || []; // Domestic uses sg
       if (segments.length > 0) {
-        airline = segments[0].airline?.name || '';
-        flightNumber = segments[0].airline?.flightNumber || '';
-        fareClass = segments[0].airline?.fareClass || '';
-        departure = segments[0].departure || {};
-        arrival = segments[segments.length - 1].arrival || {};
-        baggage = segments[0].baggage || '';
-        cabinBaggage = segments[0].cabinBaggage || '';
-        
-        // Calculate total duration and stops
-        duration = segments.reduce((total, segment) => total + (segment.duration || 0), 0);
-        stops = segments.length > 1 ? segments.length - 1 : 0;
-      }
-      
-      // Price extraction with fallbacks
-      if (inboundOption.price?.amount) {
-        price = inboundOption.price;
-      } else if (typeof inboundOption.pF === 'number') {
-        price = { 
-          amount: inboundOption.pF, 
-          currency: inboundOption.cr || 'INR' 
+        const firstSegment = segments[0];
+        const lastSegment = segments[segments.length - 1];
+
+        airline = firstSegment.al?.alN ?? '';
+        flightNumber = firstSegment.al?.fN?.trim() ?? '';
+
+        departure = {
+          airport: {
+            code: firstSegment.or?.aC ?? '',
+            terminal: firstSegment.or?.tr ?? '',
+            name: firstSegment.or?.aN ?? ''
+          },
+          city: { name: firstSegment.or?.cN ?? '' }, // Use cN for city
+          time: firstSegment.or?.dT
         };
+
+        arrival = {
+          airport: {
+            code: lastSegment.ds?.aC ?? '',
+            terminal: lastSegment.ds?.tr ?? '',
+            name: lastSegment.ds?.aN ?? ''
+          },
+          city: { name: lastSegment.ds?.cN ?? '' }, // Use cN for city
+          time: lastSegment.ds?.aT
+        };
+
+        baggage = firstSegment.bg ?? '';
+        cabinBaggage = firstSegment.cBg ?? '';
+        duration = segments.reduce((total, segment) => total + (segment.dr ?? 0), 0);
+        stops = segments.length > 1 ? segments.length - 1 : 0;
+
+        // Price from the source object directly
+        if (inboundDataSource.pF) {
+          price = { amount: inboundDataSource.pF, currency: inboundDataSource.cr || 'INR' };
+          baseFare = inboundDataSource.bF || Math.round(price.amount * 0.85) || 0;
+          // Correct tax calculation for domestic using baseFare
+          tax = price.amount - baseFare; 
+        }
+      } else {
+        console.log('No segments found in domestic inbound source.');
       }
-      
+    } else if (isInternational) {
+       // Use the already determined 'inboundDataSource' which points to the selected option
+      segments = inboundDataSource.segments || []; // Intl uses segments array
+       if (segments.length > 0) {
+        const firstSegment = segments[0];
+        const lastSegment = segments[segments.length - 1];
+
+        airline = firstSegment.airline?.name ?? '';
+        flightNumber = firstSegment.airline?.flightNumber ?? '';
+
+        departure = {
+          airport: {
+            code: firstSegment.departure?.airport?.code ?? '',
+            terminal: firstSegment.departure?.airport?.terminal ?? '',
+            name: firstSegment.departure?.airport?.name ?? ''
+           },
+          city: { name: firstSegment.departure?.city?.name ?? '' },
+          time: firstSegment.departure?.time
+        };
+
+        arrival = {
+          airport: {
+            code: lastSegment.arrival?.airport?.code ?? '',
+            terminal: lastSegment.arrival?.airport?.terminal ?? '',
+            name: lastSegment.arrival?.airport?.name ?? ''
+          },
+          city: { name: lastSegment.arrival?.city?.name ?? '' },
+          time: lastSegment.arrival?.time
+        };
+
+        baggage = firstSegment.baggage ?? '';
+        cabinBaggage = firstSegment.cabinBaggage ?? '';
+        duration = segments.reduce((total, segment) => total + (segment.duration ?? 0), 0);
+        stops = segments.length > 1 ? segments.length - 1 : 0;
+
+        // Price extraction from the selected option
+        if (inboundDataSource.price?.amount !== undefined) {
+          price = inboundDataSource.price;
+          // Use baseFare/tax directly if available in price object (common for Intl)
+          baseFare = inboundDataSource.price.baseFare ?? inboundDataSource.bF ?? Math.round(price.amount * 0.85) ?? 0;
+          tax = inboundDataSource.price.tax ?? (price.amount - baseFare) ?? 0;
+        } else if (typeof inboundDataSource.pF === 'number') { // Legacy on option
+          price = { amount: inboundDataSource.pF, currency: inboundDataSource.cr || 'INR' };
+          baseFare = inboundDataSource.bF || Math.round(price.amount * 0.85) || 0;
+          tax = price.amount - baseFare;
+        }
+      } else {
+         console.log('No segments found in international inbound option.');
+      }
+    }
+
+    // --- Final checks and return ---
+    // Only return data if we successfully extracted key info like airline and city names
+    if (airline && departure.city?.name && arrival.city?.name) {
+      console.log('[FINAL] Extracted inbound data:', { airline, flightNumber, departure, arrival, price, duration, stops });
       return {
         airline,
         flightNumber,
-        departure,
-        arrival,
-        baseFare: price.baseFare || Math.round(price.amount * 0.85) || 0,
-        tax: price.tax || Math.round(price.amount * 0.15) || 0,
+        departure, // Should now contain correct city name
+        arrival,   // Should now contain correct city name
+        baseFare,
+        tax,
         price,
         duration,
         stops,
-        fareClass,
         baggage,
         cabinBaggage
       };
+    } else {
+      console.warn('[WARN] Failed to extract sufficient inbound details. Returning null.', { isDomestic, isInternational, inboundDataSource });
+      return null; // Return null if essential data is missing
     }
-    
-    return null;
   };
 
   const outboundData = getOutboundFlightData();
   const inboundData = getInboundFlightData();
   const totalPrice = calculateTotalPrice();
 
+  // Determine if the price shown is the final round trip price (for Intl RT)
+  const isFinalIntlPrice = flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && selectedInboundOptionIndex !== null;
+
   if (!selectedOutboundFlight) {
     return (
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <h3 className="text-lg font-semibold mb-4">Flight Summary</h3>
-        <div className="text-gray-500 py-10 text-center">
-          <p className="mb-2">No flight selected</p>
-          <p className="text-sm">Select a flight to view details</p>
+      <div className="bg-gray-50 p-8 rounded-lg shadow-md border border-gray-200 h-full flex flex-col justify-center">
+        <h3 className="text-xl font-semibold mb-6 text-gray-800 text-center px-4">Flight Summary</h3>
+        <div className="text-gray-500 text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-lg font-medium mb-2">No flight selected</p>
+          <p className="text-base">Select a flight to view details</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-      <h3 className="text-lg font-semibold mb-4">Flight Summary</h3>
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-6 rounded-lg shadow-xl border border-gray-200 h-full flex flex-col">
+      <h3 className="text-2xl font-bold mb-6 text-gray-800 border-b border-gray-300 pb-3">Flight Summary</h3>
       
-      {/* Outbound Flight Information */}
-      {outboundData && (
-        <div className="mb-6">
-          <h4 className="text-md font-medium text-blue-600 mb-2">Outbound</h4>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="font-medium">{outboundData.airline} {outboundData.flightNumber}</span>
-              {outboundData.stops > 0 && (
-                <span className="text-xs py-1 px-2 bg-gray-100 rounded-full">
-                  {outboundData.stops} {outboundData.stops === 1 ? 'stop' : 'stops'}
-                </span>
-              )}
+      {/* Add pb-4 to give button room to scale on hover */}
+      <div className="flex-grow space-y-6 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pb-4">
+        {/* Departure (Outbound) Flight Information */}
+        {outboundData && (
+          <div className="mb-6">
+            {/* Departure Header & Airline */} 
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-lg font-semibold text-[#093923]">Departure</h4>
+              <span className="font-semibold text-gray-700 text-right">{outboundData.airline} {outboundData.flightNumber}</span>
             </div>
-            {outboundData.departure && outboundData.arrival && (
-              <div className="text-sm text-gray-600">
-                <div className="flex items-center space-x-2">
-                  <span>{outboundData.departure.airport?.code}</span>
-                  <ChevronRightIcon className="h-4 w-4" />
-                  <span>{outboundData.arrival.airport?.code}</span>
-                </div>
-                <div className="mt-1">
-                  {outboundData.departure.time && (
-                    <span className="text-xs text-gray-500">
-                      {formatTime(outboundData.departure.time)} - {formatTime(outboundData.arrival.time)}
-                    </span>
+            
+            <div className="space-y-3 bg-white px-3 py-4 rounded-md shadow-sm border border-gray-100">
+
+
+              {/* Cities & Times */} 
+              <div className="flex justify-between items-center">
+                {outboundData.departure && outboundData.arrival && (
+                  <div className="text-xs text-gray-700">
+                    <div className="flex items-center space-x-2">
+                      {/* Display City Name if available, otherwise fallback to Code */}
+                      <span title={outboundData.departure.airport?.name}>{outboundData.departure.city?.name || outboundData.departure.airport?.code}</span>
+                      <ChevronRightIcon className="h-4 w-4 text-gray-400" />
+                      <span title={outboundData.arrival.airport?.name}>{outboundData.arrival.city?.name || outboundData.arrival.airport?.code}</span>
+                    </div>
+                  </div>
+                )}
+                {outboundData.departure.time && (
+                  <span className="text-xs text-gray-500 text-right whitespace-nowrap">
+                    {formatTime(outboundData.departure.time)} - {formatTime(outboundData.arrival.time)}
+                  </span>
+                )}
+              </div>
+
+              {/* Separator */} 
+              <div className="border-t border-gray-200 my-2"></div>
+
+              {/* Additional flight details (Duration, Baggage) */}
+              <div className="bg-gray-50 p-3 rounded-md border border-gray-200 text-sm text-gray-600 mt-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="text-center">
+                    <span className="block text-xs font-medium text-gray-500">Duration:</span>
+                    <span>{formatDuration(outboundData.duration || 0)}</span>
+                  </div>
+                  <div className="text-center">
+                    <span className="block text-xs font-medium text-gray-500">Stops:</span>
+                    <span>{outboundData.stops === 0 ? 'Non-stop' : `${outboundData.stops} stop${outboundData.stops !== 1 ? 's' : ''}`}</span>
+                  </div>
+                  {outboundData.baggage && (
+                    <div className="text-center">
+                      <span className="block text-xs font-medium text-gray-500">Baggage:</span>
+                      <span>{outboundData.baggage}</span>
+                    </div>
+                  )}
+                  {outboundData.cabinBaggage && (
+                    <div className="text-center">
+                      <span className="block text-xs font-medium text-gray-500">Cabin:</span>
+                      <span>{outboundData.cabinBaggage}</span>
+                    </div>
                   )}
                 </div>
               </div>
-            )}
-            
-            {/* Additional flight details */}
-            <div className="bg-gray-50 p-2 rounded-md text-sm text-gray-600">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="block text-xs font-medium">Duration:</span>
-                  <span>{formatDuration(outboundData.duration || 0)}</span>
-                </div>
-                <div>
-                  <span className="block text-xs font-medium">Class:</span>
-                  <span>{outboundData.fareClass || 'Economy'}</span>
-                </div>
-                {outboundData.baggage && (
-                  <div>
-                    <span className="block text-xs font-medium">Baggage:</span>
-                    <span>{outboundData.baggage}</span>
+
+              {/* Conditionally show outbound fare only if NOT Intl RT final price */}
+              {!isFinalIntlPrice && (
+                <div className="text-sm">
+                  <div className="flex justify-between font-medium mt-1">
+                    <span>Fare:</span>
+                    <span>{outboundData.price.currency} {outboundData.price.amount.toLocaleString()}</span>
                   </div>
-                )}
-                {outboundData.cabinBaggage && (
-                  <div>
-                    <span className="block text-xs font-medium">Cabin:</span>
-                    <span>{outboundData.cabinBaggage}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="text-sm">
-              <div className="flex justify-between font-medium mt-1">
-                <span>Fare:</span>
-                <span>{outboundData.price.currency} {outboundData.price.amount.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Inbound Flight Information */}
-      {inboundData && (
-        <div className="mb-6">
-          <h4 className="text-md font-medium text-blue-600 mb-2">Inbound</h4>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="font-medium">{inboundData.airline} {inboundData.flightNumber}</span>
-              {inboundData.stops > 0 && (
-                <span className="text-xs py-1 px-2 bg-gray-100 rounded-full">
-                  {inboundData.stops} {inboundData.stops === 1 ? 'stop' : 'stops'}
-                </span>
+                </div>
               )}
             </div>
-            {inboundData.departure && inboundData.arrival && (
-              <div className="text-sm text-gray-600">
-                <div className="flex items-center space-x-2">
-                  <span>{inboundData.departure.airport?.code}</span>
-                  <ChevronRightIcon className="h-4 w-4" />
-                  <span>{inboundData.arrival.airport?.code}</span>
-                </div>
-                <div className="mt-1">
-                  {inboundData.departure.time && (
-                    <span className="text-xs text-gray-500">
-                      {formatTime(inboundData.departure.time)} - {formatTime(inboundData.arrival.time)}
-                    </span>
+          </div>
+        )}
+        
+        {/* Divider between Departure and Return */}
+        {outboundData && inboundData && (
+          <div className="border-t border-gray-300 my-6"></div>
+        )}
+        
+        {/* Inbound Flight Information */}
+        {inboundData && (
+          <div className="mb-6">
+            {/* Return Header & Airline */} 
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-lg font-semibold text-[#093923]">Return</h4>
+              <span className="font-semibold text-gray-700 text-right">{inboundData.airline} {inboundData.flightNumber}</span>
+            </div>
+            
+            <div className="space-y-3 bg-white px-3 py-4 rounded-md shadow-sm border border-gray-100">
+
+              {/* Cities & Times */} 
+              <div className="flex justify-between items-center">
+                {inboundData.departure && inboundData.arrival && (
+                  <div className="text-xs text-gray-700">
+                    <div className="flex items-center space-x-2">
+                      {/* Display City Name if available, otherwise fallback to Code */}
+                      <span title={inboundData.departure.airport?.name}>{inboundData.departure.city?.name || inboundData.departure.airport?.code}</span>
+                      <ChevronRightIcon className="h-4 w-4 text-gray-400" />
+                      <span title={inboundData.arrival.airport?.name}>{inboundData.arrival.city?.name || inboundData.arrival.airport?.code}</span>
+                    </div>
+                  </div>
+                )}
+                {inboundData.departure.time && (
+                  <span className="text-xs text-gray-500 text-right whitespace-nowrap">
+                    {formatTime(inboundData.departure.time)} - {formatTime(inboundData.arrival.time)}
+                  </span>
+                )}
+              </div>
+
+              {/* Separator */} 
+              <div className="border-t border-gray-200 my-2"></div>
+
+              {/* Additional flight details (Duration, Baggage) */}
+              <div className="bg-gray-50 p-3 rounded-md border border-gray-200 text-sm text-gray-600 mt-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="text-center">
+                    <span className="block text-xs font-medium text-gray-500">Duration:</span>
+                    <span>{formatDuration(inboundData.duration || 0)}</span>
+                  </div>
+                  <div className="text-center">
+                    <span className="block text-xs font-medium text-gray-500">Stops:</span>
+                    <span>{inboundData.stops === 0 ? 'Non-stop' : `${inboundData.stops} stop${inboundData.stops !== 1 ? 's' : ''}`}</span>
+                  </div>
+                  {inboundData.baggage && (
+                    <div className="text-center">
+                      <span className="block text-xs font-medium text-gray-500">Baggage:</span>
+                      <span>{inboundData.baggage}</span>
+                    </div>
+                  )}
+                  {inboundData.cabinBaggage && (
+                    <div className="text-center">
+                      <span className="block text-xs font-medium text-gray-500">Cabin:</span>
+                      <span>{inboundData.cabinBaggage}</span>
+                    </div>
                   )}
                 </div>
               </div>
-            )}
-            
-            {/* Additional flight details */}
-            <div className="bg-gray-50 p-2 rounded-md text-sm text-gray-600">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="block text-xs font-medium">Duration:</span>
-                  <span>{formatDuration(inboundData.duration || 0)}</span>
-                </div>
-                <div>
-                  <span className="block text-xs font-medium">Class:</span>
-                  <span>{inboundData.fareClass || 'Economy'}</span>
-                </div>
-                {inboundData.baggage && (
-                  <div>
-                    <span className="block text-xs font-medium">Baggage:</span>
-                    <span>{inboundData.baggage}</span>
+
+              {/* Conditionally show inbound fare only if NOT Intl RT final price */}
+              {!isFinalIntlPrice && (
+                <div className="text-sm">
+                  <div className="flex justify-between font-medium mt-1">
+                    <span>Fare:</span>
+                    <span>{inboundData.price.currency} {inboundData.price.amount.toLocaleString()}</span>
                   </div>
-                )}
-                {inboundData.cabinBaggage && (
-                  <div>
-                    <span className="block text-xs font-medium">Cabin:</span>
-                    <span>{inboundData.cabinBaggage}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="text-sm">
-              <div className="flex justify-between font-medium mt-1">
-                <span>Fare:</span>
-                <span>{inboundData.price.currency} {inboundData.price.amount.toLocaleString()}</span>
-              </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
-      
-      {/* Divider */}
-      <div className="border-t border-gray-200 my-4"></div>
-      
-      {/* Total */}
-      <div className="mb-6">
-        <div className="flex justify-between text-lg font-semibold text-blue-700">
-          <span>Total:</span>
-          <span>{totalPrice.currency} {totalPrice.amount.toLocaleString()}</span>
+        )}
+        
+        {/* Divider */}
+        <div className="border-t border-gray-300 my-6 pt-6"></div>
+        
+        {/* Total */}
+        <div className="mb-6">
+          <div className="flex justify-between text-2xl font-bold text-[#093923] mb-3">
+            <span>Total:</span>
+            <span>{totalPrice.currency} {totalPrice.amount.toLocaleString()}</span>
+          </div>
+          
+          {/* Fare breakdown - Conditionally hide/adjust for Intl RT final price */}
+          {!isFinalIntlPrice && (
+            <div className="text-sm text-gray-600">
+              <div className="flex justify-between">
+                <span>Base fare:</span>
+                <span>{totalPrice.currency} {(outboundData?.baseFare + (inboundData?.baseFare || 0)).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Taxes & fees:</span>
+                <span>{totalPrice.currency} {(outboundData?.tax + (inboundData?.tax || 0)).toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+          {isFinalIntlPrice && (
+             <div className="mt-1 text-xs text-gray-500">
+               (Total round trip fare)
+             </div>
+          )}
         </div>
         
-        {/* Fare breakdown */}
-        <div className="mt-2 text-sm text-gray-600">
-          <div className="flex justify-between">
-            <span>Base fare:</span>
-            <span>{totalPrice.currency} {(outboundData?.baseFare + (inboundData?.baseFare || 0)).toLocaleString()}</span>
+        {/* CTA Button */}
+        {selectedOutboundFlight && (
+          flightStructureType === 'ONE_WAY' ||
+          (flightStructureType === 'DOMESTIC_ROUND_TRIP' && selectedInboundFlight) ||
+          (flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && selectedInboundOptionIndex !== null)
+        ) && (
+          <button
+            onClick={onCreateItinerary}
+            className="relative group w-full py-3.5 bg-[#13804e] text-white text-lg font-semibold rounded-lg shadow-lg overflow-hidden transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#a7e0ba] focus:ring-opacity-75"
+          >
+            {/* Background fill element */}
+            <span className="absolute inset-0 bg-[#062918] w-0 group-hover:w-full transition-all duration-300 ease-in-out z-0"></span>
+            {/* Text element */}
+            <span className="relative z-10">Create Itinerary</span>
+          </button>
+        )}
+        
+        {/* Messages for incomplete selection */}
+        {flightStructureType === 'DOMESTIC_ROUND_TRIP' && !selectedInboundFlight && (
+          <div className="text-sm text-gray-600 text-center p-4 bg-[#eefbf3] border border-[#a7e0ba] rounded-md mt-6">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto mb-2 text-[#13804e]" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            Please select a return flight to continue
           </div>
-          <div className="flex justify-between">
-            <span>Taxes & fees:</span>
-            <span>{totalPrice.currency} {(outboundData?.tax + (inboundData?.tax || 0)).toLocaleString()}</span>
+        )}
+        
+        {flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && selectedInboundOptionIndex === null && (
+          <div className="text-sm text-gray-600 text-center p-4 bg-[#eefbf3] border border-[#a7e0ba] rounded-md mt-6">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto mb-2 text-[#13804e]" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            Please select a return option to continue
           </div>
-        </div>
+        )}
       </div>
-      
-      {/* CTA Button */}
-      {selectedOutboundFlight && (
-        flightStructureType === 'ONE_WAY' ||
-        (flightStructureType === 'DOMESTIC_ROUND_TRIP' && selectedInboundFlight) ||
-        (flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && selectedInboundOptionIndex !== null)
-      ) && (
-        <button
-          onClick={onCreateItinerary}
-          className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md shadow-sm transition-colors"
-        >
-          Create Itinerary
-        </button>
-      )}
-      
-      {/* Messages for incomplete selection */}
-      {flightStructureType === 'DOMESTIC_ROUND_TRIP' && !selectedInboundFlight && (
-        <div className="text-sm text-gray-600 text-center p-3 bg-blue-50 rounded-md mt-4">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mx-auto mb-1 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-          </svg>
-          Please select an inbound flight to continue
-        </div>
-      )}
-      
-      {flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && selectedInboundOptionIndex === null && (
-        <div className="text-sm text-gray-600 text-center p-3 bg-blue-50 rounded-md mt-4">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mx-auto mb-1 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-          </svg>
-          Please select an inbound option to continue
-        </div>
-      )}
     </div>
   );
 };
@@ -2035,7 +2105,7 @@ const FlightSearchResults = ({
         <p className="text-gray-500 font-bold text-lg mb-4">No flights found. Try different search criteria.</p>
         {loading && (
           <div className="flex justify-center mt-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#093923]"></div>
           </div>
         )}
       </div>
@@ -2054,7 +2124,7 @@ const FlightSearchResults = ({
           <select
             value={sortBy}
             onChange={(e) => handleSortChange(e.target.value)}
-            className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-[#13804e] focus:ring-[#13804e] sm:text-sm"
           >
             <option value="priceAsc">Price: Low to High</option>
             <option value="priceDesc">Price: High to Low</option>
@@ -2068,7 +2138,7 @@ const FlightSearchResults = ({
       <div className="space-y-4">
         {loading ? (
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-3"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#093923] mx-auto mb-3"></div>
             <p className="text-gray-600 font-medium">Loading flights...</p>
           </div>
         ) : (
@@ -2098,7 +2168,7 @@ const FlightSearchResults = ({
             {/* Loading indicator for infinite scroll */}
             {visibleFlights.length < sortedFlights.length && (
               <div ref={loadingRef} className="flex justify-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#093923]"></div>
               </div>
             )}
           </>

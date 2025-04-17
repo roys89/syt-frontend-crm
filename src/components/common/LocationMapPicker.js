@@ -2,7 +2,12 @@ import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyCoCGpVUFkz1USMyaSjxGLvusIuHPBqBiw';
+// Ensure the API key is loaded from environment variables
+const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+if (!GOOGLE_MAPS_API_KEY) {
+  console.error("Error: REACT_APP_GOOGLE_MAPS_API_KEY environment variable is not set.");
+  // Optionally, you could throw an error or return a component indicating the missing key
+}
 
 const containerStyle = {
   width: '100%',
@@ -24,8 +29,9 @@ const LocationMapPicker = ({
 }) => {
   // Use the official hook for loading the Google Maps script
   const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY || '', // Use the key from env, provide empty string if missing
     libraries,
+    preventGoogleFontsLoading: true, // Optional: prevent loading Google Fonts
   });
   
   const mapRef = useRef(null);
@@ -334,6 +340,32 @@ const LocationMapPicker = ({
   };
 
   // Render loading state
+  if (!GOOGLE_MAPS_API_KEY) {
+    return (
+        <div className="relative">
+          <div className="mb-2">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                placeholder={placeholder}
+                disabled
+              />
+            </div>
+          </div>
+          <div className="w-full h-[300px] bg-red-50 rounded-lg flex flex-col items-center justify-center p-4">
+            <p className="text-red-600 mb-2">Configuration Error</p>
+            <p className="text-sm text-red-500">
+              Google Maps API Key is missing. Please configure the REACT_APP_GOOGLE_MAPS_API_KEY environment variable.
+            </p>
+          </div>
+        </div>
+      );
+  }
+
   if (!isLoaded) {
     return (
       <div className="relative">
