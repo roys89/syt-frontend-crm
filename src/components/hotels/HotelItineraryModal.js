@@ -11,34 +11,6 @@ const containerStyle = {
   borderRadius: '8px'
 };
 
-// Custom button style with left-to-right fill effect
-const buttonStyle = `
-  relative z-0 overflow-hidden rounded-lg transition-all duration-300
-  before:absolute before:content-[''] before:top-0 before:left-0 before:w-full before:h-full
-  before:bg-white before:opacity-0 before:-z-10 
-  hover:before:opacity-10 before:transition-all before:duration-300
-  hover:shadow-md active:scale-95 transform transition
-`;
-
-// Primary button variation
-const primaryButtonStyle = `
-  relative z-0 overflow-hidden rounded-lg transition-all duration-300
-  before:absolute before:content-[''] before:top-0 before:left-0 before:w-0 before:h-full 
-  before:bg-white before:opacity-20 before:-z-10 before:transition-all before:duration-300
-  hover:before:w-full hover:shadow-md active:scale-95 transform transition
-`;
-
-// Back button style with green fill that transitions away
-const backButtonStyle = `
-  relative z-0 overflow-hidden rounded-lg transition-all duration-300
-  border border-[#093923] text-[#093923]
-  before:absolute before:content-[''] before:top-0 before:left-0 before:w-full before:h-full 
-  before:bg-[#093923] before:opacity-100 before:-z-10 before:scale-x-0 
-  before:origin-left before:transition-all before:duration-300
-  hover:text-white hover:before:scale-x-100 hover:shadow-md 
-  active:scale-95 transform transition
-`;
-
 const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
   const [selectedRooms, setSelectedRooms] = useState([]);
   const [showGuestInfoModal, setShowGuestInfoModal] = useState(false);
@@ -162,18 +134,18 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
       return total + (rate?.finalRate || 0);
     }, 0);
   }, [getRateDetails]);
-  
+
   const handleRoomSelect = useCallback((recommendation) => {
     if (!recommendation?.rates) return;
     const selectedRoomsData = recommendation.rates.map(rateId => {
         const rate = getRateDetails(rateId);
         if (!rate?.occupancies) return null;
-      const occupancy = rate.occupancies[0];
-      const room = getRoomDetailsFromOccupancy(occupancy);
-      if (!room) return null;
-      return {
-        rateId: rateId,
-        roomId: occupancy.roomId,
+        const occupancy = rate.occupancies[0];
+        const room = getRoomDetailsFromOccupancy(occupancy);
+        if (!room) return null;
+        return {
+          rateId: rateId,
+          roomId: occupancy.roomId,
           occupancy: { adults: occupancy.numOfAdults, childAges: occupancy.childAges || [] },
           roomDetails: { ...room, recommendationId: recommendation.id }
         };
@@ -182,70 +154,70 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
   }, [getRateDetails, getRoomDetailsFromOccupancy]);
 
   const handleConfirmSelection = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      if (selectedRooms.length === 0) {
-        toast.error('No room selected');
+      try {
+        setIsLoading(true);
+        if (selectedRooms.length === 0) {
+          toast.error('No room selected');
           setIsLoading(false);
-        return;
-      }
-    
-      const recommendationId = selectedRooms[0].roomDetails?.recommendationId;
-      if (!recommendationId) {
-        toast.error('Invalid room selection');
+          return;
+        }
+
+        const recommendationId = selectedRooms[0].roomDetails?.recommendationId;
+        if (!recommendationId) {
+          toast.error('Invalid room selection');
           setIsLoading(false);
-        return;
-      }
-    
-      const recommendation = roomRateData?.recommendations?.[recommendationId];
-      if (!recommendation?.rates) {
-        toast.error('No rates available for selected room');
+          return;
+        }
+
+        const recommendation = roomRateData?.recommendations?.[recommendationId];
+        if (!recommendation?.rates) {
+          toast.error('No rates available for selected room');
           setIsLoading(false);
-        return;
-      }
-    
-      const traceId = itineraryData?.data?.results?.[0]?.traceId;
-      const items = itineraryData?.data?.results?.[0]?.items;
-      const itinerary = itineraryData?.data?.results?.[0]?.itinerary?.code;
-    
+          return;
+        }
+
+        const traceId = itineraryData?.data?.results?.[0]?.traceId;
+        const items = itineraryData?.data?.results?.[0]?.items;
+        const itinerary = itineraryData?.data?.results?.[0]?.itinerary?.code;
+
         if (!traceId || !items || !itinerary) {
             toast.error('Missing required itinerary data for selection.');
             setIsLoading(false);
             return;
         }
         
-      const requestPayload = {
-        roomsAndRateAllocations: selectedRooms.map(room => ({
-          rateId: room.rateId,
-          roomId: room.roomId,
-          occupancy: {
-            adults: room.occupancy.adults,
-            childAges: room.occupancy.childAges || []
-          }
-        })),
-        traceId: traceId,
-        recommendationId: recommendationId,
-        itineraryCode: itinerary,
-        items: items
-      };
-    
-      console.log('Room rates request payload:', requestPayload);
-      const response = await bookingService.selectRoomRates(requestPayload);
-      console.log('Room rates API response:', response);
-    
-      if (response.success) {
-        setRoomRatesResponse(response);
-        toast.success('Room rates selected successfully');
-        setShowGuestInfoModal(true);
-      } else {
-        toast.error(response.message || 'Failed to select room rates');
+        const requestPayload = {
+            roomsAndRateAllocations: selectedRooms.map(room => ({
+              rateId: room.rateId,
+              roomId: room.roomId,
+              occupancy: {
+                adults: room.occupancy.adults,
+                childAges: room.occupancy.childAges || []
+              }
+            })),
+            traceId: traceId,
+            recommendationId: recommendationId,
+            itineraryCode: itinerary,
+            items: items
+          };
+
+        console.log('Room rates request payload:', requestPayload);
+        const response = await bookingService.selectRoomRates(requestPayload);
+        console.log('Room rates API response:', response);
+
+        if (response.success) {
+          setRoomRatesResponse(response);
+          toast.success('Room rates selected successfully');
+          setShowGuestInfoModal(true);
+        } else {
+          toast.error(response.message || 'Failed to select room rates');
+        }
+      } catch (error) {
+        console.error('Error selecting room rates:', error);
+        toast.error('Failed to select room rates');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Error selecting room rates:', error);
-      toast.error('Failed to select room rates');
-    } finally {
-      setIsLoading(false);
-    }
   }, [selectedRooms, itineraryData, roomRateData]);
 
   const handleGuestInfoSubmit = useCallback(async (bookingData) => {
@@ -255,14 +227,14 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
         setShowGuestInfoModal(false);
         onSubmit(bookingData);
       } else {
-        const traceId = itineraryData?.data?.results?.[0]?.traceId;
-        const items = itineraryData?.data?.results?.[0]?.items;
-        const itineraryCode = itineraryData?.data?.results?.[0]?.code;
-        if (!traceId || !items || !itineraryCode) {
-          throw new Error("Missing required itinerary data");
-        }
-        const selectedRoomsAndRates = items[0]?.selectedRoomsAndRates || [];
-        if (selectedRoomsAndRates.length === 0) {
+         const traceId = itineraryData?.data?.results?.[0]?.traceId;
+         const items = itineraryData?.data?.results?.[0]?.items;
+         const itineraryCode = itineraryData?.data?.results?.[0]?.code;
+         if (!traceId || !items || !itineraryCode) {
+             throw new Error("Missing required itinerary data");
+         }
+         const selectedRoomsAndRates = items[0]?.selectedRoomsAndRates || [];
+         if (selectedRoomsAndRates.length === 0) {
           throw new Error("No rooms were selected");
         }
       }
@@ -338,7 +310,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
 
     const rates = recommendation.rates.map((rateId) => getRateDetails(rateId));
     const totalPrice = calculateTotalPrice(recommendation);
-    const firstRate = rates[0];
+    const firstRate = rates[0]; 
 
     return (
       <div className="space-y-3 overflow-hidden">
@@ -372,8 +344,8 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
               }
             </div>
             <div className="text-right font-semibold text-base sm:text-lg text-[#093923]">
-          {firstRate?.currency || "USD"} {totalPrice.toLocaleString()}
-        </div>
+              {firstRate?.currency || "USD"} {totalPrice.toLocaleString()}
+            </div>
           </div>
         )}
       </div>
@@ -440,7 +412,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                   onClick={() => handleRoomSelect(rec)}
                   className={`cursor-pointer p-3 sm:p-4 rounded-lg ${isSelected ? 'bg-[#093923]/10 border-2 border-[#093923]' : 'bg-white border border-gray-100 hover:border-[#093923]/30'} transition-all duration-200 shadow-sm`}
                 >
-                  {renderRecommendationDetails(rec)}
+                  {renderRecommendationDetails(rec)} 
                 </div>
               );
             })}
@@ -499,9 +471,10 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
           </div>
           <button
             onClick={onClose}
-            className={`px-4 py-2 bg-[#093923] text-white font-medium rounded-[30px] hover:bg-[#093923]/90 transition-all duration-300 flex-shrink-0 ${primaryButtonStyle}`}
+            className="relative group overflow-hidden px-6 py-2 bg-[#093923] text-white font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-[#093923] focus:ring-opacity-50"
           >
-            Back to Results
+            <span className="relative z-10">Back to Results</span>
+            <div className="absolute inset-0 bg-[#13804e] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
           </button>
         </div>
 
@@ -525,14 +498,14 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                 {detailedHotelData?.type && (
                   <div className="absolute top-3 left-3 bg-[#093923] text-white px-3 py-1 rounded-full text-xs font-semibold z-10">
                     {detailedHotelData.type}
-                      </div>
-                    )}
+                  </div>
+                )}
 
                 {images.length > 1 && (
                   <>
                     <button 
                       onClick={goToPrevious} 
-                      className="absolute top-1/2 left-2 transform -translate-y-1/2 bg-black/40 text-white p-2 rounded-[30px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 hover:bg-black/60 focus:outline-none"
+                      className="absolute top-1/2 left-2 transform -translate-y-1/2 bg-black/40 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 hover:bg-black/60 focus:outline-none"
                       aria-label="Previous image"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -541,7 +514,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                     </button>
                     <button 
                       onClick={goToNext} 
-                      className="absolute top-1/2 right-2 transform -translate-y-1/2 bg-black/40 text-white p-2 rounded-[30px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 hover:bg-black/60 focus:outline-none"
+                      className="absolute top-1/2 right-2 transform -translate-y-1/2 bg-black/40 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 hover:bg-black/60 focus:outline-none"
                       aria-label="Next image"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -562,7 +535,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                         <button
                           key={`thumb-${detailedHotelData?.id || 'hotel'}-${index}`}
                           onClick={() => setCurrentImageIndex(index)}
-                          className={`flex-shrink-0 w-20 h-14 rounded-[30px] overflow-hidden focus:outline-none transition-all duration-200 ease-in-out ${isSelected ? 'ring-2 ring-offset-2 ring-[#093923]' : 'ring-1 ring-gray-300 hover:ring-[#093923]/50'}`}
+                          className={`flex-shrink-0 w-20 h-14 rounded-md overflow-hidden focus:outline-none transition-all duration-200 ease-in-out ${isSelected ? 'ring-2 ring-offset-2 ring-[#093923]' : 'ring-1 ring-gray-300 hover:ring-[#093923]/50'}`}
                           aria-label={`View image ${index + 1}`}
                         >
                           <img
@@ -575,10 +548,10 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                         </button>
                       );
                     })}
-                      </div>
                   </div>
+                </div>
               )}
-            
+
               {detailedHotelData?.descriptions?.find(desc => desc.type === "amenities") && (
                 <div className="bg-white p-6 rounded-lg shadow-sm">
                   <h3 className="text-lg font-semibold mb-2">About This Property</h3>
@@ -807,7 +780,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                   <button
                     key={category}
                     onClick={() => setActiveImageCategory(category)}
-                    className={`px-4 py-2 rounded-[30px] whitespace-nowrap transition-all duration-300 ${activeImageCategory === category ? 'bg-[#093923] text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'} ${buttonStyle}`}
+                    className={`px-4 py-2 rounded-full whitespace-nowrap ${activeImageCategory === category ? 'bg-[#093923] text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
                   >
                     {detailedHotelData.imagesAndCaptions[category].captionLabel || category}
                     <span className="ml-1 text-xs">
@@ -827,16 +800,16 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                         <img
                           src={imageUrl}
                           alt={`${detailedHotelData.name} - ${detailedHotelData.imagesAndCaptions[activeImageCategory].captionLabel} ${index + 1}`}
-                        className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
                           onError={(e) => { e.target.src = '/api/placeholder/400/300'; }} 
-                      />
-                      {image.caption && (
+                        />
+                        {image.caption && (
                           <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          {image.caption}
-                        </div>
-                      )}
-                    </div>
+                            {image.caption}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -910,66 +883,68 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
           )}
 
           <div className="bg-white p-6 rounded-lg shadow-sm mt-6">
-              <h3 className="text-lg font-semibold mb-4">Confirm Selection</h3>
-              <p className="text-gray-600 mb-4">Select a room type to continue with your booking.</p>
-              
-              {selectedRooms.length > 0 ? (
+            <h3 className="text-lg font-semibold mb-4">Confirm Selection</h3>
+            <p className="text-gray-600 mb-4">Select a room type to continue with your booking.</p>
+            
+            {selectedRooms.length > 0 ? (
               <div className="bg-[#22c35e]/10 p-4 rounded-lg mb-4">
                 <div className="flex items-center text-[#22c35e] mb-2">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="font-medium">Room Selected</span>
-                  </div>
-                <p className="text-sm text-[#22c35e]">
-                  {selectedRooms.length > 0 && selectedRooms[0].roomDetails?.name ? (
-                    selectedRooms.length === 1 ? 
-                      `You've selected "${selectedRooms[0].roomDetails.name}". Click "Confirm Selection" to proceed.` : 
-                      `You've selected ${selectedRooms.length} rooms including "${selectedRooms[0].roomDetails.name}". Click "Confirm Selection" to proceed.`
-                  ) : (
-                    `You've selected ${selectedRooms.length} room${selectedRooms.length > 1 ? 's' : ''}. Click "Confirm Selection" to proceed.`
-                  )}
-                  </p>
+                  </svg>
+                  <span className="font-medium">Room Selected</span>
                 </div>
-              ) : (
+                <p className="text-sm text-[#22c35e]">
+                  You've selected {selectedRooms.map(room => room.roomDetails.name).join(', ')}. Click "Confirm Selection" to proceed.
+                </p>
+              </div>
+            ) : (
               <div className="bg-[#093923]/5 p-4 rounded-lg mb-4">
                 <div className="flex items-center text-[#093923]/80 mb-2">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span className="font-medium">Room Not Selected</span>
-                  </div>
-                <p className="text-sm text-[#093923]/80">
-                    Please select a room from the available options.
-                  </p>
+                  </svg>
+                  <span className="font-medium">Room Not Selected</span>
                 </div>
-              )}
-              
-              <div className="flex justify-between items-center gap-4">
-                <button
-                    onClick={onClose}
-                    className={`px-6 py-2 text-sm rounded-lg font-medium transition-all duration-300 ${backButtonStyle}`}
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleConfirmSelection}
-                    disabled={selectedRooms.length === 0 || isLoading}
-                    className={`flex-1 px-4 py-3 rounded-lg text-white font-medium transition-all duration-300 ${selectedRooms.length === 0 || isLoading ? 'bg-[#093923]/40 cursor-not-allowed' : `bg-[#093923] hover:bg-[#093923]/90 ${primaryButtonStyle}`}`}
-                  >
-                    {isLoading ? (
-                      <div className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing...
-                      </div>
-                    ) : (
-                      "Confirm Selection"
-                    )}
-                  </button>
+                <p className="text-sm text-[#093923]/80">
+                  Please select a room from the available options.
+                </p>
               </div>
+            )}
+            
+            <div className="flex justify-between gap-4">
+              <button
+                onClick={onClose}
+                className="relative group overflow-hidden w-60 py-2 border border-[#093923] rounded-lg text-[#093923] font-medium"
+              >
+                <span className="relative z-10 group-hover:text-white">Back</span>
+                <div className="absolute inset-0 bg-[#093923] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
+              </button>
+              <button
+                onClick={handleConfirmSelection}
+                disabled={selectedRooms.length === 0 || isLoading}
+                className={`relative group overflow-hidden w-60 py-2 rounded-lg text-white font-medium ${
+                  selectedRooms.length === 0 || isLoading ? 'bg-[#093923]/40 cursor-not-allowed' : 'bg-[#093923]'
+                }`}
+              >
+                {!isLoading && selectedRooms.length > 0 && (
+                  <div className="absolute inset-0 bg-[#13804e] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
+                )}
+                <span className="relative z-10">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </div>
+                  ) : (
+                    "Confirm Selection"
+                  )}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -997,7 +972,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
             />
             <button 
               onClick={closeLightbox}
-              className="absolute -top-2 -right-2 sm:top-2 sm:right-2 bg-white/30 text-white rounded-[30px] p-1.5 hover:bg-white/50 transition-colors z-[110] backdrop-blur-sm"
+              className="absolute -top-2 -right-2 sm:top-2 sm:right-2 bg-white/30 text-white rounded-full p-1.5 hover:bg-white/50 transition-colors z-[110] backdrop-blur-sm"
               aria-label="Close lightbox"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">

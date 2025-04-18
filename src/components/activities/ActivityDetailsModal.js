@@ -226,11 +226,11 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
             </div>
           )}
 
-          {/* Age Bands - Moved to left column */}
+          {/* Age Bands */}
           {details.ageBands && details.ageBands.length > 0 && (
-            <div className="bg-purple-50 rounded-xl p-6">
+            <div className="bg-[#093923]/5 rounded-xl p-6">
               <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <UserGroupIcon className="h-6 w-6 text-purple-500 mr-2" />
+                <UserGroupIcon className="h-6 w-6 text-[#093923] mr-2" />
                 Age Requirements
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -255,8 +255,8 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
                     onClick={() => setSelectedTourGrade(grade)}
                     className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                       selectedTourGrade?.gradeCode === grade.gradeCode
-                        ? 'border-indigo-600 bg-indigo-50'
-                        : 'border-gray-200 hover:border-indigo-300'
+                        ? 'border-[#093923] bg-[#093923]/5'
+                        : 'border-gray-200 hover:border-[#093923]/30'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -265,7 +265,7 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
                         <p className="text-sm text-gray-500">Grade Code: {grade.gradeCode}</p>
                       </div>
                       {selectedTourGrade?.gradeCode === grade.gradeCode && (
-                        <CheckCircleIcon className="h-5 w-5 text-indigo-600" />
+                        <CheckCircleIcon className="h-5 w-5 text-[#093923]" />
                       )}
                     </div>
                   </div>
@@ -286,14 +286,14 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
                   <div className="flex items-center space-x-4">
                     <button
                       onClick={() => handleTravelerCountChange(numberOfTravelers - 1)}
-                      className="w-10 h-10 flex items-center justify-center rounded-full border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 transition-colors"
+                      className="w-10 h-10 flex items-center justify-center rounded-full border-2 border-[#093923] text-[#093923] hover:bg-[#093923]/5 transition-colors"
                     >
                       -
                     </button>
                     <span className="text-2xl font-bold text-gray-900 w-8 text-center">{numberOfTravelers}</span>
                     <button
                       onClick={() => handleTravelerCountChange(numberOfTravelers + 1)}
-                      className="w-10 h-10 flex items-center justify-center rounded-full border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 transition-colors"
+                      className="w-10 h-10 flex items-center justify-center rounded-full border-2 border-[#093923] text-[#093923] hover:bg-[#093923]/5 transition-colors"
                     >
                       +
                     </button>
@@ -311,7 +311,7 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
                 <div className="space-y-3">
                   {travelerAges.map((traveler, index) => (
                     <div key={index} className="flex items-center space-x-3 bg-white p-3 rounded-lg shadow-sm">
-                      <div className="w-8 h-8 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600 font-medium">
+                      <div className="w-8 h-8 flex items-center justify-center rounded-full bg-[#093923]/10 text-[#093923] font-medium">
                         {index + 1}
                       </div>
                       <div className="flex-1">
@@ -321,7 +321,7 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
                           max="120"
                           value={traveler.age}
                           onChange={(e) => handleAgeChange(index, e.target.value)}
-                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#093923] focus:ring-[#093923] transition-colors"
                           placeholder="Enter age"
                         />
                       </div>
@@ -335,9 +335,22 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
                 <button
                   onClick={handleConfirm}
                   disabled={loading}
-                  className="w-full px-6 py-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors shadow-lg hover:shadow-xl text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="relative w-full group overflow-hidden px-6 py-4 bg-[#093923] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] transition-colors shadow-lg text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Loading...' : 'Get Package'}
+                  <span className="relative z-10 flex items-center justify-center">
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Loading...
+                      </>
+                    ) : (
+                      'Get Package'
+                    )}
+                  </span>
+                  <div className="absolute inset-0 bg-[#13804e] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
                 </button>
               </div>
 
@@ -352,8 +365,8 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
                         onClick={() => handlePackageSelect(pkg)}
                         className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                           selectedPackage?.ratekey === pkg.ratekey
-                            ? 'border-indigo-600 bg-indigo-50'
-                            : 'border-gray-200 hover:border-indigo-300'
+                            ? 'border-[#093923] bg-[#093923]/5'
+                            : 'border-gray-200 hover:border-[#093923]/30'
                         }`}
                       >
                         <div className="flex justify-between items-start">
@@ -362,7 +375,7 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
                             <p className="text-sm text-gray-500">{pkg.description}</p>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-indigo-600">
+                            <p className="font-semibold text-[#093923]">
                               {pkg.currency} {pkg.amount.toLocaleString()}
                             </p>
                             <p className="text-sm text-gray-500">Departure: {pkg.departureTime}</p>
@@ -385,9 +398,22 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
                   <button
                     onClick={handleBookPackage}
                     disabled={referenceLoading}
-                    className="w-full px-6 py-4 bg-green-600 text-white rounded-xl hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors shadow-lg hover:shadow-xl text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="relative w-full group overflow-hidden px-6 py-4 bg-[#22c35e] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#22c35e] transition-colors shadow-lg text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {referenceLoading ? 'Processing...' : 'Book Selected Package'}
+                    <span className="relative z-10 flex items-center justify-center">
+                      {referenceLoading ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Processing...
+                        </>
+                      ) : (
+                        'Book Selected Package'
+                      )}
+                    </span>
+                    <div className="absolute inset-0 bg-[#1a9e4b] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
                   </button>
                 </div>
               )}
@@ -405,15 +431,15 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
 
           {/* Inclusions */}
           {details.inclusions && details.inclusions.length > 0 && (
-            <div className="bg-green-50 rounded-xl p-6">
+            <div className="bg-[#22c35e]/10 rounded-xl p-6">
               <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <CheckCircleIcon className="h-6 w-6 text-green-500 mr-2" />
+                <CheckCircleIcon className="h-6 w-6 text-[#22c35e] mr-2" />
                 Inclusions
               </h3>
               <ul className="space-y-3">
                 {details.inclusions.map((inclusion, index) => (
                   <li key={index} className="flex items-start">
-                    <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <CheckCircleIcon className="h-5 w-5 text-[#22c35e] mr-2 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-600">{inclusion.otherDescription || inclusion.typeDescription}</span>
                   </li>
                 ))}
@@ -441,15 +467,15 @@ const ActivityDetailsModal = ({ activity, details, onClose, onConfirm, isInline 
 
           {/* Additional Info */}
           {details.additionalInfo && details.additionalInfo.length > 0 && (
-            <div className="bg-blue-50 rounded-xl p-6">
+            <div className="bg-[#093923]/5 rounded-xl p-6">
               <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <InformationCircleIcon className="h-6 w-6 text-blue-500 mr-2" />
+                <InformationCircleIcon className="h-6 w-6 text-[#093923] mr-2" />
                 Additional Information
               </h3>
               <ul className="space-y-3">
                 {details.additionalInfo.map((info, index) => (
                   <li key={index} className="flex items-start">
-                    <InformationCircleIcon className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <InformationCircleIcon className="h-5 w-5 text-[#093923] mr-2 mt-0.5 flex-shrink-0" />
                     <div>
                       <span className="font-medium text-gray-900">{info.type.replace(/_/g, ' ')}</span>
                       <p className="text-gray-600">{info.description}</p>

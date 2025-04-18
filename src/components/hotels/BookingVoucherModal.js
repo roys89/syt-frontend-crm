@@ -84,7 +84,7 @@ const BookingVoucherModal = ({ isOpen, onClose, voucherDetails }) => {
                   Booking ID: <span className="font-medium">{hotelItinerary?.bookingRefId || confirmationNumber}</span>
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Status: <span className="font-medium text-green-600">{status || 'Confirmed'}</span>
+                  Status: <span className="font-medium text-[#22c35e]">{status || 'Confirmed'}</span>
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
                   Confirmation: <span className="font-medium">{confirmationNumber}</span>
@@ -93,57 +93,28 @@ const BookingVoucherModal = ({ isOpen, onClose, voucherDetails }) => {
             </div>
             <button
               onClick={onClose}
-              className="rounded-full p-2 hover:bg-gray-100 transition-colors"
+              className="relative group overflow-hidden p-2 hover:bg-[#093923]/5 rounded-full transition-colors"
             >
-              <XMarkIcon className="h-6 w-6 text-gray-500" />
+              <XMarkIcon className="h-6 w-6 text-gray-500 group-hover:text-[#093923]" />
             </button>
           </div>
 
           {/* Tab Navigation */}
           <div className="border-b mb-6 overflow-x-auto">
             <nav className="flex space-x-4 min-w-max">
-              <button
-                className={`py-2 px-4 text-sm font-medium ${activeTab === 'summary' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('summary')}
-              >
-                Summary
-              </button>
-              <button
-                className={`py-2 px-4 text-sm font-medium ${activeTab === 'hotel' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('hotel')}
-              >
-                Hotel Details
-              </button>
-              <button
-                className={`py-2 px-4 text-sm font-medium ${activeTab === 'room' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('room')}
-              >
-                Room Details
-              </button>
-              <button
-                className={`py-2 px-4 text-sm font-medium ${activeTab === 'guests' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('guests')}
-              >
-                Guest Information
-              </button>
-              <button
-                className={`py-2 px-4 text-sm font-medium ${activeTab === 'policies' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('policies')}
-              >
-                Policies
-              </button>
-              <button
-                className={`py-2 px-4 text-sm font-medium ${activeTab === 'gallery' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('gallery')}
-              >
-                Gallery
-              </button>
-              <button
-                className={`py-2 px-4 text-sm font-medium ${activeTab === 'pricing' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('pricing')}
-              >
-                Pricing Details
-              </button>
+              {['summary', 'hotel', 'room', 'guests', 'policies', 'gallery', 'pricing'].map((tab) => (
+                <button
+                  key={tab}
+                  className={`py-2 px-4 text-sm font-medium ${
+                    activeTab === tab 
+                      ? 'text-[#093923] border-b-2 border-[#093923]' 
+                      : 'text-gray-500 hover:text-[#093923]/70'
+                  }`}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
             </nav>
           </div>
 
@@ -1125,9 +1096,10 @@ const BookingVoucherModal = ({ isOpen, onClose, voucherDetails }) => {
             </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="relative group overflow-hidden px-4 py-2 border border-[#093923] rounded-lg text-[#093923] font-medium hover:text-white focus:outline-none focus:ring-2 focus:ring-[#093923] focus:ring-opacity-50"
             >
-              Close
+              <span className="relative z-10">Close</span>
+              <div className="absolute inset-0 bg-[#093923] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
             </button>
           </div>
         </div>

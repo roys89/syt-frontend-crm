@@ -154,7 +154,7 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black bg-opacity-25" />
+          <div className="fixed inset-0 bg-black bg-opacity-25 backdrop-blur-sm" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -171,30 +171,30 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
               <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                 <Dialog.Title
                   as="h3"
-                  className="text-lg font-medium leading-6 text-gray-900 flex justify-between items-center"
+                  className="text-xl font-semibold leading-6 text-gray-900 flex justify-between items-center border-b border-gray-200 pb-4"
                 >
                   <span>Room Arrangement ({totalGuests} Guest{totalGuests !== 1 ? 's' : ''})</span>
                   <button
                     type="button"
-                    className="text-gray-400 hover:text-gray-600 p-1 -m-1 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="text-gray-400 hover:text-gray-600 p-1 -m-1 rounded-full focus:outline-none focus:ring-2 focus:ring-[#093923]"
                     onClick={onClose}
                   >
                     <XMarkIcon className="h-6 w-6" />
                   </button>
                 </Dialog.Title>
-                <div className="mt-4 max-h-[65vh] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 scrollbar-thumb-rounded">
+                <div className="mt-4 max-h-[65vh] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-[#093923]/20 scrollbar-track-gray-100 scrollbar-thumb-rounded">
                   <div className="space-y-5">
                     {rooms.map((room, index) => (
-                      <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:border-[#093923]/30 transition-colors">
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="text-sm font-medium text-gray-900">Room {index + 1}</h4>
                           {rooms.length > 1 && (
-                             <button
+                            <button
                               type="button"
                               onClick={() => removeRoom(index)}
-                              className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                               aria-label="Remove Room"
-                              disabled={rooms.length <= 1} // Disable if only one room
+                              disabled={rooms.length <= 1}
                             >
                               <TrashIcon className="h-5 w-5" />
                             </button>
@@ -204,44 +204,48 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
                         {/* Adult Section */}
                         <div className="mb-6 pb-6 border-b border-gray-200">
                           <div className="flex items-center justify-between mb-3">
-                             <label className="block text-xs font-medium text-gray-600">
+                            <label className="block text-xs font-medium text-gray-600">
                               Adults (18+)
                             </label>
-                             <div className="flex items-center space-x-2">
-                               <button
+                            <div className="flex items-center space-x-2">
+                              <button
                                 type="button"
                                 onClick={() => addAdult(index)}
                                 disabled={room.adults.length >= maxAdultsPerRoom}
-                                className="p-1 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="p-1 rounded-full bg-[#093923]/10 text-[#093923] hover:bg-[#093923]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 aria-label="Add Adult"
                               >
                                 <PlusIcon className="h-4 w-4" />
                               </button>
                               <span className="text-sm font-medium w-6 text-center">{room.adults.length}</span>
-                             </div>
+                            </div>
                           </div>
-                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                             {room.adults.map((age, adultIndex) => (
-                              <div key={`adult-${adultIndex}`} className="relative flex items-center">
-                                <input
-                                  type="number"
-                                  min="18"
-                                  max="120"
-                                  value={age ?? ''} // Use ?? '' for null/undefined
-                                  onChange={(e) => handleAdultAgeChange(index, adultIndex, e.target.value)}
-                                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-12 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 focus:ring-offset-1 sm:text-sm appearance-none"
-                                  placeholder="Age"
-                                />
-                                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none">yrs</span>
+                              <div key={`adult-${adultIndex}`} className="relative flex items-center group">
+                                <div className="w-full relative">
+                                  <input
+                                    type="number"
+                                    min="18"
+                                    max="120"
+                                    value={age ?? ''}
+                                    onChange={(e) => handleAdultAgeChange(index, adultIndex, e.target.value)}
+                                    className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 pl-3 pr-10 focus:outline-none focus:ring-1 focus:ring-[#093923] focus:border-[#093923] focus:ring-offset-1 sm:text-sm appearance-none transition-colors"
+                                    placeholder="Age"
+                                  />
+                                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                    <span className="text-gray-400 text-xs">yrs</span>
+                                  </div>
+                                </div>
                                 {room.adults.length > 1 && (
-                                   <button
+                                  <button
                                     type="button"
                                     onClick={() => removeAdult(index, adultIndex)}
-                                    className="ml-1 text-red-500 hover:text-red-700 p-0.5 rounded-full hover:bg-red-100 absolute -right-5 top-1/2 transform -translate-y-1/2 focus:outline-none focus:ring-1 focus:ring-red-500 focus:ring-offset-1"
+                                    className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-100 focus:outline-none focus:ring-1 focus:ring-red-500 focus:ring-offset-1 transition-all"
                                     aria-label="Remove Adult"
-                                    disabled={room.adults.length <= 1} // Disable removing the last adult
+                                    disabled={room.adults.length <= 1}
                                   >
-                                    <MinusIcon className="h-3.5 w-3.5" />
+                                    <MinusIcon className="h-4 w-4" />
                                   </button>
                                 )}
                               </div>
@@ -249,77 +253,87 @@ const RoomArrangementModal = ({ isOpen, onClose, initialRooms = [], onSave, maxR
                           </div>
                         </div>
 
-                         {/* Children Section */}
-                         <div>
+                        {/* Children Section */}
+                        <div>
                           <div className="flex items-center justify-between mb-3">
                             <label className="block text-xs font-medium text-gray-600">
                               Children (0-17)
                             </label>
-                             <div className="flex items-center space-x-2">
-                               <button
+                            <div className="flex items-center space-x-2">
+                              <button
                                 type="button"
                                 onClick={() => addChild(index)}
                                 disabled={room.children.length >= maxChildrenPerRoom}
-                                className="p-1 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="p-1 rounded-full bg-[#093923]/10 text-[#093923] hover:bg-[#093923]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 aria-label="Add Child"
                               >
                                 <PlusIcon className="h-4 w-4" />
                               </button>
-                               <span className="text-sm font-medium w-6 text-center">{room.children.length}</span>
-                             </div>
+                              <span className="text-sm font-medium w-6 text-center">{room.children.length}</span>
+                            </div>
                           </div>
-                           {room.children && room.children.length > 0 && (
+                          {room.children && room.children.length > 0 && (
                             <>
-                               <p className="text-xs text-gray-500 mb-2">
+                              <p className="text-xs text-gray-500 mb-2">
                                 Age of child{room.children.length !== 1 ? 'ren' : ''} at time of check-out
                               </p>
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                 {room.children.map((age, childIndex) => (
-                                  <div key={`child-${childIndex}`} className="relative flex items-center">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="17"
-                                      value={age ?? ''} // Use ?? '' for null/undefined
-                                      onChange={(e) => handleChildAgeChange(index, childIndex, e.target.value)}
-                                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-12 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 focus:ring-offset-1 sm:text-sm appearance-none"
-                                      placeholder="Age"
-                                    />
-                                     <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none">yrs</span>
-                                     <button
+                                  <div key={`child-${childIndex}`} className="relative flex items-center group">
+                                    <div className="w-full relative">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="17"
+                                        value={age ?? ''}
+                                        onChange={(e) => handleChildAgeChange(index, childIndex, e.target.value)}
+                                        className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 pl-3 pr-10 focus:outline-none focus:ring-1 focus:ring-[#093923] focus:border-[#093923] focus:ring-offset-1 sm:text-sm appearance-none transition-colors"
+                                        placeholder="Age"
+                                      />
+                                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                        <span className="text-gray-400 text-xs">yrs</span>
+                                      </div>
+                                    </div>
+                                    <button
                                       type="button"
                                       onClick={() => removeChild(index, childIndex)}
-                                      className="ml-1 text-red-500 hover:text-red-700 p-0.5 rounded-full hover:bg-red-100 absolute -right-5 top-1/2 transform -translate-y-1/2 focus:outline-none focus:ring-1 focus:ring-red-500 focus:ring-offset-1"
+                                      className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-100 focus:outline-none focus:ring-1 focus:ring-red-500 focus:ring-offset-1 transition-all"
                                       aria-label="Remove Child"
                                     >
-                                      <MinusIcon className="h-3.5 w-3.5" />
+                                      <MinusIcon className="h-4 w-4" />
                                     </button>
                                   </div>
                                 ))}
                               </div>
-                             </>
-                           )}
+                            </>
+                          )}
                         </div>
-
                       </div>
                     ))}
                   </div>
                   {rooms.length < maxRooms && (
-                     <button
+                    <button
                       type="button"
                       onClick={addRoom}
-                      className="mt-4 w-full inline-flex justify-center items-center px-3 py-2 border border-dashed border-indigo-300 text-sm font-medium rounded-md text-indigo-600 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
+                      className="mt-4 w-full inline-flex justify-center items-center px-3 py-2 border border-dashed border-[#093923]/30 text-sm font-medium rounded-lg text-[#093923] bg-[#093923]/5 hover:bg-[#093923]/10 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#093923] transition-colors"
                     >
                       <PlusIcon className="h-4 w-4 mr-1" />
                       Add Another Room
-                     </button>
+                    </button>
                   )}
                 </div>
 
-                <div className="mt-6 flex justify-end">
+                <div className="mt-6 flex justify-end space-x-3">
                   <button
                     type="button"
-                    className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                    onClick={onClose}
+                    className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#093923] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-sm font-medium rounded-lg bg-[#093923] text-white hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#093923] transition-colors"
                     onClick={handleSave}
                   >
                     Done

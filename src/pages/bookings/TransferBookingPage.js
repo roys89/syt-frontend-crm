@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import AnalogClock from '../../components/common/AnalogClock';
 import LocationMapPicker from '../../components/common/LocationMapPicker';
-import ProviderSelector from '../../components/common/ProviderSelector';
 import GuestDetailsModal from '../../components/transfers/GuestDetailsModal';
 import TransferQuoteDetails from '../../components/transfers/TransferQuoteDetails';
 import TransferSearchResult from '../../components/transfers/TransferSearchResult';
@@ -168,6 +167,29 @@ const InlineBookingDetailsWrapper = ({ bookingDetails, isLoading }) => {
   );
 };
 
+// Update the theme configuration
+const theme = {
+  token: {
+    colorPrimary: '#093923',
+    borderRadius: 8,
+    colorBgContainer: '#ffffff',
+    colorBorder: '#e5e7eb',
+    fontSize: 14,
+    controlHeight: 42,
+  },
+  components: {
+    DatePicker: {
+      cellActiveWithRangeBg: '#13804e26',
+      cellHoverWithRangeBg: '#0939231A',
+      cellHoverBg: '#0939231A',
+    },
+    Select: {
+      controlHeight: 42,
+      borderRadius: 8,
+    }
+  },
+};
+
 const TransferBookingPage = () => {
   const [step, setStep] = useState(1); // 1 = Search, 2 = Results, 3 = Confirmation, 4 = Booking Confirmation
   const [isLoading, setIsLoading] = useState(false);
@@ -192,20 +214,6 @@ const TransferBookingPage = () => {
     pickupDate: '',
     pickupTime: '10:00'
   });
-
-  // Define the shared theme configuration
-  const datePickerTheme = {
-    token: {
-      colorPrimary: '#093923', // Main theme green (use your theme color)
-    },
-    components: {
-      DatePicker: {
-        cellActiveWithRangeBg: '#13804e26', // Selected range background
-        cellHoverWithRangeBg: '#0939231A', // Hover background within range
-        cellHoverBg: '#0939231A', // Hover background for single date
-      },
-    },
-  };
 
   // Set default date to today
   useEffect(() => {
@@ -575,143 +583,171 @@ const TransferBookingPage = () => {
       {/* Step 1: Search Form */}
       {step === 1 && (
         <div className="bg-white rounded-xl shadow-lg p-8 mb-8 transform transition-all duration-300 hover:shadow-xl">
-          <h2 className="text-2xl font-semibold mb-6 text-gray-900">Search for Transfers</h2>
           <form onSubmit={handleSearch}>
-            <div className="grid grid-cols-1 gap-8">
-              <div className="col-span-1">
-                <ProviderSelector
-                  providers={TRANSFER_PROVIDERS}
-                  selectedProvider={selectedProvider}
-                  onChange={handleProviderChange}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="col-span-1">
-                  <label htmlFor="origin.display_address" className="block text-sm font-medium text-gray-700 mb-2">
-                    Pickup Location
-                  </label>
-                  <div className="relative">
-                    <LocationMapPicker
-                      placeholder="Search pickup location..."
-                      onLocationSelect={handleOriginLocationSelect}
-                      initialCenter={{ lat: 19.0760, lng: 72.8777 }}
-                      value={formData.origin.lat && formData.origin.long ?
-                        { lat: parseFloat(formData.origin.lat), lng: parseFloat(formData.origin.long) } : null}
-                    />
-                    {formData.origin.display_address && (
-                      <div className="mt-2 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                        <p className="text-sm text-indigo-700">
-                          <span className="font-medium">Selected:</span> {formData.origin.display_address}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  {errors.origin && (
-                    <p className="mt-2 text-sm text-red-600">{errors.origin}</p>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-center">
-                  <button
-                    type="button"
-                    className="mt-7 p-2 rounded-full border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    onClick={handleSwapLocations}
-                  >
-                    <ArrowsRightLeftIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
-                  </button>
-                </div>
-
-                <div className="col-span-1">
-                  <label htmlFor="destination.display_address" className="block text-sm font-medium text-gray-700 mb-1">
-                    Drop-off Location
-                  </label>
-                  <LocationMapPicker
-                    placeholder="Search drop-off location..."
-                    onLocationSelect={handleDestinationLocationSelect}
-                    initialCenter={{ lat: 19.0899, lng: 72.8684 }} // Another Mumbai location
-                    value={formData.destination.lat && formData.destination.long ?
-                      { lat: parseFloat(formData.destination.lat), lng: parseFloat(formData.destination.long) } : null}
-                  />
-                  <div className="mt-2 text-sm text-gray-500">
-                    {formData.destination.display_address ? (
-                      <div className="p-2 bg-gray-50 rounded">
-                        <strong>Selected:</strong> {formData.destination.display_address}
-                      </div>
-                    ) : (
-                      <div>Search or click on the map to select a drop-off location</div>
-                    )}
-                  </div>
-                  {errors.destination && (
-                    <p className="mt-1 text-sm text-red-600">{errors.destination}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-8">
+              {/* Modified Header with Provider Selection */}
+              <div className="flex justify-between items-center">
+                {/* Left Side: Title and Subtitle */}
                 <div>
-                  <label htmlFor="pickupDate" className="block text-sm font-medium text-gray-700 mb-1">
-                    Pickup Date
-                  </label>
-                  <ConfigProvider theme={datePickerTheme}>
-                    <DatePicker
-                      id="pickupDate"
-                      className="w-full rounded-md border-gray-300"
-                      format="YYYY-MM-DD"
-                      value={formData.pickupDate ? dayjs(formData.pickupDate) : null}
-                      onChange={handleDateChange} // Use the new handler
-                      disabledDate={current => current && current < dayjs().startOf('day')}
-                      placeholder="Select Date"
-                      size="large"
-                      style={{ height: '42px' }}
-                      allowClear={true}
-                      suffixIcon={<CalendarIcon className="h-5 w-5 text-gray-400" />}
-                    />
-                  </ConfigProvider>
-                  {errors.pickupDate && (
-                    <p className="mt-1 text-sm text-red-600">{errors.pickupDate}</p>
-                  )}
+                  <h2 className="text-2xl font-semibold text-gray-900 mb-1">Search Transfers</h2>
+                  <p className="text-gray-600">Find the best transportation options</p>
                 </div>
-
-                <div className="col-span-1">
-                  <label htmlFor="pickupTime" className="block text-sm font-medium text-gray-700 mb-1">
-                    Pickup Time
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <ClockIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowPickupClock(true)}
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-left"
-                      style={{ height: '42px' }} // Match height
-                    >
-                      {formatTimeForDisplay(formData.pickupTime)}
-                    </button>
+                {/* Right Side: Provider Selection */}
+                <div className="flex items-center space-x-4">
+                  <h3 className="text-base font-medium text-gray-700">Select Provider:</h3>
+                  <div className="flex space-x-2">
+                    {TRANSFER_PROVIDERS.map((provider) => (
+                      <button
+                        key={provider.value}
+                        type="button"
+                        onClick={() => handleProviderChange(provider.value)}
+                        className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors duration-200 ${ 
+                          selectedProvider === provider.value
+                            ? 'border-[#093923] bg-[#093923]/10 text-[#093923]' 
+                            : 'border-gray-300 text-gray-700 hover:border-[#093923]/50 hover:bg-[#093923]/5'
+                        }`}
+                      >
+                        {provider.label}
+                      </button>
+                    ))}
                   </div>
-                  {errors.pickupTime && (
-                    <p className="mt-1 text-sm text-red-600">{errors.pickupTime}</p>
-                  )}
                 </div>
               </div>
-            </div>
 
-            <div className="mt-6">
-              <button
-                type="submit"
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50" // Updated button color
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" />
-                    Searching...
-                  </>
-                ) : (
-                  'Search Transfers'
-                )}
-              </button>
+              <div className="bg-gray-50 p-6 rounded-lg">
+                 <div className="space-y-6">
+                  {/* Locations */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="col-span-1">
+                      <label htmlFor="origin.display_address" className="block text-sm font-medium text-gray-700 mb-2">
+                        Pickup Location
+                      </label>
+                      <LocationMapPicker
+                        placeholder="Search pickup location..."
+                        onLocationSelect={handleOriginLocationSelect}
+                        initialCenter={{ lat: 19.0760, lng: 72.8777 }}
+                        value={formData.origin.lat && formData.origin.long ?
+                          { lat: parseFloat(formData.origin.lat), lng: parseFloat(formData.origin.long) } : null}
+                      />
+                      {formData.origin.display_address && (
+                        <div className="mt-2 p-3 bg-[#093923]/5 rounded-lg border border-[#093923]/10">
+                          <p className="text-sm text-[#093923]">
+                            <span className="font-medium">Selected:</span> {formData.origin.display_address}
+                          </p>
+                        </div>
+                      )}
+                      {errors.origin && (
+                        <p className="mt-2 text-sm text-red-600">{errors.origin}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-center">
+                      <button
+                        type="button"
+                        className="mt-7 p-2 rounded-full border border-[#093923]/30 hover:bg-[#093923]/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] transition-colors"
+                        onClick={handleSwapLocations}
+                      >
+                        <ArrowsRightLeftIcon className="h-5 w-5 text-[#093923]" aria-hidden="true" />
+                      </button>
+                    </div>
+
+                    <div className="col-span-1">
+                      <label htmlFor="destination.display_address" className="block text-sm font-medium text-gray-700 mb-2">
+                        Drop-off Location
+                      </label>
+                      <LocationMapPicker
+                        placeholder="Search drop-off location..."
+                        onLocationSelect={handleDestinationLocationSelect}
+                        initialCenter={{ lat: 19.0899, lng: 72.8684 }}
+                        value={formData.destination.lat && formData.destination.long ?
+                          { lat: parseFloat(formData.destination.lat), lng: parseFloat(formData.destination.long) } : null}
+                      />
+                      {formData.destination.display_address && (
+                        <div className="mt-2 p-3 bg-[#093923]/5 rounded-lg border border-[#093923]/10">
+                          <p className="text-sm text-[#093923]">
+                            <span className="font-medium">Selected:</span> {formData.destination.display_address}
+                          </p>
+                        </div>
+                      )}
+                      {errors.destination && (
+                        <p className="mt-2 text-sm text-red-600">{errors.destination}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Date and Time in one line */}
+                  <div className="grid grid-cols-4 gap-6">
+                    <div>
+                      <label htmlFor="pickupDate" className="block text-sm font-medium text-gray-700 mb-1">
+                        Pickup Date
+                      </label>
+                      <ConfigProvider theme={theme}>
+                        <DatePicker
+                          id="pickupDate"
+                          className="w-full"
+                          format="YYYY-MM-DD"
+                          value={formData.pickupDate ? dayjs(formData.pickupDate) : null}
+                          onChange={handleDateChange}
+                          disabledDate={current => current && current < dayjs().startOf('day')}
+                          placeholder="Select Date"
+                          suffixIcon={<CalendarIcon className="h-5 w-5 text-gray-400" />}
+                        />
+                      </ConfigProvider>
+                      {errors.pickupDate && (
+                        <p className="mt-1 text-sm text-red-600">{errors.pickupDate}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="pickupTime" className="block text-sm font-medium text-gray-700 mb-1">
+                        Pickup Time
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowPickupClock(true)}
+                          className="flex items-center justify-between w-full h-[42px] px-4 border border-gray-300 rounded-lg bg-white hover:border-[#093923]/30 transition-colors focus:outline-none focus:ring-2 focus:ring-[#093923] focus:ring-opacity-50"
+                        >
+                          <span className="flex items-center">
+                            <ClockIcon className="h-5 w-5 text-gray-400 mr-2" />
+                            <span className="text-gray-900">{formatTimeForDisplay(formData.pickupTime)}</span>
+                          </span>
+                          <span className="text-gray-400">↓</span>
+                        </button>
+                      </div>
+                      {errors.pickupTime && (
+                        <p className="mt-1 text-sm text-red-600">{errors.pickupTime}</p>
+                      )}
+                    </div>
+
+                    <div className="opacity-0">
+                      {/* Empty div to maintain grid layout */}
+                    </div>
+
+                    <div className="flex items-end">
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full inline-flex items-center justify-center h-[42px] px-6 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50 transition-colors duration-200"
+                      >
+                        {isLoading ? (
+                          <>
+                            <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" />
+                            Searching...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            Search Transfers
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </form>
         </div>

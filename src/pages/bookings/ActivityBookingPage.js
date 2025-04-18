@@ -1,6 +1,7 @@
 // src/pages/bookings/ActivityBookingPage.js
+import { MinusOutlined, PlusOutlined } from '@ant-design/icons';
 import { ArrowPathIcon, CalendarIcon } from '@heroicons/react/24/outline';
-import { ConfigProvider, DatePicker } from 'antd';
+import { ConfigProvider, DatePicker, Select } from 'antd';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
@@ -9,7 +10,6 @@ import ActivityDetailsModal from '../../components/activities/ActivityDetailsMod
 import ActivityFilterPanel from '../../components/activities/ActivityFilterPanel';
 import ActivitySearchResult from '../../components/activities/ActivitySearchResult';
 import TravelerDetailsModal from '../../components/activities/TravelerDetailsModal';
-import ProviderSelector from '../../components/common/ProviderSelector';
 import bookingService, { ACTIVITY_PROVIDERS } from '../../services/bookingService';
 
 const ActivityBookingPage = () => {
@@ -50,17 +50,26 @@ const ActivityBookingPage = () => {
   // Form validation
   const [errors, setErrors] = useState({});
 
-  // Define the shared theme configuration
-  const datePickerTheme = {
+  // Update the datePickerTheme
+  const theme = {
     token: {
-      colorPrimary: '#093923', // Main theme green (use your theme color)
+      colorPrimary: '#093923',
+      borderRadius: 8,
+      colorBgContainer: '#ffffff',
+      colorBorder: '#e5e7eb',
+      fontSize: 14,
+      controlHeight: 42,
     },
     components: {
       DatePicker: {
-        cellActiveWithRangeBg: '#13804e26', // Selected range background
-        cellHoverWithRangeBg: '#0939231A', // Hover background within range
-        cellHoverBg: '#0939231A', // Hover background for single date
+        cellActiveWithRangeBg: '#13804e26',
+        cellHoverWithRangeBg: '#0939231A',
+        cellHoverBg: '#0939231A',
       },
+      Select: {
+        controlHeight: 42,
+        borderRadius: 8,
+      }
     },
   };
 
@@ -355,116 +364,148 @@ const ActivityBookingPage = () => {
 
       {/* Step 1: Search Form */}
       {step === 1 && (
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Search Activities</h2>
-          <form onSubmit={handleSearch}>
-            <div className="space-y-6">
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="space-y-8">
+            {/* Modified Header with Provider Selection */}
+            <div className="flex justify-between items-center">
+              {/* Left Side: Title and Subtitle */}
               <div>
-                <ProviderSelector
-                  providers={ACTIVITY_PROVIDERS}
-                  selectedProvider={selectedProvider}
-                  onChange={handleProviderChange}
-                />
+                <h2 className="text-2xl font-semibold text-gray-900 mb-1">Search Activities</h2>
+                <p className="text-gray-600">Find the best tours and attractions</p>
               </div>
-
-              <ActivityDestination
-                selectedCities={formData.selectedCities}
-                onSelect={handleDestinationSelect}
-              />
-
-              <div>
-                <label htmlFor="fromDate" className="block text-sm font-medium text-gray-700 mb-1">
-                  Activity Date
-                </label>
-                <ConfigProvider theme={datePickerTheme}>
-                  <DatePicker
-                    id="fromDate"
-                    className="w-full rounded-md border-gray-300"
-                    format="YYYY-MM-DD"
-                    value={formData.fromDate ? dayjs(formData.fromDate) : null}
-                    onChange={handleDateChange}
-                    disabledDate={current => current && current < dayjs().startOf('day')}
-                    placeholder="Select Date"
-                    size="large"
-                    style={{ height: '42px' }} 
-                    allowClear={true}
-                    suffixIcon={<CalendarIcon className="h-5 w-5 text-gray-400" />}
-                  />
-                </ConfigProvider>
-                {errors.fromDate && (
-                  <p className="mt-1 text-sm text-red-600">{errors.fromDate}</p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Number of Travelers
-                </label>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
+              {/* Right Side: Provider Selection */}
+              <div className="flex items-center space-x-4">
+                <h3 className="text-base font-medium text-gray-700">Select Provider:</h3>
+                <div className="flex space-x-2">
+                  {ACTIVITY_PROVIDERS.map((provider) => (
                     <button
+                      key={provider.value}
                       type="button"
-                      onClick={() => handleTravelersChange({
-                        ...formData.travelers,
-                        adults: Math.max(1, formData.travelers.adults - 1)
-                      })}
-                      className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 hover:bg-gray-50"
+                      onClick={() => handleProviderChange(provider.value)}
+                      className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors duration-200 ${ 
+                        selectedProvider === provider.value
+                          ? 'border-[#093923] bg-[#093923]/10 text-[#093923]' 
+                          : 'border-gray-300 text-gray-700 hover:border-[#093923]/50 hover:bg-[#093923]/5'
+                      }`}
                     >
-                      -
+                      {provider.label}
                     </button>
-                    <span className="w-8 text-center">{formData.travelers.adults}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleTravelersChange({
-                        ...formData.travelers,
-                        adults: formData.travelers.adults + 1
-                      })}
-                      className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 hover:bg-gray-50"
-                    >
-                      +
-                    </button>
-                  </div>
-                  <span className="text-sm text-gray-500">Adults</span>
+                  ))}
                 </div>
               </div>
-              
-              <div>
-                <label htmlFor="currency" className="block text-sm font-medium text-gray-700 mb-1">
-                  Currency
-                </label>
-                <select
-                  id="currency"
-                  name="currency"
-                  className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  value={formData.currency}
-                  onChange={handleChange}
-                >
-                  <option value="INR">Indian Rupee (INR)</option>
-                  <option value="USD">US Dollar (USD)</option>
-                  <option value="AED">UAE Dirham (AED)</option>
-                  <option value="EUR">Euro (EUR)</option>
-                  <option value="GBP">British Pound (GBP)</option>
-                </select>
-              </div>
             </div>
 
-            <div className="mt-6">
-              <button
-                type="submit"
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" />
-                    Searching...
-                  </>
-                ) : (
-                  'Search Activities'
-                )}
-              </button>
-            </div>
-          </form>
+            <form onSubmit={handleSearch} className="space-y-8">
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Activity Details</h3>
+                <div className="space-y-6">
+                  <ActivityDestination
+                    selectedCities={formData.selectedCities}
+                    onSelect={handleDestinationSelect}
+                  />
+
+                  {/* Activity Date, Travelers, and Currency in one line */}
+                  <div className="grid grid-cols-3 gap-6">
+                    <div>
+                      <label htmlFor="fromDate" className="block text-sm font-medium text-gray-700 mb-1">
+                        Activity Date
+                      </label>
+                      <ConfigProvider theme={theme}>
+                        <DatePicker
+                          id="fromDate"
+                          className="w-full"
+                          format="YYYY-MM-DD"
+                          value={formData.fromDate ? dayjs(formData.fromDate) : null}
+                          onChange={handleDateChange}
+                          disabledDate={current => current && current < dayjs().startOf('day')}
+                          placeholder="Select Date"
+                          suffixIcon={<CalendarIcon className="h-5 w-5 text-gray-400" />}
+                        />
+                      </ConfigProvider>
+                      {errors.fromDate && (
+                        <p className="mt-1 text-sm text-red-600">{errors.fromDate}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Number of Travelers
+                      </label>
+                      <div className="flex items-center justify-center h-[42px] border border-gray-300 rounded-lg bg-white shadow-sm hover:border-[#093923]/30 transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => handleTravelersChange({
+                            ...formData.travelers,
+                            adults: Math.max(1, formData.travelers.adults - 1)
+                          })}
+                          className="h-[42px] w-[42px] flex items-center justify-center rounded-l-lg border-r border-gray-300 hover:bg-gray-50 transition-colors"
+                        >
+                          <MinusOutlined className="text-gray-600" />
+                        </button>
+                        <div className="flex-1 flex items-center justify-center space-x-2 px-4">
+                          <span className="text-gray-900 font-medium text-lg">{formData.travelers.adults}</span>
+                          <span className="text-gray-500">Adults</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleTravelersChange({
+                            ...formData.travelers,
+                            adults: formData.travelers.adults + 1
+                          })}
+                          className="h-[42px] w-[42px] flex items-center justify-center rounded-r-lg border-l border-gray-300 hover:bg-gray-50 transition-colors"
+                        >
+                          <PlusOutlined className="text-gray-600" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="currency" className="block text-sm font-medium text-gray-700 mb-1">
+                        Currency
+                      </label>
+                      <ConfigProvider theme={theme}>
+                        <Select
+                          id="currency"
+                          className="w-full"
+                          value={formData.currency}
+                          onChange={(value) => handleChange({ target: { name: 'currency', value } })}
+                          options={[
+                            { value: 'INR', label: 'Indian Rupee (INR)' },
+                            { value: 'USD', label: 'US Dollar (USD)' },
+                            { value: 'AED', label: 'UAE Dirham (AED)' },
+                            { value: 'EUR', label: 'Euro (EUR)' },
+                            { value: 'GBP', label: 'British Pound (GBP)' }
+                          ]}
+                        />
+                      </ConfigProvider>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50 transition-colors duration-200"
+                >
+                  {isLoading ? (
+                    <>
+                      <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      Search Activities
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

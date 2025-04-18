@@ -25,16 +25,32 @@ const HotelSearchResult = ({ hotel, onSelect, isLoading }) => {
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden hover:shadow-lg transition-shadow h-[160px]">
       <div className="flex flex-col md:flex-row h-full">
-        {/* Hotel Image */}
-        <div className="md:w-1/3 h-[100px] md:h-full">
+        {/* Hotel Image with Hover Effect */}
+        <div className="md:w-1/3 h-[100px] md:h-full relative group">
           <img
             src={mainImage}
             alt={name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             onError={(e) => {
               e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
             }}
           />
+          {/* Hover Overlay */}
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            {cancellationPolicy && (
+              <span className="text-[#22c35e] text-sm font-medium bg-[#22c35e]/10 px-3 py-1 rounded-full">
+                {cancellationPolicy}
+              </span>
+            )}
+            <button
+              onClick={onSelect}
+              disabled={isLoading}
+              className="relative group/btn overflow-hidden px-4 py-2 bg-white text-[#093923] font-medium rounded-lg transform -translate-y-2 group-hover:translate-y-0 transition-all duration-300"
+            >
+              <span className="relative z-10">View Details</span>
+              <div className="absolute inset-0 bg-[#093923] w-0 group-hover/btn:w-full transition-all duration-300 ease-in-out group-hover/btn:text-white"></div>
+            </button>
+          </div>
         </div>
 
         {/* Hotel Details */}
@@ -47,7 +63,7 @@ const HotelSearchResult = ({ hotel, onSelect, isLoading }) => {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-lg font-bold text-indigo-600">
+              <p className="text-lg font-bold text-[#093923]">
                 ₹{price.toLocaleString()}
               </p>
               <p className="text-sm text-gray-500">per night</p>
@@ -74,13 +90,6 @@ const HotelSearchResult = ({ hotel, onSelect, isLoading }) => {
             </span>
           </div>
 
-          {/* Cancellation Policy */}
-          {cancellationPolicy && (
-            <div className="mt-0.5 flex items-center text-sm text-gray-600">
-              <span className="text-green-600">{cancellationPolicy}</span>
-            </div>
-          )}
-
           {/* Facilities and Amenities */}
           <div className="mt-0.5 flex-grow">
             <div className="flex items-center justify-between">
@@ -93,7 +102,7 @@ const HotelSearchResult = ({ hotel, onSelect, isLoading }) => {
               {facilities?.slice(0, 2).map((facility) => (
                 <span
                   key={facility.id}
-                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800"
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-sm font-medium bg-[#093923]/10 text-[#093923]"
                 >
                   {facility.name}
                 </span>
@@ -101,7 +110,7 @@ const HotelSearchResult = ({ hotel, onSelect, isLoading }) => {
               {amenities?.slice(0, 2).map((amenity) => (
                 <span
                   key={amenity}
-                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800"
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-sm font-medium bg-[#22c35e]/10 text-[#22c35e]"
                 >
                   {amenity}
                 </span>
@@ -119,11 +128,11 @@ const HotelSearchResult = ({ hotel, onSelect, isLoading }) => {
             <button
               onClick={onSelect}
               disabled={isLoading}
-              className={`inline-flex items-center px-2 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+              className={`relative group overflow-hidden inline-flex items-center px-2 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
                 isLoading 
-                  ? 'bg-indigo-400 cursor-not-allowed' 
-                  : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
-              }`}
+                  ? 'bg-[#093923]/50 cursor-not-allowed' 
+                  : 'bg-[#093923] hover:bg-[#093923] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]'
+              } transition-colors`}
             >
               {isLoading ? (
                 <>
@@ -134,7 +143,10 @@ const HotelSearchResult = ({ hotel, onSelect, isLoading }) => {
                   Loading...
                 </>
               ) : (
-                'Select Hotel'
+                <>
+                  <span className="relative z-10">Select Hotel</span>
+                  <div className="absolute inset-0 bg-[#13804e] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
+                </>
               )}
             </button>
           </div>

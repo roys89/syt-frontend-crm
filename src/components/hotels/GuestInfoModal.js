@@ -485,9 +485,9 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
             <h2 className="text-2xl font-bold text-gray-900">Guest Information</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 transition-colors"
+              className="relative group overflow-hidden p-2 hover:bg-[#093923]/5 rounded-full transition-colors"
             >
-              <XMarkIcon className="h-6 w-6" />
+              <XMarkIcon className="h-6 w-6 text-gray-500 group-hover:text-[#093923]" />
             </button>
           </div>
         </div>
@@ -956,7 +956,7 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
             {/* Price Change Display */}
             {priceChangeData && (
               <div className={`mb-4 p-4 rounded-lg ${
-                priceChangeData.isPriceChanged ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'
+                priceChangeData.isPriceChanged ? 'bg-yellow-50 border border-yellow-200' : 'bg-[#22c35e]/10 border border-[#22c35e]/20'
               }`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium">
@@ -964,7 +964,7 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
                   </span>
                   {priceChangeData.isPriceChanged && (
                     <span className={`font-bold ${
-                      priceChangeData.priceChangeAmount > 0 ? 'text-red-600' : 'text-green-600'
+                      priceChangeData.priceChangeAmount > 0 ? 'text-red-600' : 'text-[#22c35e]'
                     }`}>
                       {priceChangeData.priceChangeAmount > 0 ? '+' : ''}
                       ₹{priceChangeData.priceChangeAmount.toLocaleString()}
@@ -995,28 +995,33 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
                   handleSubmit(e);
                 }
               }}
-              className={`w-full ${
+              className={`relative group overflow-hidden w-full ${
                 submitStatus === 'ready-to-book' 
-                  ? 'bg-green-600 hover:bg-green-700' 
+                  ? 'bg-[#22c35e]' 
                   : submitStatus === 'price-changed'
-                    ? 'bg-yellow-500 hover:bg-yellow-600'
+                    ? 'bg-yellow-500'
                     : isSubmitting || submitStatus === 'rechecking'
-                      ? 'bg-gray-400'
-                      : 'bg-blue-600 hover:bg-blue-700'
+                      ? 'bg-[#093923]/40 cursor-not-allowed'
+                      : 'bg-[#093923]'
               } text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center`}
             >
-              {(isSubmitting || submitStatus === 'rechecking') && (
-                <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+              {!isSubmitting && submitStatus !== 'rechecking' && submitStatus !== 'price-changed' && (
+                <div className="absolute inset-0 bg-[#13804e] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
               )}
-              {submitStatus === 'ready-to-book' && (
-                <svg className="h-5 w-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-              {getSubmitButtonText()}
+              <span className="relative z-10 flex items-center">
+                {(isSubmitting || submitStatus === 'rechecking') && (
+                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
+                {submitStatus === 'ready-to-book' && (
+                  <svg className="h-5 w-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+                {getSubmitButtonText()}
+              </span>
             </button>
           </div>
         </form>

@@ -1412,7 +1412,7 @@ const HotelBookingPage = () => {
       {step === 2 && !showItineraryModal && (
         <div className="flex flex-col md:flex-row gap-6">
           {/* Left Sidebar with Filter */}
-          <aside className="w-full md:w-72 lg:w-80 flex-shrink-0 sticky top-4 self-start">
+          <aside className="w-full md:w-72 lg:w-80 flex-shrink-0 sticky top-0">
             <CrmHotelFilterModal
               initialFilters={{
                 search: serverFilters.hotelName || '',
