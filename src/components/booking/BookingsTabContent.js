@@ -3,6 +3,7 @@ import { PlusIcon } from '@heroicons/react/24/outline';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import bookingService from '../../services/bookingService';
+import ShareItineraryButton from '../itinerary/ShareItineraryButton';
 
 // This component now holds the content previously directly in BookingsPage for the 'Bookings' main tab.
 // It uses placeholder data for now.
@@ -358,12 +359,20 @@ const BookingsTabContent = () => {
                            }
                          </td>
                        <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                          <Link 
-                            to={item.type === 'itinerary' ? `/itinerary/${item.itineraryToken}` : `/bookings/${item._id}`} 
-                            className="text-indigo-600 hover:text-indigo-900"
-                          >
-                            View<span className="sr-only">, {item.itineraryToken || item._id}</span>
-                          </Link>
+                          <div className="flex items-center justify-end space-x-2">
+                            <Link 
+                              to={item.type === 'itinerary' ? `/itinerary/${item.itineraryToken}` : `/bookings/${item._id}`} 
+                              className="text-indigo-600 hover:text-indigo-900"
+                            >
+                              View<span className="sr-only">, {item.itineraryToken || item._id}</span>
+                            </Link>
+                            {item.type === 'itinerary' && (
+                              <ShareItineraryButton 
+                                itineraryToken={item.itineraryToken}
+                                inquiryToken={item.inquiryToken}
+                              />
+                            )}
+                          </div>
                         </td>
                      </tr>
                    ))}
