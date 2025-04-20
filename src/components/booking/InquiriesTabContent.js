@@ -140,13 +140,11 @@ const InquiriesTabContent = () => {
   return (
     <>
       <div>
-        {/* Removed Commented Sub Tabs */}
-
         {inquiries.length === 0 && !isLoading ? (
           <div className="text-center py-12 bg-white shadow rounded-lg">
             <h3 className="text-lg font-medium text-gray-900">No itinerary inquiries found</h3>
             <p className="mt-2 text-sm text-gray-500">
-              Use the button above to create a new one, or check your filters.
+              You currently don't have any inquiries assigned to you.
             </p>
              {/* Button moved to the main BookingsPage header */}
           </div>

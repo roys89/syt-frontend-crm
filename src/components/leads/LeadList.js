@@ -1,5 +1,5 @@
 // src/components/leads/LeadList.js
-import { DocumentPlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { DocumentPlusIcon, PencilSquareIcon, TrashIcon, UserIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -92,6 +92,24 @@ const LeadList = () => {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex space-x-3">
+          {user?.permissions?.canViewLeads && (
+            <>
+              <Link
+                to="/leads/website"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <UsersIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                Website Leads
+              </Link>
+              <Link
+                to="/leads/agent"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              >
+                <UserIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                My Leads
+              </Link>
+            </>
+          )}
           {user?.permissions?.canAddLead && (
             <>
               <Link

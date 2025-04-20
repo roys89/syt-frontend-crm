@@ -71,6 +71,38 @@ const uploadLeadsCsv = async (file) => {
   return response.data;
 };
 
+// Get website leads (B2C users)
+const getWebsiteLeads = async () => {
+  const response = await authAxios.get(`${API_URL}/website`);
+  return response.data;
+};
+
+// Get agent leads
+const getAgentLeads = async () => {
+  const response = await authAxios.get(`${API_URL}/agent-leads`);
+  return response.data;
+};
+
+// Assign lead to agent
+const assignLeadToAgent = async (leadId, agentId) => {
+  const response = await authAxios.post(`${API_URL}/assign/${leadId}`, { agentId });
+  return response.data;
+};
+
+// Get CRM users (agents)
+const getAgents = async () => {
+  const usersAPI = `${config.API_URL}/users`;
+  try {
+    const response = await authAxios.get(usersAPI);
+    // Filter out admin users, only include agent/user roles
+    const agents = response.data.data.filter(user => user.role === 'user');
+    return { agents };
+  } catch (error) {
+    console.error('Error fetching agents:', error);
+    return { agents: [] };
+  }
+};
+
 const leadService = {
   getLeads,
   getLeadById,
@@ -78,7 +110,11 @@ const leadService = {
   updateLead,
   deleteLead,
   deleteMultipleLeads,
-  uploadLeadsCsv
+  uploadLeadsCsv,
+  getWebsiteLeads,
+  getAgentLeads,
+  assignLeadToAgent,
+  getAgents
 };
 
 export default leadService;

@@ -282,7 +282,7 @@ const BookingsTabContent = () => {
                  {activeSubTab !== 'all' ? ` for this type` : ''}.
                </h3>
                <p className="mt-2 text-sm text-gray-500">
-                  Get started by creating a new booking or check back later.
+                 You currently don't have any assigned bookings in this category.
                </p>
                <div className="mt-6">
                    <Link
