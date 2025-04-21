@@ -1,7 +1,7 @@
-import { ArrowPathIcon } from '@heroicons/react/20/solid';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, EyeIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import bookingService from '../../services/bookingService';
 import ShareItineraryButton from '../itinerary/ShareItineraryButton';
 
@@ -13,15 +13,15 @@ const BookingsTabContent = () => {
   const [itineraries, setItineraries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [deletingItemId, setDeletingItemId] = useState(null); // State for delete loading
+  const navigate = useNavigate(); // Hook for navigation
 
   // Fetch itineraries when the component mounts or the relevant tab is selected
   useEffect(() => {
     const fetchItineraries = async () => {
       if (activeSubTab === 'all' || activeSubTab === 'itinerary') {
-        // Only fetch if itineraries haven't been loaded yet or forcing refresh
-        // This simple check avoids refetching constantly when switching between 'all' and 'itinerary'
-        // A more robust solution might involve caching or state management libraries
-        if (itineraries.length === 0) { 
+        // Fetch if the list is empty OR if an item was just deleted (deletingItemId is null after success)
+        if (itineraries.length === 0 || deletingItemId === null) { 
           setLoading(true);
           setError(null);
           try {
@@ -50,7 +50,7 @@ const BookingsTabContent = () => {
     };
 
     fetchItineraries();
-  }, [activeSubTab, itineraries.length]); // Re-run if tab changes or itineraries are cleared
+  }, [activeSubTab, itineraries.length, deletingItemId]); // Re-run if tab changes OR if deletingItemId becomes null (after deletion)
 
   // Filter data based on active sub tab
   const filteredData = (() => {
@@ -181,6 +181,52 @@ const BookingsTabContent = () => {
     }
   };
 
+  // *** NEW: Handler for View Itinerary Button ***
+  const handleViewItineraryClick = (item) => {
+    if (item.itineraryToken && item.inquiryToken) { 
+      console.log(`Navigating to Itinerary Booking page for itineraryToken: ${item.itineraryToken} (inquiry: ${item.inquiryToken})`);
+      // Pass BOTH tokens in state
+      navigate('/bookings/itinerary', { state: { itineraryToken: item.itineraryToken, inquiryToken: item.inquiryToken } });
+    } else {
+       console.warn(`View Itinerary clicked but itineraryToken or inquiryToken missing.`);
+       toast.warn('Cannot view itinerary details - missing required information.');
+    }
+  };
+
+  // *** NEW: Handler for Delete Itinerary Button ***
+  const handleDeleteItinerary = async (item) => {
+    if (deletingItemId) return; // Prevent multiple deletes
+
+    const { itineraryToken, type } = item;
+    const itemIdentifier = itineraryToken || item._id;
+    const itemTypeLabel = type || 'item';
+
+    if (!itemIdentifier) {
+      toast.error('Cannot delete: Item identifier is missing.');
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete this ${itemTypeLabel} (${itemIdentifier})? This action might be irreversible.`)) {
+      setDeletingItemId(itemIdentifier); 
+      try {
+        // Assuming deleteItinerary exists for itinerary type
+        if (type === 'itinerary' && itineraryToken) {
+            await bookingService.deleteItinerary(itineraryToken);
+            toast.success(`Itinerary ${itineraryToken} deleted successfully.`);
+            // Set itineraries to empty array to trigger refetch in useEffect
+            setItineraries([]); 
+        } else {
+             toast.warn(`Deletion not implemented for type: ${type}`);
+        }
+      } catch (error) {
+        console.error(`Error deleting ${itemTypeLabel} ${itemIdentifier}:`, error);
+        toast.error(`Failed to delete ${itemTypeLabel}. ${error.message || ''}`);
+      } finally {
+        setDeletingItemId(null); // Reset deleting state regardless of outcome
+      }
+    }
+  };
+
   return (
     <div>
        {/* Sub Tabs for Bookings */}
@@ -307,13 +353,37 @@ const BookingsTabContent = () => {
                            }
                          </td>
                        <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                          <div className="flex items-center justify-end space-x-2">
-                            <Link 
-                              to={item.type === 'itinerary' ? `/itinerary/${item.itineraryToken}` : `/bookings/${item._id}`} 
-                              className="text-indigo-600 hover:text-indigo-900"
-                            >
-                              View<span className="sr-only">, {item.itineraryToken || item._id}</span>
-                            </Link>
+                          <div className="flex items-center justify-end space-x-3">
+                            {/* View/Modify Button (fixed) */}
+                            {item.type === 'itinerary' && (
+                                <button 
+                                  onClick={() => handleViewItineraryClick(item)}
+                                  className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-100"
+                                  title={`View/Modify Itinerary ${item.itineraryToken}`}
+                                >
+                                  <span className="sr-only">View/Modify Itinerary</span>
+                                  <EyeIcon className="h-5 w-5" />
+                                </button>
+                            )}
+                            {/* View Inquiry Button (REMOVED) */}
+                            
+                            {/* Delete Button */}
+                            {item.type === 'itinerary' && item.itineraryToken && ( // Only allow deleting itineraries for now
+                              <button
+                                onClick={() => handleDeleteItinerary(item)}
+                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={`Delete Itinerary ${item.itineraryToken}`}
+                                disabled={deletingItemId === (item.itineraryToken || item._id)}
+                              >
+                                <span className="sr-only">Delete</span>
+                                {deletingItemId === (item.itineraryToken || item._id) ? (
+                                  <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                ) : (
+                                  <TrashIcon className="h-5 w-5" />
+                                )}
+                              </button>
+                            )}
+                            {/* Share Button (Existing) */}
                             {item.type === 'itinerary' && (
                               <ShareItineraryButton 
                                 itineraryToken={item.itineraryToken}

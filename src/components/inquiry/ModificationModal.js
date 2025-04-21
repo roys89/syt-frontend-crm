@@ -112,7 +112,7 @@ const ModificationModal = ({
             includeGroundTransfer: true,
             includeFerryTransport: false,
             userInfo: {},
-            agentCode: ""
+            employeeId: ""
           };
           
           setModifiedData(data);
@@ -161,8 +161,8 @@ const ModificationModal = ({
           };
           break;
           
-        case 'agentCode':
-          newData.agentCode = value;
+        case 'employeeId':
+          newData.employeeId = value;
           break;
           
         default:
@@ -344,17 +344,17 @@ const ModificationModal = ({
                         </TabPanel>
                       </div>
                       
-                      {/* Agent code field */}
+                      {/* Agent code field -> Employee ID field */}
                       <div className="px-6 py-4 border-t border-gray-200">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Agent Code
+                          Employee ID
                         </label>
                         <input
                           type="text"
                           className="block w-full py-2 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                          value={modifiedData.agentCode}
-                          onChange={(e) => updateModifiedData('agentCode', e.target.value)}
-                          placeholder="Enter agent code"
+                          value={modifiedData.employeeId}
+                          onChange={(e) => updateModifiedData('employeeId', e.target.value)}
+                          placeholder="Enter employee ID"
                         />
                       </div>
                       

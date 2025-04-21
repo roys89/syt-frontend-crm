@@ -9,6 +9,7 @@ const UserForm = () => {
     name: '',
     email: '',
     password: '',
+    employeeId: '',
     role: 'user',
     permissions: {
       canAddLead: false,
@@ -43,7 +44,8 @@ const UserForm = () => {
         email: user.email,
         password: '', // Don't populate password field for security
         role: user.role,
-        permissions: user.permissions
+        permissions: user.permissions,
+        employeeId: user.employeeId || ''
       });
       
       setIsLoading(false);
@@ -185,6 +187,24 @@ const UserForm = () => {
                     />
                   </div>
 
+                  {/* Employee ID Field (Conditional) */}
+                  {formData.role === 'user' && (
+                    <div className="col-span-6 sm:col-span-3">
+                      <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700">
+                        Employee ID (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        name="employeeId"
+                        id="employeeId"
+                        autoComplete="off"
+                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        value={formData.employeeId}
+                        onChange={onChange}
+                      />
+                    </div>
+                  )}
+
                   <div className="col-span-6 sm:col-span-3">
                     <label htmlFor="role" className="block text-sm font-medium text-gray-700">
                       Role
@@ -198,6 +218,7 @@ const UserForm = () => {
                       onChange={onRoleChange}
                     >
                       <option value="user">User</option>
+                      <option value="manager">Manager</option>
                       <option value="admin">Admin</option>
                     </select>
                   </div>

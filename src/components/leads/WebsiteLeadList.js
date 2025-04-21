@@ -6,6 +6,48 @@ import { AuthContext } from '../../context/AuthContext';
 import leadService from '../../services/leadService';
 import userService from '../../services/userService';
 
+// Helper function for status badges (Copied from LeadList for now)
+const getStatusBadgeClass = (status) => {
+  switch (status) {
+    case 'new': return 'bg-blue-100 text-blue-800';
+    case 'assigned': return 'bg-cyan-100 text-cyan-800';
+    case 'contacted': return 'bg-purple-100 text-purple-800';
+    case 'follow up': return 'bg-yellow-100 text-yellow-800';
+    case 'proposal': return 'bg-orange-100 text-orange-800';
+    case 'won':
+    case 'closed_won': return 'bg-green-100 text-green-800';
+    case 'lost':
+    case 'closed_lost': return 'bg-red-100 text-red-800';
+    case 'qualified': return 'bg-teal-100 text-teal-800';
+    case 'negotiation': return 'bg-amber-100 text-amber-800';
+    default: return 'bg-gray-100 text-gray-800'; // Includes 'N/A' from controller
+  }
+};
+
+// ** NEW: Helper for Payment Status badges **
+const getPaymentStatusBadgeClass = (status) => {
+  switch (status) {
+    case 'completed': return 'bg-green-100 text-green-800';
+    case 'pending': return 'bg-yellow-100 text-yellow-800';
+    case 'processing': return 'bg-blue-100 text-blue-800';
+    case 'failed': return 'bg-red-100 text-red-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
+
+// ** NEW: Helper for Booking Status badges **
+const getBookingStatusBadgeClass = (status) => {
+  switch (status) {
+    case 'confirmed': return 'bg-green-100 text-green-800';
+    case 'pending': return 'bg-yellow-100 text-yellow-800';
+    case 'processing': return 'bg-blue-100 text-blue-800';
+    case 'cancelled': return 'bg-red-100 text-red-800';
+    case 'failed': return 'bg-pink-100 text-pink-800'; // Different red for booking failure?
+    case 'draft': return 'bg-gray-100 text-gray-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
+
 const WebsiteLeadList = () => {
   const [leads, setLeads] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,7 +62,7 @@ const WebsiteLeadList = () => {
   useEffect(() => {
     fetchLeads();
     if (canAssign) {
-      fetchAgents();
+    fetchAgents();
     }
   }, [canAssign]);
 
@@ -139,6 +181,9 @@ const WebsiteLeadList = () => {
                   Signed Up
                 </th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  Status
+                </th>
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                   Assigned To
                 </th>
                 <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
@@ -177,9 +222,14 @@ const WebsiteLeadList = () => {
                       {formatDate(lead.createdAt)}
                     </td>
                     <td className="px-3 py-4 text-sm text-gray-500">
+                      <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${getStatusBadgeClass(lead.status)}`}>
+                        {lead.status?.replace('_', ' ') || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-4 text-sm text-gray-500">
                       {lead.assignedTo ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          {lead.assignedTo.name}
+                          {lead.assignedTo.name} {lead.assignedTo.employeeId ? `(${lead.assignedTo.employeeId})` : ''}
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -200,7 +250,7 @@ const WebsiteLeadList = () => {
                                 <option value="" disabled>Select agent</option>
                                 {agents.map(agent => (
                                   <option key={agent._id} value={agent._id}>
-                                    {agent.name}
+                                    {agent.name} {agent.employeeId ? `(${agent.employeeId})` : ''}
                                   </option>
                                 ))}
                               </select>
@@ -228,7 +278,7 @@ const WebsiteLeadList = () => {
                   
                   {expandedLeads[lead._id] && (
                     <tr>
-                      <td colSpan="6" className="px-6 py-4">
+                      <td colSpan="7" className="px-6 py-4">
                         <div className="bg-gray-50 p-4 rounded-md">
                           <div className="mb-4">
                             <h3 className="text-sm font-medium text-gray-900">Customer Activity</h3>
@@ -298,10 +348,19 @@ const WebsiteLeadList = () => {
                                         Itinerary Token
                                       </th>
                                       <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Booking ID
+                                      </th>
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Created
                                       </th>
                                       <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Status
+                                        Booking Status 
+                                      </th>
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Payment Status
+                                      </th>
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Payment ID
                                       </th>
                                       <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Assigned Agent
@@ -317,16 +376,42 @@ const WebsiteLeadList = () => {
                                         <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 font-mono">
                                           {itinerary.itineraryToken}
                                         </td>
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 font-mono">
+                                          {['processing', 'confirmed', 'cancelled', 'failed'].includes(itinerary.bookingStatus) 
+                                            ? itinerary.bookingId || 'N/A' 
+                                            : '-'
+                                          }
+                                        </td>
                                         <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
                                           {formatDate(itinerary.createdAt)}
                                         </td>
                                         <td className="px-3 py-2 whitespace-nowrap text-xs">
-                                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                                            ${itinerary.status === 'confirmed' ? 'bg-green-100 text-green-800' : 
-                                              itinerary.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                                              'bg-gray-100 text-gray-800'}`}>
-                                            {itinerary.status.charAt(0).toUpperCase() + itinerary.status.slice(1)}
+                                          {itinerary.bookingStatus ? (
+                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${getBookingStatusBadgeClass(itinerary.bookingStatus)}`}>
+                                              {itinerary.bookingStatus.replace('_', ' ')}
+                                            </span>
+                                          ) : (
+                                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                              N/A
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs">
+                                          {itinerary.paymentStatus ? (
+                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${getPaymentStatusBadgeClass(itinerary.paymentStatus)}`}>
+                                              {itinerary.paymentStatus}
+                                            </span>
+                                          ) : (
+                                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                              N/A
                                           </span>
+                                          )}
+                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 font-mono">
+                                          {itinerary.paymentStatus === 'completed' && itinerary.paymentId 
+                                            ? itinerary.paymentId 
+                                            : '-'
+                                          }
                                         </td>
                                         <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
                                           {itinerary.agentName || 'Unassigned'}

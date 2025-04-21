@@ -2,9 +2,9 @@
 import axios from 'axios';
 import config from '../config';
 import {
-  transformTCBookingResponse,
-  transformTCFareRulesResponse,
-  transformTCFlightSearchResponse
+    transformTCBookingResponse,
+    transformTCFareRulesResponse,
+    transformTCFlightSearchResponse
 } from './transformers/flight/tcTransformer';
 
 // API endpoints
@@ -318,7 +318,7 @@ const searchHotels = async ({ provider = 'TC', ...hotelSearchData }) => {
       cleanData 
     );
     
-    console.log('�� API RESPONSE:', {
+    console.log('📡 API RESPONSE:', {
       status: response.status,
       success: response.data?.success,
       hotelsCount: response.data?.data?.hotels?.length,
@@ -1049,6 +1049,96 @@ const getCrmItineraries = async () => {
 };
 // ---------------------------------------------------------
 
+// *** NEW: Get Inquiry Details by Token ***
+const getInquiryDetailsByToken = async (inquiryToken) => {
+  if (!inquiryToken) {
+    throw new Error('Inquiry token is required.');
+  }
+  const url = `/inquiries/${inquiryToken}`; // Relative to CRM base URL
+  try {
+    console.log(`📡 API REQUEST: getInquiryDetailsByToken (GET ${config.API_URL}${url})`);
+    const response = await authAxios.get(url);
+    console.log('📡 API RESPONSE: getInquiryDetailsByToken', response.data);
+    if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to fetch inquiry details.');
+    }
+    return response.data; // { success: true, data: {...inquiry...} }
+  } catch (error) {
+    console.error(`📡 API ERROR: getInquiryDetailsByToken for ${inquiryToken}:`, error);
+    const message = error.response?.data?.message || error.message || 'Failed to load inquiry details.';
+    throw new Error(message);
+  }
+};
+
+// *** UPDATED: Delete Itinerary - Calls actual endpoint ***
+const deleteItinerary = async (itineraryToken) => {
+  if (!itineraryToken) {
+    throw new Error('Itinerary token is required for deletion.');
+  }
+  const url = `/itineraries/${itineraryToken}`; // Relative to CRM base URL
+  try {
+    console.log(`📡 API REQUEST: deleteItinerary (DELETE ${config.API_URL}${url})`);
+    const response = await authAxios.delete(url);
+    console.log('📡 API RESPONSE: deleteItinerary', response.data);
+    if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to delete itinerary.');
+    }
+    return response.data; // Should be { success: true, message: ... }
+  } catch (error) {
+    console.error(`📡 API ERROR: deleteItinerary for ${itineraryToken}:`, error);
+    const message = error.response?.data?.message || error.message || 'Failed to delete itinerary.';
+    throw new Error(message);
+  }
+};
+
+// *** UPDATED: Delete Inquiry - Calls actual endpoint ***
+const deleteInquiry = async (inquiryToken) => {
+  if (!inquiryToken) {
+    throw new Error('Inquiry token is required for deletion.');
+  }
+  const url = `/inquiries/${inquiryToken}`; // Relative to CRM base URL
+  try {
+    console.log(`📡 API REQUEST: deleteInquiry (DELETE ${config.API_URL}${url})`);
+    const response = await authAxios.delete(url);
+    console.log('📡 API RESPONSE: deleteInquiry', response.data);
+    if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to delete inquiry.');
+    }
+    return response.data; // Should be { success: true, message: ... }
+  } catch (error) {
+    console.error(`📡 API ERROR: deleteInquiry for ${inquiryToken}:`, error);
+    const message = error.response?.data?.message || error.message || 'Failed to delete inquiry.';
+    throw new Error(message);
+  }
+};
+
+// NEW: Update specific inquiry details
+export const updateInquiryDetails = async (inquiryToken, updateData) => {
+  if (!inquiryToken || !updateData) {
+    throw new Error("Inquiry token and update data are required");
+  }
+
+  console.log('Inquiry update request:', { inquiryToken, updateData });
+  
+  try {
+    const response = await authAxios.put(
+      `${config.API_B2C_URL}/itineraryInquiry/${inquiryToken}`,
+      updateData
+    );
+    
+    console.log('Inquiry update response:', response.data);
+    
+    // Directly return the data - the API should return the updated inquiry object
+    return response.data;
+  } catch (error) {
+    console.error("Error updating inquiry details:", error);
+    throw new Error(
+      error.response?.data?.message || 
+      "Failed to update inquiry details"
+    );
+  }
+};
+
 const bookingService = {
   // Flight services
   searchFlights,
@@ -1133,7 +1223,19 @@ const bookingService = {
   replaceHotelInItinerary,
 
   // Add the new CRM itineraries fetch function
-  getCrmItineraries
+  getCrmItineraries,
+
+  // Add the new inquiry details fetch function
+  getInquiryDetailsByToken,
+
+  // Add the new itinerary deletion function
+  deleteItinerary,
+
+  // Add the new inquiry deletion function
+  deleteInquiry,
+
+  // Add the new inquiry update function
+  updateInquiryDetails
 };
 
 export default bookingService;

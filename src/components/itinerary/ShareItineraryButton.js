@@ -1,4 +1,4 @@
-import { LinkIcon } from '@heroicons/react/24/outline';
+import { ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -28,10 +28,11 @@ const ShareItineraryButton = ({ itineraryToken, inquiryToken }) => {
     <button
       onClick={handleShare}
       disabled={isCopying || !itineraryToken || !inquiryToken}
-      className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+      className="inline-flex items-center text-gray-700 hover:text-indigo-600 p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+      title="Copy Shareable Link"
     >
-      <LinkIcon className="-ml-0.5 mr-2 h-4 w-4" />
-      {isCopying ? 'Copying...' : 'Share Link'}
+      <span className="sr-only">Copy Shareable Link</span>
+      <ClipboardDocumentIcon className="h-5 w-5" />
     </button>
   );
 };

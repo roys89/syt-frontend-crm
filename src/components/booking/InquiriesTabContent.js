@@ -1,6 +1,6 @@
-import { ArrowPathIcon, DocumentPlusIcon, EyeIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, DocumentMagnifyingGlassIcon, DocumentPlusIcon, EyeIcon, TrashIcon, UserPlusIcon } from '@heroicons/react/24/outline';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import bookingService from '../../services/bookingService';
 import CustomerAssignmentModal from './CustomerAssignmentModal';
@@ -14,6 +14,8 @@ const InquiriesTabContent = () => {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assignTargetInquiryToken, setAssignTargetInquiryToken] = useState(null);
   const [isAssigningUser, setIsAssigningUser] = useState(false);
+
+  const [deletingInquiryToken, setDeletingInquiryToken] = useState(null);
 
   // MODIFICATION: Get navigate function
   const navigate = useNavigate();
@@ -34,8 +36,10 @@ const InquiriesTabContent = () => {
   };
 
   useEffect(() => {
-    fetchInquiries();
-  }, []);
+    if (!deletingInquiryToken) {
+        fetchInquiries();
+    }
+  }, [deletingInquiryToken]);
 
   // Helper to format date
   const formatDate = (dateString) => {
@@ -126,6 +130,30 @@ const InquiriesTabContent = () => {
     } else {
        console.warn(`View Itinerary clicked but paymentStatus ('${item.paymentStatus}'), itineraryToken, or inquiryToken missing.`);
        toast.info(`Cannot view/modify itinerary. Status: ${item.paymentStatus || 'Unknown'}`);
+    }
+  };
+
+  // *** NEW: Handler for Delete Inquiry Button ***
+  const handleDeleteInquiry = async (inquiryToken) => {
+    if (deletingInquiryToken || isCreating || isAssigningUser) return; // Prevent multiple actions
+
+    if (!inquiryToken) {
+        toast.error('Cannot delete: Inquiry token is missing.');
+        return;
+    }
+    
+    if (window.confirm(`Are you sure you want to delete this inquiry (${inquiryToken})? This action might be irreversible.`)) {
+      setDeletingInquiryToken(inquiryToken);
+      try {
+        await bookingService.deleteInquiry(inquiryToken);
+        toast.success(`Inquiry ${inquiryToken} deleted successfully.`);
+        // fetchInquiries() will be triggered by useEffect when deletingInquiryToken becomes null
+      } catch (error) {
+        console.error(`Error deleting inquiry ${inquiryToken}:`, error);
+        toast.error(`Failed to delete inquiry. ${error.message || ''}`);
+      } finally {
+        setDeletingInquiryToken(null); // Reset deleting state
+      }
     }
   };
 
@@ -236,44 +264,80 @@ const InquiriesTabContent = () => {
                     </td>
                     {/* Actions - Adjusted padding */}
                     <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                      {item.hasItinerary ? (
-                         <div className="flex items-center justify-end space-x-3"> 
-                           {/* MODIFICATION: Changed Link to Button, added onClick, disabled logic */}
-                           <button 
-                             onClick={() => handleViewItineraryClick(item)}
-                             disabled={item.paymentStatus !== 'pending'} // Disable if not pending
-                             className="inline-flex items-center text-indigo-600 hover:text-indigo-900 disabled:text-gray-400 disabled:cursor-not-allowed"
-                             title={item.paymentStatus !== 'pending' ? `Cannot modify, status: ${item.paymentStatus || 'N/A'}` : `View/Modify Itinerary ${item.itineraryToken}`}
+                       {/* MODIFIED: Actions container */}
+                      <div className="flex items-center justify-end space-x-3">
+                        {item.hasItinerary ? (
+                           <> 
+                             {/* View/Modify Itinerary Button (Existing) */}
+                             <button 
+                               onClick={() => handleViewItineraryClick(item)}
+                               disabled={item.paymentStatus !== 'pending'} 
+                               className="inline-flex items-center text-indigo-600 hover:text-indigo-900 disabled:text-gray-400 disabled:cursor-not-allowed p-1 rounded hover:bg-indigo-100"
+                               title={item.paymentStatus !== 'pending' ? `Cannot modify, status: ${item.paymentStatus || 'N/A'}` : `View/Modify Itinerary ${item.itineraryToken}`}
+                              >
+                               <EyeIcon className="h-5 w-5" aria-hidden="true" /> 
+                             </button>
+                             {/* View Inquiry Button (when Itinerary exists) */}
+                             <Link
+                                to={`/inquiry/${item.inquiryToken}`} 
+                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100"
+                                title={`View Inquiry ${item.inquiryToken}`}
+                              >
+                                <DocumentMagnifyingGlassIcon className="h-5 w-5" />
+                              </Link>
+                             {/* Delete Inquiry Button (when Itinerary exists) */}
+                             <button
+                                onClick={() => handleDeleteInquiry(item.inquiryToken)}
+                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={`Delete Inquiry ${item.inquiryToken}`}
+                                disabled={deletingInquiryToken === item.inquiryToken || isCreating || isAssigningUser}
+                              >
+                                {deletingInquiryToken === item.inquiryToken ? (
+                                  <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                ) : (
+                                  <TrashIcon className="h-5 w-5" />
+                                )}
+                              </button>
+                           </>
+                        ) : (
+                          <> 
+                            {/* Create Itinerary Button (Existing) */}
+                            <button 
+                              onClick={() => handleCreateItinerary(item.inquiryToken)}
+                              className={`inline-flex items-center text-green-600 hover:text-green-800 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${isCreating === item.inquiryToken ? 'animate-pulse' : ''} p-1 rounded hover:bg-green-100`}
+                              title="Create Itinerary from Inquiry"
+                              disabled={!!isCreating || isAssigningUser || !!deletingInquiryToken}
                             >
-                             <EyeIcon className="h-5 w-5" aria-hidden="true" /> 
-                             <span className="hidden sm:inline ml-1.5">
-                               {item.paymentStatus === 'pending' ? 'View / Modify' : 'View Itinerary'} 
-                             </span> 
-                             <span className="sm:hidden ml-1.5 font-mono text-xs text-gray-500">({item.itineraryToken})</span> {/* Token visible on small screens */}
-                           </button>
-                           {/* Keep token visible */}
-                           <span className="hidden sm:inline ml-1.5 font-mono text-xs text-gray-400">({item.itineraryToken})</span> {/* Token visible on sm+ screens */}
-                         </div>
-                      ) : (
-                        <button 
-                          onClick={() => handleCreateItinerary(item.inquiryToken)}
-                          className={`inline-flex items-center text-green-600 hover:text-green-800 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${isCreating === item.inquiryToken ? 'animate-pulse' : ''}`}
-                          title="Create Itinerary from Inquiry"
-                          disabled={!!isCreating || isAssigningUser} // Disable if creating OR assigning
-                        >
-                          {isCreating === item.inquiryToken ? (
-                             <>
-                               <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                               </svg>
-                                Creating...
-                             </>
-                          ) : (
-                             <><DocumentPlusIcon className="h-5 w-5 mr-1" /> Create Itinerary</>
-                          )}
-                        </button>
-                      )}
+                              {isCreating === item.inquiryToken ? (
+                                 <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                              ) : ( 
+                                 <DocumentPlusIcon className="h-5 w-5" />
+                              )}
+                            </button>
+                            {/* View Inquiry Button (when NO Itinerary exists) */}
+                             <Link
+                                to={`/inquiry/${item.inquiryToken}`} 
+                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100"
+                                title={`View Inquiry ${item.inquiryToken}`}
+                              >
+                                <DocumentMagnifyingGlassIcon className="h-5 w-5" />
+                              </Link>
+                            {/* Delete Inquiry Button (when NO Itinerary exists) */}
+                            <button
+                              onClick={() => handleDeleteInquiry(item.inquiryToken)}
+                              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={`Delete Inquiry ${item.inquiryToken}`}
+                              disabled={deletingInquiryToken === item.inquiryToken || isCreating || isAssigningUser}
+                            >
+                              {deletingInquiryToken === item.inquiryToken ? (
+                                <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <TrashIcon className="h-5 w-5" />
+                              )}
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

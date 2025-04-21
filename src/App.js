@@ -23,7 +23,7 @@ import AddUserPage from './pages/users/AddUserPage';
 import EditUserPage from './pages/users/EditUserPage';
 import UsersPage from './pages/users/UsersPage';
 
-// Booking Pages
+// Booking Pagesc
 import ActivityBookingPage from './pages/bookings/ActivityBookingPage';
 import BookingsPage from './pages/bookings/BookingsPage';
 import CrmChangeActivitiesPage from './pages/bookings/changePage/CrmChangeActivitiePage';
@@ -32,6 +32,7 @@ import CrmChangeHotelsPage from './pages/bookings/changePage/CrmChangeHotelPage'
 import CreateBookingPage from './pages/bookings/CreateBookingPage';
 import FlightBookingPage from './pages/bookings/FlightBookingPage';
 import HotelBookingPage from './pages/bookings/HotelBookingPage';
+import InquiryDetailPage from './pages/bookings/InquiryDetailPage';
 import ItineraryBookingPage from './pages/bookings/ItineraryBookingPage';
 import TransferBookingPage from './pages/bookings/TransferBookingPage';
 
@@ -78,6 +79,7 @@ function App() {
               {/* Booking Routes (Requires 'bookings' permission or admin) */}
               <Route element={<BookingRoute />}>
                 <Route path="/bookings" element={<BookingsPage />} />
+                <Route path="/inquiry/:inquiryToken" element={<InquiryDetailPage />} />
                 <Route path="/bookings/create" element={<CreateBookingPage />} />
                 <Route path="/bookings/itinerary" element={<ItineraryBookingPage />} />
                 <Route path="/bookings/itinerary/:itineraryToken" element={<ItineraryBookingPage />} />

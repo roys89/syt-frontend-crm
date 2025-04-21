@@ -37,7 +37,7 @@ const ItineraryBookingPage = () => {
   
   // Itinerary form state
   const [formData, setFormData] = useState({
-    agentCode: '',
+    employeeId: '',
     selectedCities: [],
     departureCity: null,
     departureDates: { 
@@ -76,6 +76,19 @@ const ItineraryBookingPage = () => {
     { id: 'customer', title: 'Customer Information' },
     { id: 'review', title: 'Review Inquiry' }
   ];
+  
+  // NEW useEffect to auto-populate employeeId from agent context
+  useEffect(() => {
+    if (agent?.employeeId) {
+      setFormData(prev => ({
+        ...prev,
+        employeeId: agent.employeeId
+      }));
+    } else if (agent) {
+      // Optional: Handle case where agent exists but has no ID (log warning?)
+      console.warn("Logged-in agent does not have an Employee ID.");
+    }
+  }, [agent]); // Re-run if agent object changes
   
   // Validation function
   const validateStep = useCallback((step) => {
@@ -123,9 +136,12 @@ const ItineraryBookingPage = () => {
         break;
         
       case 4: // Customer
-        if (!formData.agentCode || !formData.agentCode.trim()) {
-          newErrors.agentCode = 'Agent code is required';
+        // Remove validation for employeeId as it's auto-populated
+        /* 
+        if (!formData.employeeId || !formData.employeeId.trim()) { 
+          newErrors.employeeId = 'Employee ID is required';
         }
+        */ 
         break;
         
       case 5: // Review - validate all
@@ -143,7 +159,10 @@ const ItineraryBookingPage = () => {
         } else if (!formData.userInfo) {
             // Assuming customer is optional for inquiry
         }
-        if (!formData.agentCode || !formData.agentCode.trim()) newErrors.agentCode = 'Agent code is required';
+        // Remove validation for employeeId as it's auto-populated
+        /*
+        if (!formData.employeeId || !formData.employeeId.trim()) newErrors.employeeId = 'Employee ID is required';
+        */
         break;
       // Added default case for ESLint rule
       default:
@@ -274,7 +293,7 @@ const ItineraryBookingPage = () => {
          // userInfo is added conditionally below
          agents: [{
            agentId: agent._id, 
-           agentCode: formData.agentCode.trim(),
+           employeeId: formData.employeeId.trim(),
            agentName: agent.name, 
            agentEmail: agent.email 
          }]
@@ -387,7 +406,7 @@ const ItineraryBookingPage = () => {
       setCurrentStep(0); // Go back to the first step
       // Reset formData to its initial state
       setFormData({
-         agentCode: '',
+         employeeId: '',
          selectedCities: [],
          departureCity: null,
          departureDates: { startDate: '', endDate: '' },
@@ -828,20 +847,24 @@ const ItineraryBookingPage = () => {
                 </div>
              )}
 
-            {/* Agent Code Input - Remains the same */}
+            {/* Employee ID Input - Now ReadOnly */}
             <div className="mt-6">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Agent Code <span className="text-red-500">*</span>
+                Employee ID
               </label>
               <input
                 type="text"
-                className="block w-full py-2 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                value={formData.agentCode}
-                onChange={(e) => handleChange(null, 'agentCode', e.target.value)}
+                className="block w-full py-2 px-3 border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                value={formData.employeeId} // Value comes from state
+                readOnly // Make the field read-only
+                // Remove onChange as it's read-only
               />
-              {errors.agentCode && (
-                <p className="mt-1 text-sm text-red-600">{errors.agentCode}</p>
+              {/* Remove error display for employeeId */}
+              {/* 
+              {errors.employeeId && ( 
+                <p className="mt-1 text-sm text-red-600">{errors.employeeId}</p>
               )}
+              */}
             </div>
           </div>
         );
@@ -917,7 +940,7 @@ const ItineraryBookingPage = () => {
                 <h3 className="font-medium text-gray-800 mb-2">Agent Information</h3>
                  {!reviewAgent ? <p className="text-sm text-red-600">Agent details missing!</p> :
                 <p className="text-sm text-gray-600">
-                  Agent Code: {formData.agentCode || 'Not specified'}<br/>
+                  Employee ID: {formData.employeeId || 'Not available'}<br/> {/* Reads from state */}
                      Agent Name: {reviewAgent.name || 'N/A'} <br/>
                      Agent Email: {reviewAgent.email || 'N/A'} <br/>
                      Agent ID: {reviewAgent._id || 'N/A'}
@@ -1192,7 +1215,10 @@ const ItineraryBookingPage = () => {
             {currentStep < steps.length - 1 ? (
               <button
                 type="button"
-                onClick={handleNext}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNext();
+                }}
                                     disabled={isSubmittingInquiry || isCreatingItinerary}
                 className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
