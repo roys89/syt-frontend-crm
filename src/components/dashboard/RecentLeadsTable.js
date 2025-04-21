@@ -15,10 +15,11 @@ const RecentLeadsTable = () => {
           limit: 5, 
           sort: '-createdAt' 
         });
-        setRecentLeads(response.data);
+        setRecentLeads(response.data.data || []);
         setIsLoading(false);
       } catch (error) {
         console.error('Error fetching recent leads:', error);
+        setRecentLeads([]);
         setIsLoading(false);
       }
     };

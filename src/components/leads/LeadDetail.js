@@ -1,5 +1,5 @@
 // src/components/leads/LeadDetail.js
-import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronUpIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -9,6 +9,7 @@ import leadService from '../../services/leadService';
 const LeadDetail = () => {
   const [lead, setLead] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedInquiry, setExpandedInquiry] = useState(null);
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
@@ -21,10 +22,12 @@ const LeadDetail = () => {
     try {
       setIsLoading(true);
       const response = await leadService.getLeadById(id);
-      setLead(response.data);
+      setLead(response.data.data || null);
       setIsLoading(false);
     } catch (error) {
       toast.error('Failed to fetch lead details');
+      setLead(null);
+      setIsLoading(false);
       navigate('/leads');
     }
   };
@@ -47,8 +50,14 @@ const LeadDetail = () => {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
+  };
+
+  const toggleItinerary = (inquiryToken) => {
+    setExpandedInquiry(expandedInquiry === inquiryToken ? null : inquiryToken);
   };
 
   if (isLoading) {
@@ -132,13 +141,13 @@ const LeadDetail = () => {
                   lead.status === 'closed_won' ? 'bg-emerald-100 text-emerald-800' :
                   'bg-red-100 text-red-800'
                 }`}>
-                  {lead.status.replace('_', ' ')}
+                  {lead.status?.replace('_', ' ') ?? 'N/A'}
                 </span>
               </dd>
             </div>
             <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500">Source</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{lead.source.replace('_', ' ')}</dd>
+              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{lead.source?.replace('_', ' ') ?? 'N/A'}</dd>
             </div>
             <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500">Created on</dt>
@@ -156,59 +165,123 @@ const LeadDetail = () => {
         </div>
       </div>
 
-      <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Itinerary Preferences</h3>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">Travel and accommodation preferences.</p>
-        </div>
-        <div className="border-t border-gray-200">
-          <dl>
-            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Destination</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {lead.itineraryPreferences?.destination || 'Not specified'}
-              </dd>
-            </div>
-            <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Budget</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {lead.itineraryPreferences?.budget ? `$${lead.itineraryPreferences.budget.toLocaleString()}` : 'Not specified'}
-              </dd>
-            </div>
-            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Number of Travelers</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {lead.itineraryPreferences?.numberOfTravelers || 'Not specified'}
-              </dd>
-            </div>
-            <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Accommodation Preference</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {lead.itineraryPreferences?.accommodationPreference || 'Not specified'}
-              </dd>
-            </div>
-            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Activities</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {lead.itineraryPreferences?.activities && lead.itineraryPreferences.activities.length > 0 ? (
-                  <ul className="border border-gray-200 rounded-md divide-y divide-gray-200">
-                    {lead.itineraryPreferences.activities.map((activity, index) => (
-                      <li key={index} className="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
-                        <div className="w-0 flex-1 flex items-center">
-                          <span className="ml-2 flex-1 w-0 truncate">{activity}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  'No activities specified'
-                )}
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </div>
+      {/* Inquiries Section */}
+      {lead.inquiries && lead.inquiries.length > 0 && (
+        <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+          <div className="px-4 py-5 sm:px-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Inquiries</h3>
+            <p className="mt-1 max-w-2xl text-sm text-gray-500">Details of inquiries submitted by the lead.</p>
+          </div>
+          {lead.inquiries.map((inquiry, index) => {
+            const associatedItinerary = lead.itineraries?.find(
+              (itin) => itin.inquiryToken === inquiry.inquiryToken
+            );
 
+            return (
+              <div key={inquiry.inquiryToken || index} className={`border-t border-gray-200`}>
+                <div className="px-4 py-3 sm:px-6">
+                   <div className="flex justify-between items-center">
+                      <div>
+                         <h4 className="text-md font-semibold text-gray-700">Inquiry #{index + 1} ({inquiry.inquiryToken})</h4>
+                         <p className="text-sm text-gray-500">Submitted on: {formatDate(inquiry.createdAt)}</p>
+                      </div>
+                      {associatedItinerary && (
+                        <button 
+                          onClick={() => toggleItinerary(inquiry.inquiryToken)}
+                          className="inline-flex items-center p-1 border border-transparent rounded-full shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                          {expandedInquiry === inquiry.inquiryToken ? (
+                            <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
+                          ) : (
+                            <ChevronDownIcon className="h-5 w-5" aria-hidden="true" />
+                          )}
+                        </button>
+                      )}
+                   </div>
+                </div>
+                <dl className="divide-y divide-gray-200">
+                  <div className="bg-gray-50 px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500">Destinations</dt>
+                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{inquiry.destinations || 'N/A'}</dd>
+                  </div>
+                  <div className="bg-white px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500">Dates</dt>
+                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                      {formatDate(inquiry.startDate)} - {formatDate(inquiry.endDate)}
+                    </dd>
+                  </div>
+                  <div className="bg-gray-50 px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500">Travelers</dt>
+                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                      {inquiry.travelers} ({inquiry.adults} Adults, {inquiry.children} Children)
+                    </dd>
+                  </div>
+                  <div className="bg-white px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500">Rooms</dt>
+                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                      {Array.isArray(inquiry.rooms) ? inquiry.rooms.length : (inquiry.rooms || 'N/A')}
+                    </dd>
+                  </div>
+                  <div className="bg-gray-50 px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500">Budget</dt>
+                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{inquiry.budget || 'N/A'}</dd>
+                  </div>
+                  <div className="bg-white px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500">Interests</dt>
+                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{inquiry.interests || 'N/A'}</dd>
+                  </div>
+                  <div className="bg-gray-50 px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500">Assigned Agent</dt>
+                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{inquiry.agentName || 'Unassigned'}</dd>
+                  </div>
+                </dl>
+
+                {/* Collapsible Itinerary Details */}
+                <div 
+                  className={`
+                    transition-[max-height] duration-300 ease-in-out overflow-hidden 
+                    ${expandedInquiry === inquiry.inquiryToken ? 'max-h-[500px]' : 'max-h-0'}
+                  `}
+                >
+                {associatedItinerary && (
+                  <div className="border-t border-dashed border-gray-300 mt-3 pt-3">
+                    <div className="px-4 pb-3 sm:px-6">
+                        <h5 className="text-sm font-semibold text-indigo-700">Generated Itinerary ({associatedItinerary.itineraryToken})</h5>
+                        <p className="text-xs text-gray-500">Created: {formatDate(associatedItinerary.createdAt)}</p>
+                    </div>
+                    <dl className="divide-y divide-gray-200">
+                       <div className="bg-gray-50 px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt className="text-sm font-medium text-gray-500">Status</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              associatedItinerary.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              associatedItinerary.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                              associatedItinerary.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                          }`}>
+                              {associatedItinerary.status?.replace('_', ' ').toUpperCase() || 'N/A'}
+                          </span>
+                        </dd>
+                      </div>
+                      <div className="bg-white px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt className="text-sm font-medium text-gray-500">Price</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{associatedItinerary.price || 'N/A'}</dd>
+                      </div>
+                      <div className="bg-gray-50 px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt className="text-sm font-medium text-gray-500">Assigned Agent</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{associatedItinerary.agentName || 'Unassigned'}</dd>
+                      </div>
+                   </dl>
+                  </div>
+                )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Back to Leads button */}
       <div className="mt-8 flex justify-center">
         <Link
           to="/leads"

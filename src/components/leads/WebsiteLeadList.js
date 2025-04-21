@@ -1,9 +1,10 @@
-import { ChevronDownIcon, ChevronRightIcon, ClipboardDocumentIcon, EyeIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { ArrowUturnLeftIcon, ChevronDownIcon, ChevronRightIcon, ClipboardDocumentIcon, EyeIcon, UserPlusIcon } from '@heroicons/react/24/outline';
 import React, { useContext, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../../context/AuthContext';
 import leadService from '../../services/leadService';
+import userService from '../../services/userService';
 
 const WebsiteLeadList = () => {
   const [leads, setLeads] = useState([]);
@@ -12,28 +13,35 @@ const WebsiteLeadList = () => {
   const [agents, setAgents] = useState([]);
   const [assigningLead, setAssigningLead] = useState(null);
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+  
+  const canAssign = user && (user.role === 'admin' || user.role === 'manager');
   
   useEffect(() => {
     fetchLeads();
-    fetchAgents();
-  }, []);
+    if (canAssign) {
+      fetchAgents();
+    }
+  }, [canAssign]);
 
   const fetchLeads = async () => {
     try {
       setIsLoading(true);
       const response = await leadService.getWebsiteLeads();
-      setLeads(response.data || []);
+      setLeads(response.data.data || []);
       setIsLoading(false);
     } catch (error) {
       toast.error('Failed to fetch website leads');
       console.error('Failed to fetch website leads:', error);
+      setLeads([]);
       setIsLoading(false);
     }
   };
 
   const fetchAgents = async () => {
+    if (!canAssign) return;
     try {
-      const response = await leadService.getAgents();
+      const response = await userService.getAgents();
       setAgents(response.agents || []);
     } catch (error) {
       console.error('Failed to fetch agents:', error);
@@ -93,6 +101,16 @@ const WebsiteLeadList = () => {
           <p className="mt-2 text-sm text-gray-700">
             Website leads from customers who have created accounts
           </p>
+        </div>
+        <div className="mt-4 sm:mt-0 sm:ml-4">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <ArrowUturnLeftIcon className="-ml-1 mr-2 h-5 w-5 text-gray-500" aria-hidden="true" />
+            Back
+          </button>
         </div>
       </div>
 
@@ -161,7 +179,7 @@ const WebsiteLeadList = () => {
                     <td className="px-3 py-4 text-sm text-gray-500">
                       {lead.assignedTo ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          {lead.assignedTo.agentName}
+                          {lead.assignedTo.name}
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -170,7 +188,7 @@ const WebsiteLeadList = () => {
                       )}
                     </td>
                     <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                      {!lead.assignedTo && (
+                      {!lead.assignedTo && canAssign && (
                         <div className="flex items-center justify-end space-x-2">
                           {assigningLead === lead._id ? (
                             <div className="flex items-center">
@@ -197,6 +215,7 @@ const WebsiteLeadList = () => {
                             <button
                               onClick={() => setAssigningLead(lead._id)}
                               className="text-indigo-600 hover:text-indigo-900 flex items-center"
+                              disabled={!canAssign}
                             >
                               <UserPlusIcon className="h-5 w-5 mr-1" />
                               Assign
@@ -207,7 +226,6 @@ const WebsiteLeadList = () => {
                     </td>
                   </tr>
                   
-                  {/* Expanded content */}
                   {expandedLeads[lead._id] && (
                     <tr>
                       <td colSpan="6" className="px-6 py-4">
@@ -219,7 +237,6 @@ const WebsiteLeadList = () => {
                             </p>
                           </div>
                           
-                          {/* Inquiries section */}
                           {lead.inquiries.length > 0 && (
                             <div className="mb-4">
                               <h4 className="text-xs font-medium text-gray-700 uppercase mb-2">Inquiries</h4>
@@ -270,7 +287,6 @@ const WebsiteLeadList = () => {
                             </div>
                           )}
                           
-                          {/* Itineraries section */}
                           {lead.itineraries.length > 0 && (
                             <div>
                               <h4 className="text-xs font-medium text-gray-700 uppercase mb-2">Itineraries</h4>

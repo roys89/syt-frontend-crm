@@ -6,7 +6,7 @@ import bookingService from '../../services/bookingService';
 import ShareItineraryButton from '../itinerary/ShareItineraryButton';
 
 // This component now holds the content previously directly in BookingsPage for the 'Bookings' main tab.
-// It uses placeholder data for now.
+// It fetches real itinerary data.
 
 const BookingsTabContent = () => {
   const [activeSubTab, setActiveSubTab] = useState('all'); // Sub-tab ID
@@ -41,79 +41,27 @@ const BookingsTabContent = () => {
             setLoading(false);
           }
         }
+      } else {
+        // If a specific non-itinerary tab is selected, clear the itineraries 
+        // (or ideally fetch specific data type, but that's not implemented)
+        // For now, this ensures the list is empty for types other than 'all' and 'itinerary'
+        setItineraries([]); 
       }
     };
 
     fetchItineraries();
   }, [activeSubTab, itineraries.length]); // Re-run if tab changes or itineraries are cleared
 
-  // For demo purposes, let's create sample data (copied from original BookingsPage)
-  const sampleOtherBookingsData = [
-    {
-      _id: '1',
-      type: 'flight',
-      status: 'confirmed',
-      customer: { firstName: 'John', lastName: 'Doe' },
-      createdAt: '2025-05-01T10:00:00.000Z',
-      details: {
-        origin: { city: 'Mumbai', code: 'BOM' },
-        destination: { city: 'Dubai', code: 'DXB' },
-        departureDate: '2025-06-16'
-      },
-      totalAmount: 6407
-    },
-    {
-      _id: '2',
-      type: 'hotel',
-      status: 'pending',
-      customer: { firstName: 'Jane', lastName: 'Smith' },
-      createdAt: '2025-05-02T14:30:00.000Z',
-      details: {
-        hotelName: 'Burj Al Arab',
-        location: 'Dubai',
-        checkIn: '2025-06-19',
-        checkOut: '2025-06-22'
-      },
-      totalAmount: 12500
-    },
-    {
-      _id: '3',
-      type: 'activity',
-      status: 'confirmed',
-      customer: { firstName: 'Robert', lastName: 'Johnson' },
-      createdAt: '2025-05-03T09:15:00.000Z',
-      details: {
-        activityName: 'Desert Safari',
-        location: 'Dubai',
-        date: '2025-06-20'
-      },
-      totalAmount: 1500
-    },
-    {
-      _id: '4',
-      type: 'transfer',
-      status: 'cancelled',
-      customer: { firstName: 'Emily', lastName: 'Williams' },
-      createdAt: '2025-05-04T16:45:00.000Z',
-      details: {
-        origin: 'Dubai Airport',
-        destination: 'Burj Al Arab',
-        date: '2025-06-20'
-      },
-      totalAmount: 800
-    }
-  ];
-
   // Filter data based on active sub tab
   const filteredData = (() => {
-    if (activeSubTab === 'all') {
-        // Combine fetched itineraries with other sample bookings
-        return [...itineraries, ...sampleOtherBookingsData];
-    } else if (activeSubTab === 'itinerary') {
+    // Only show itineraries when 'all' or 'itinerary' tab is selected
+    if (activeSubTab === 'all' || activeSubTab === 'itinerary') {
         return itineraries;
-    } else {
-        // Filter only sample data for other specific types
-        return sampleOtherBookingsData.filter(item => item.type === activeSubTab);
+    } 
+    // For other tabs (flight, hotel, etc.), return empty array as sample data is removed
+    // TODO: Implement fetching logic for these specific booking types
+    else { 
+        return [];
     }
   })();
 

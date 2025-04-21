@@ -12,7 +12,6 @@ import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import HomePage from './pages/HomePage';
 import AddLeadPage from './pages/leads/AddLeadPage';
-import AgentLeadsPage from './pages/leads/AgentLeadsPage';
 import EditLeadPage from './pages/leads/EditLeadPage';
 import LeadsPage from './pages/leads/LeadsPage';
 import UploadLeadsPage from './pages/leads/UploadLeadsPage';
@@ -57,7 +56,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <ToastContainer position="top-right" autoClose={3000} />
+        <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<HomePage />} />
@@ -71,7 +70,6 @@ function App() {
               {/* Leads Routes */}
               <Route path="/leads" element={<LeadsPage />} />
               <Route path="/leads/website" element={<WebsiteLeadsPage />} />
-              <Route path="/leads/agent" element={<AgentLeadsPage />} />
               <Route path="/leads/add" element={<AddLeadPage />} />
               <Route path="/leads/edit/:id" element={<EditLeadPage />} />
               <Route path="/leads/view/:id" element={<ViewLeadPage />} />

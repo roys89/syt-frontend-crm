@@ -2,10 +2,13 @@
 import axios from 'axios';
 import config from '../config';
 
-const API_URL = `${config.API_URL}/leads`;
+// Define Base URL using config
+const BASE_URL = config.API_URL; // e.g., http://localhost:5000/api/crm
 
 // Create axios instance with auth token
-const authAxios = axios.create();
+const authAxios = axios.create({
+  baseURL: BASE_URL 
+});
 
 // Add a request interceptor
 authAxios.interceptors.request.use(
@@ -14,6 +17,12 @@ authAxios.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Ensure Content-Type is set for POST/PUT/PATCH unless it's FormData
+    if (config.method && ['post', 'put', 'patch'].includes(config.method.toLowerCase())) {
+       if (!(config.data instanceof FormData)) {
+         config.headers['Content-Type'] = 'application/json';
+       }
+    }
     return config;
   },
   error => {
@@ -21,87 +30,24 @@ authAxios.interceptors.request.use(
   }
 );
 
-// Get all leads with optional filters
-const getLeads = async (params = {}) => {
-  const response = await authAxios.get(API_URL, { params });
-  return response.data;
-};
-
-// Get single lead
-const getLeadById = async (id) => {
-  const response = await authAxios.get(`${API_URL}/${id}`);
-  return response.data;
-};
-
-// Create new lead
-const createLead = async (leadData) => {
-  const response = await authAxios.post(API_URL, leadData);
-  return response.data;
-};
-
-// Update lead
-const updateLead = async (id, leadData) => {
-  const response = await authAxios.put(`${API_URL}/${id}`, leadData);
-  return response.data;
-};
-
-// Delete lead
-const deleteLead = async (id) => {
-  const response = await authAxios.delete(`${API_URL}/${id}`);
-  return response.data;
-};
-
-// Delete multiple leads
-const deleteMultipleLeads = async (ids) => {
-  const response = await authAxios.delete(`${API_URL}/multiple`, { data: { ids } });
-  return response.data;
-};
-
-// Upload CSV
-const uploadLeadsCsv = async (file) => {
-  const formData = new FormData();
-  formData.append('csv', file);
-  
-  const response = await authAxios.post(`${API_URL}/upload`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  });
-  
-  return response.data;
-};
-
-// Get website leads (B2C users)
-const getWebsiteLeads = async () => {
-  const response = await authAxios.get(`${API_URL}/website`);
-  return response.data;
-};
-
-// Get agent leads
-const getAgentLeads = async () => {
-  const response = await authAxios.get(`${API_URL}/agent-leads`);
-  return response.data;
-};
-
-// Assign lead to agent
-const assignLeadToAgent = async (leadId, agentId) => {
-  const response = await authAxios.post(`${API_URL}/assign/${leadId}`, { agentId });
-  return response.data;
-};
+// Use paths relative to BASE_URL (which already includes /crm)
+const getLeads = (params) => authAxios.get('/leads', { params });
+const getLeadById = (id) => authAxios.get(`/leads/${id}`);
+const createLead = (leadData) => authAxios.post('/leads', leadData);
+const updateLead = (id, leadData) => authAxios.put(`/leads/${id}`, leadData);
+const deleteLead = (id) => authAxios.delete(`/leads/${id}`);
+const deleteMultipleLeads = (ids) => authAxios.delete('/leads/multiple', { data: { ids } });
+const uploadLeadsCsv = (formData) => authAxios.post('/leads/upload', formData, {
+  headers: {
+    'Content-Type': 'multipart/form-data',
+  },
+});
+const getWebsiteLeads = () => authAxios.get('/leads/website');
+const assignLeadToAgent = (leadId, agentId) => authAxios.post(`/leads/assign/${leadId}`, { agentId });
 
 // Get CRM users (agents)
-const getAgents = async () => {
-  const usersAPI = `${config.API_URL}/users`;
-  try {
-    const response = await authAxios.get(usersAPI);
-    // Filter out admin users, only include agent/user roles
-    const agents = response.data.data.filter(user => user.role === 'user');
-    return { agents };
-  } catch (error) {
-    console.error('Error fetching agents:', error);
-    return { agents: [] };
-  }
-};
+// Remove the baseURL override, use the default base URL which includes /crm
+const getAgents = () => authAxios.get('/users/agents'); 
 
 const leadService = {
   getLeads,
@@ -112,7 +58,6 @@ const leadService = {
   deleteMultipleLeads,
   uploadLeadsCsv,
   getWebsiteLeads,
-  getAgentLeads,
   assignLeadToAgent,
   getAgents
 };

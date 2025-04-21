@@ -51,12 +51,19 @@ const deleteUser = async (id) => {
   return response.data;
 };
 
+// Get only users with the 'agent' role
+const getAgents = async () => {
+  const response = await authAxios.get(`${API_URL}/agents`); // Call the dedicated agents endpoint
+  return response.data; // The response should be { success: true, count: N, agents: [...] }
+};
+
 const userService = {
   getUsers,
   getUserById,
   createUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  getAgents // Export the new function
 };
 
 export default userService;

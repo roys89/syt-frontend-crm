@@ -1,6 +1,6 @@
 // src/components/leads/LeadList.js
-import { DocumentPlusIcon, PencilSquareIcon, TrashIcon, UserIcon, UsersIcon } from '@heroicons/react/24/outline';
-import { useContext, useEffect, useState } from 'react';
+import { DocumentPlusIcon, EyeIcon, PencilSquareIcon, TrashIcon, UsersIcon } from '@heroicons/react/24/outline';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../../context/AuthContext';
@@ -12,27 +12,31 @@ const LeadList = () => {
   const [selectedLeads, setSelectedLeads] = useState([]);
   const { user } = useContext(AuthContext);
   
-  useEffect(() => {
-    fetchLeads();
-  }, []);
-
-  const fetchLeads = async () => {
+  const fetchLeads = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await leadService.getLeads();
-      setLeads(response.data);
+      
+      setLeads(response?.data?.data || []);
       setIsLoading(false);
     } catch (error) {
-      toast.error('Failed to fetch leads');
+      console.error("Error fetching leads:", error);
+      toast.error(`Failed to fetch leads`);
+      setLeads([]);
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
 
   const handleDeleteLead = async (id) => {
     if (window.confirm('Are you sure you want to delete this lead?')) {
       try {
         await leadService.deleteLead(id);
-        setLeads(leads.filter(lead => lead._id !== id));
+        setLeads(prevLeads => prevLeads.filter(lead => lead._id !== id));
+        setSelectedLeads(prevSelected => prevSelected.filter(leadId => leadId !== id));
         toast.success('Lead deleted successfully');
       } catch (error) {
         toast.error('Failed to delete lead');
@@ -41,11 +45,11 @@ const LeadList = () => {
   };
 
   const handleSelectLead = (id) => {
-    if (selectedLeads.includes(id)) {
-      setSelectedLeads(selectedLeads.filter(leadId => leadId !== id));
-    } else {
-      setSelectedLeads([...selectedLeads, id]);
-    }
+    setSelectedLeads(prevSelected => 
+      prevSelected.includes(id) 
+        ? prevSelected.filter(leadId => leadId !== id) 
+        : [...prevSelected, id]
+    );
   };
 
   const handleSelectAll = (e) => {
@@ -62,7 +66,7 @@ const LeadList = () => {
       return;
     }
 
-    if (window.confirm(`Are you sure you want to delete ${selectedLeads.length} leads?`)) {
+    if (window.confirm(`Are you sure you want to delete ${selectedLeads.length} selected leads?`)) {
       try {
         await leadService.deleteMultipleLeads(selectedLeads);
         fetchLeads();
@@ -100,13 +104,6 @@ const LeadList = () => {
               >
                 <UsersIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
                 Website Leads
-              </Link>
-              <Link
-                to="/leads/agent"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-              >
-                <UserIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-                My Leads
               </Link>
             </>
           )}
@@ -177,7 +174,8 @@ const LeadList = () => {
                           type="checkbox"
                           className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
                           onChange={handleSelectAll}
-                          checked={selectedLeads.length > 0 && selectedLeads.length === leads.length}
+                          checked={leads.length > 0 && selectedLeads.length === leads.length}
+                          indeterminate={selectedLeads.length > 0 && selectedLeads.length < leads.length}
                         />
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -190,7 +188,13 @@ const LeadList = () => {
                         Status
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Lead Type
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Travel Plans
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Assigned To
                       </th>
                       <th scope="col" className="relative px-6 py-3">
                         <span className="sr-only">Actions</span>
@@ -199,7 +203,7 @@ const LeadList = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {leads.map((lead) => (
-                      <tr key={lead._id} className={selectedLeads.includes(lead._id) ? 'bg-blue-50' : undefined}>
+                      <tr key={lead._id} className={`${selectedLeads.includes(lead._id) ? 'bg-blue-50' : ''} hover:bg-gray-50`}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="checkbox"
@@ -229,22 +233,38 @@ const LeadList = () => {
                             {lead.status.replace('_', ' ')}
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full capitalize
+                            ${lead.leadType === 'website' ? 'bg-blue-100 text-blue-800' : 
+                              lead.leadType === 'updated' ? 'bg-yellow-100 text-yellow-800' : 
+                              lead.leadType === 'ad' ? 'bg-purple-100 text-purple-800' : 
+                              'bg-gray-100 text-gray-800'}`}>
+                            {lead.leadType || 'N/A'} 
+                          </span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {lead.itineraryPreferences?.destination || 'Not specified'}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {lead.assignedTo?.name || 'Unassigned'}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end space-x-3">
+                          <div className="flex justify-end items-center space-x-3">
                             <Link
                               to={`/leads/view/${lead._id}`}
                               className="text-indigo-600 hover:text-indigo-900"
+                              title="View Lead"
                             >
-                              View
+                              <span className="sr-only">View</span>
+                              <EyeIcon className="h-5 w-5" />
                             </Link>
                             {user?.permissions?.canAddLead && (
                               <Link
                                 to={`/leads/edit/${lead._id}`}
                                 className="text-indigo-600 hover:text-indigo-900"
+                                title="Edit Lead"
                               >
+                                <span className="sr-only">Edit</span>
                                 <PencilSquareIcon className="h-5 w-5" aria-hidden="true" />
                               </Link>
                             )}
@@ -252,7 +272,9 @@ const LeadList = () => {
                               <button
                                 onClick={() => handleDeleteLead(lead._id)}
                                 className="text-red-600 hover:text-red-900"
+                                title="Delete Lead"
                               >
+                                <span className="sr-only">Delete</span>
                                 <TrashIcon className="h-5 w-5" aria-hidden="true" />
                               </button>
                             )}
