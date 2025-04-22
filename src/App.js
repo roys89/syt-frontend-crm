@@ -32,7 +32,7 @@ import CrmChangeHotelsPage from './pages/bookings/changePage/CrmChangeHotelPage'
 import CreateBookingPage from './pages/bookings/CreateBookingPage';
 import FlightBookingPage from './pages/bookings/FlightBookingPage';
 import HotelBookingPage from './pages/bookings/HotelBookingPage';
-import InquiryDetailPage from './pages/bookings/InquiryDetailPage';
+import InquiryDetailPage from './pages/bookings/InquiryDetailsPage';
 import ItineraryBookingPage from './pages/bookings/ItineraryBookingPage';
 import TransferBookingPage from './pages/bookings/TransferBookingPage';
 

@@ -1,4 +1,4 @@
-import { ArrowUturnLeftIcon, ChevronDownIcon, ChevronRightIcon, ClipboardDocumentIcon, EyeIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { ArrowUturnLeftIcon, ChevronDownIcon, ChevronRightIcon, ClipboardDocumentIcon, DocumentMagnifyingGlassIcon, EyeIcon, UserPlusIcon } from '@heroicons/react/24/outline';
 import React, { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -9,28 +9,28 @@ import userService from '../../services/userService';
 // Helper function for status badges (Copied from LeadList for now)
 const getStatusBadgeClass = (status) => {
   switch (status) {
-    case 'new': return 'bg-blue-100 text-blue-800';
-    case 'assigned': return 'bg-cyan-100 text-cyan-800';
-    case 'contacted': return 'bg-purple-100 text-purple-800';
-    case 'follow up': return 'bg-yellow-100 text-yellow-800';
-    case 'proposal': return 'bg-orange-100 text-orange-800';
+    case 'new': return 'bg-[#093923]/10 text-[#093923]';
+    case 'assigned': return 'bg-[#13804e]/10 text-[#13804e]';
+    case 'contacted': return 'bg-[#1a9d6c]/10 text-[#1a9d6c]';
+    case 'follow up': return 'bg-[#22c35e]/10 text-[#22c35e]';
+    case 'proposal': return 'bg-[#2a9d8f]/10 text-[#2a9d8f]';
     case 'won':
-    case 'closed_won': return 'bg-green-100 text-green-800';
+    case 'closed_won': return 'bg-[#13804e]/10 text-[#13804e]';
     case 'lost':
-    case 'closed_lost': return 'bg-red-100 text-red-800';
-    case 'qualified': return 'bg-teal-100 text-teal-800';
-    case 'negotiation': return 'bg-amber-100 text-amber-800';
-    default: return 'bg-gray-100 text-gray-800'; // Includes 'N/A' from controller
+    case 'closed_lost': return 'bg-[#dc2626]/10 text-[#dc2626]';
+    case 'qualified': return 'bg-[#16a34a]/10 text-[#16a34a]';
+    case 'negotiation': return 'bg-[#d97706]/10 text-[#d97706]';
+    default: return 'bg-gray-100 text-gray-800';
   }
 };
 
 // ** NEW: Helper for Payment Status badges **
 const getPaymentStatusBadgeClass = (status) => {
   switch (status) {
-    case 'completed': return 'bg-green-100 text-green-800';
-    case 'pending': return 'bg-yellow-100 text-yellow-800';
-    case 'processing': return 'bg-blue-100 text-blue-800';
-    case 'failed': return 'bg-red-100 text-red-800';
+    case 'completed': return 'bg-[#13804e]/10 text-[#13804e]';
+    case 'pending': return 'bg-[#d97706]/10 text-[#d97706]';
+    case 'processing': return 'bg-[#2563eb]/10 text-[#2563eb]';
+    case 'failed': return 'bg-[#dc2626]/10 text-[#dc2626]';
     default: return 'bg-gray-100 text-gray-800';
   }
 };
@@ -38,11 +38,11 @@ const getPaymentStatusBadgeClass = (status) => {
 // ** NEW: Helper for Booking Status badges **
 const getBookingStatusBadgeClass = (status) => {
   switch (status) {
-    case 'confirmed': return 'bg-green-100 text-green-800';
-    case 'pending': return 'bg-yellow-100 text-yellow-800';
-    case 'processing': return 'bg-blue-100 text-blue-800';
-    case 'cancelled': return 'bg-red-100 text-red-800';
-    case 'failed': return 'bg-pink-100 text-pink-800'; // Different red for booking failure?
+    case 'confirmed': return 'bg-[#13804e]/10 text-[#13804e]';
+    case 'pending': return 'bg-[#d97706]/10 text-[#d97706]';
+    case 'processing': return 'bg-[#2563eb]/10 text-[#2563eb]';
+    case 'cancelled': return 'bg-[#dc2626]/10 text-[#dc2626]';
+    case 'failed': return 'bg-[#ec4899]/10 text-[#ec4899]';
     case 'draft': return 'bg-gray-100 text-gray-800';
     default: return 'bg-gray-100 text-gray-800';
   }
@@ -139,8 +139,8 @@ const WebsiteLeadList = () => {
     <div>
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Website Leads</h1>
-          <p className="mt-2 text-sm text-gray-700">
+          <h1 className="text-2xl font-bold text-[#093923]">Website Leads</h1>
+          <p className="mt-2 text-sm text-[#13804e]">
             Website leads from customers who have created accounts
           </p>
         </div>
@@ -148,42 +148,42 @@ const WebsiteLeadList = () => {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="inline-flex items-center px-4 py-2 border border-[#093923]/20 rounded-lg shadow-sm text-sm font-medium text-[#093923] bg-white hover:bg-[#093923]/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]/20 transition-all ease duration-200"
           >
-            <ArrowUturnLeftIcon className="-ml-1 mr-2 h-5 w-5 text-gray-500" aria-hidden="true" />
+            <ArrowUturnLeftIcon className="-ml-1 mr-2 h-5 w-5 text-[#093923]" aria-hidden="true" />
             Back
           </button>
         </div>
       </div>
 
       {leads.length === 0 ? (
-        <div className="text-center py-12 bg-white shadow rounded-lg">
-          <h3 className="text-lg font-medium text-gray-900">No website leads found</h3>
-          <p className="mt-2 text-sm text-gray-500">
+        <div className="text-center py-12 bg-white shadow-lg rounded-xl border border-[#093923]/10">
+          <h3 className="text-lg font-medium text-[#093923]">No website leads found</h3>
+          <p className="mt-2 text-sm text-[#13804e]">
             Website leads will appear here when customers create accounts on your website.
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-          <table className="min-w-full divide-y divide-gray-300">
-            <thead className="bg-gray-50">
+        <div className="overflow-hidden shadow-lg ring-1 ring-[#093923]/10 rounded-xl">
+          <table className="min-w-full divide-y divide-[#093923]/10">
+            <thead className="bg-[#093923]/5">
               <tr>
-                <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-[#093923] sm:pl-6">
                   Name
                 </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                   Email
                 </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                   Country
                 </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                   Signed Up
                 </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                   Status
                 </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                   Assigned To
                 </th>
                 <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
@@ -191,15 +191,15 @@ const WebsiteLeadList = () => {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
+            <tbody className="divide-y divide-[#093923]/10 bg-white">
               {leads.map((lead) => (
                 <React.Fragment key={lead._id}>
-                  <tr className={expandedLeads[lead._id] ? 'bg-gray-50' : 'hover:bg-gray-50'}>
+                  <tr className={expandedLeads[lead._id] ? 'bg-[#093923]/5 transition-all ease duration-200' : 'hover:bg-[#093923]/5 transition-all ease duration-200'}>
                     <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
                       <div className="flex items-center">
                         <button 
                           onClick={() => toggleExpandLead(lead._id)}
-                          className="mr-2 text-gray-400 hover:text-gray-500"
+                          className="mr-2 text-[#093923]/40 hover:text-[#093923] transition-colors ease duration-200"
                         >
                           {expandedLeads[lead._id] ? 
                             <ChevronDownIcon className="h-5 w-5" /> : 
@@ -207,28 +207,28 @@ const WebsiteLeadList = () => {
                           }
                         </button>
                         <div>
-                          <div className="font-medium text-gray-900">{lead.fullName}</div>
-                          <div className="text-gray-500">{lead.phone}</div>
+                          <div className="font-medium text-[#093923]">{lead.fullName}</div>
+                          <div className="text-[#13804e]">{lead.phone}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-4 text-sm text-gray-500">
+                    <td className="px-3 py-4 text-sm text-[#13804e]">
                       {lead.email}
                     </td>
-                    <td className="px-3 py-4 text-sm text-gray-500">
+                    <td className="px-3 py-4 text-sm text-[#093923]">
                       {lead.country || 'N/A'}
                     </td>
-                    <td className="px-3 py-4 text-sm text-gray-500">
+                    <td className="px-3 py-4 text-sm text-[#093923]">
                       {formatDate(lead.createdAt)}
                     </td>
-                    <td className="px-3 py-4 text-sm text-gray-500">
+                    <td className="px-3 py-4 text-sm">
                       <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${getStatusBadgeClass(lead.status)}`}>
                         {lead.status?.replace('_', ' ') || 'N/A'}
                       </span>
                     </td>
-                    <td className="px-3 py-4 text-sm text-gray-500">
+                    <td className="px-3 py-4 text-sm">
                       {lead.assignedTo ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#13804e]/10 text-[#13804e]">
                           {lead.assignedTo.name} {lead.assignedTo.employeeId ? `(${lead.assignedTo.employeeId})` : ''}
                         </span>
                       ) : (
@@ -243,7 +243,7 @@ const WebsiteLeadList = () => {
                           {assigningLead === lead._id ? (
                             <div className="flex items-center">
                               <select 
-                                className="block w-40 pl-3 pr-10 py-1 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                                className="block w-48 pl-3 pr-10 py-2 text-base border-[#093923]/20 focus:outline-none focus:ring-2 focus:ring-[#093923]/20 focus:border-[#093923]/20 sm:text-sm rounded-lg transition-all ease duration-200"
                                 defaultValue=""
                                 onChange={(e) => handleAssignAgent(lead._id, e.target.value)}
                               >
@@ -255,7 +255,7 @@ const WebsiteLeadList = () => {
                                 ))}
                               </select>
                               <button 
-                                className="ml-2 text-gray-400 hover:text-gray-500"
+                                className="ml-2 px-3 py-2 text-[#093923]/40 hover:text-[#093923] transition-colors ease duration-200"
                                 onClick={() => setAssigningLead(null)}
                               >
                                 Cancel
@@ -264,7 +264,7 @@ const WebsiteLeadList = () => {
                           ) : (
                             <button
                               onClick={() => setAssigningLead(lead._id)}
-                              className="text-indigo-600 hover:text-indigo-900 flex items-center"
+                              className="text-[#13804e] hover:text-[#093923] flex items-center px-3 py-2 transition-colors ease duration-200"
                               disabled={!canAssign}
                             >
                               <UserPlusIcon className="h-5 w-5 mr-1" />
@@ -277,57 +277,70 @@ const WebsiteLeadList = () => {
                   </tr>
                   
                   {expandedLeads[lead._id] && (
-                    <tr>
-                      <td colSpan="7" className="px-6 py-4">
-                        <div className="bg-gray-50 p-4 rounded-md">
-                          <div className="mb-4">
-                            <h3 className="text-sm font-medium text-gray-900">Customer Activity</h3>
-                            <p className="text-xs text-gray-500">
+                    <tr className="transition-all ease duration-200">
+                      <td colSpan="7" className="px-6 py-4 transition-all ease duration-200">
+                        <div className="bg-[#093923]/5 p-4 rounded-lg transition-all ease duration-200">
+                          <div className="mb-4 flex justify-between items-center">
+                            <h3 className="text-sm font-medium text-[#093923]">Customer Activity</h3>
+                            <p className="text-xs text-[#13804e]">
                               Inquiries: {lead.inquiries.length} | Itineraries: {lead.itineraries.length}
                             </p>
                           </div>
                           
                           {lead.inquiries.length > 0 && (
                             <div className="mb-4">
-                              <h4 className="text-xs font-medium text-gray-700 uppercase mb-2">Inquiries</h4>
+                              <h4 className="text-xs font-medium text-[#093923] uppercase mb-2">Inquiries</h4>
                               <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                  <thead className="bg-gray-100">
+                                <table className="min-w-full divide-y divide-[#093923]/10">
+                                  <thead className="bg-[#093923]/5">
                                     <tr>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Inquiry Token
                                       </th>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Created
                                       </th>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Destinations
                                       </th>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Travel Dates
                                       </th>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Assigned Agent
+                                      </th>
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
+                                        Actions
                                       </th>
                                     </tr>
                                   </thead>
-                                  <tbody className="bg-white divide-y divide-gray-200">
+                                  <tbody className="bg-white divide-y divide-[#093923]/10">
                                     {lead.inquiries.map((inquiry) => (
-                                      <tr key={inquiry.inquiryToken} className="hover:bg-gray-50">
-                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 font-mono">
+                                      <tr key={inquiry.inquiryToken} className="hover:bg-[#093923]/5 transition-colors duration-200">
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#093923] font-mono">
                                           {inquiry.inquiryToken}
                                         </td>
-                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#13804e]">
                                           {formatDate(inquiry.createdAt)}
                                         </td>
-                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#093923]">
                                           {inquiry.destinations}
                                         </td>
-                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#093923]">
                                           {formatDate(inquiry.startDate)} - {formatDate(inquiry.endDate)}
                                         </td>
-                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#13804e]">
                                           {inquiry.agentName || 'Unassigned'}
+                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#13804e]">
+                                          <Link
+                                            to={`/inquiry/${inquiry.inquiryToken}`}
+                                            className="text-[#13804e] hover:text-[#093923] flex items-center transition-colors duration-200"
+                                            title={`View Inquiry ${inquiry.inquiryToken}`}
+                                          >
+                                            <DocumentMagnifyingGlassIcon className="h-4 w-4 mr-1" />
+                                            View
+                                          </Link>
                                         </td>
                                       </tr>
                                     ))}
@@ -339,50 +352,50 @@ const WebsiteLeadList = () => {
                           
                           {lead.itineraries.length > 0 && (
                             <div>
-                              <h4 className="text-xs font-medium text-gray-700 uppercase mb-2">Itineraries</h4>
+                              <h4 className="text-xs font-medium text-[#093923] uppercase mb-2">Itineraries</h4>
                               <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                  <thead className="bg-gray-100">
+                                <table className="min-w-full divide-y divide-[#093923]/10">
+                                  <thead className="bg-[#093923]/5">
                                     <tr>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Itinerary Token
                                       </th>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Booking ID
                                       </th>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Created
                                       </th>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Booking Status 
                                       </th>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Payment Status
                                       </th>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Payment ID
                                       </th>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Assigned Agent
                                       </th>
-                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                                         Actions
                                       </th>
                                     </tr>
                                   </thead>
-                                  <tbody className="bg-white divide-y divide-gray-200">
+                                  <tbody className="bg-white divide-y divide-[#093923]/10">
                                     {lead.itineraries.map((itinerary) => (
-                                      <tr key={itinerary.itineraryToken} className="hover:bg-gray-50">
-                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 font-mono">
+                                      <tr key={itinerary.itineraryToken} className="hover:bg-[#093923]/5 transition-colors duration-200">
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#093923] font-mono">
                                           {itinerary.itineraryToken}
                                         </td>
-                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 font-mono">
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#13804e] font-mono">
                                           {['processing', 'confirmed', 'cancelled', 'failed'].includes(itinerary.bookingStatus) 
                                             ? itinerary.bookingId || 'N/A' 
                                             : '-'
                                           }
                                         </td>
-                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#13804e]">
                                           {formatDate(itinerary.createdAt)}
                                         </td>
                                         <td className="px-3 py-2 whitespace-nowrap text-xs">
@@ -407,20 +420,20 @@ const WebsiteLeadList = () => {
                                           </span>
                                           )}
                                         </td>
-                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 font-mono">
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#13804e] font-mono">
                                           {itinerary.paymentStatus === 'completed' && itinerary.paymentId 
                                             ? itinerary.paymentId 
                                             : '-'
                                           }
                                         </td>
-                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#13804e]">
                                           {itinerary.agentName || 'Unassigned'}
                                         </td>
-                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-[#13804e]">
                                           <Link
                                             to={`/bookings/itinerary`}
                                             state={{ itineraryToken: itinerary.itineraryToken, inquiryToken: itinerary.inquiryToken }}
-                                            className="text-indigo-600 hover:text-indigo-900 flex items-center"
+                                            className="text-[#13804e] hover:text-[#093923] flex items-center transition-colors duration-200"
                                           >
                                             <EyeIcon className="h-4 w-4 mr-1" />
                                             View
@@ -436,9 +449,9 @@ const WebsiteLeadList = () => {
                           
                           {lead.inquiries.length === 0 && lead.itineraries.length === 0 && (
                             <div className="text-center py-4">
-                              <ClipboardDocumentIcon className="mx-auto h-12 w-12 text-gray-300" />
-                              <h3 className="mt-2 text-sm font-medium text-gray-900">No activity yet</h3>
-                              <p className="mt-1 text-sm text-gray-500">
+                              <ClipboardDocumentIcon className="mx-auto h-12 w-12 text-[#093923]/20" />
+                              <h3 className="mt-2 text-sm font-medium text-[#093923]">No activity yet</h3>
+                              <p className="mt-1 text-sm text-[#13804e]">
                                 This customer has not created any inquiries or itineraries yet.
                               </p>
                             </div>

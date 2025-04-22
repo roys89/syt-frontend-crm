@@ -1,15 +1,102 @@
     // src/pages/bookings/ItineraryBookingPage.js
-import { ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, PencilIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { Button, Checkbox, ConfigProvider, DatePicker, Input } from 'antd';
 import axios from 'axios';
+import dayjs from 'dayjs';
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import AirportSelector from '../../components/booking/AirportSelector';
 import CustomerAssignmentModal from '../../components/booking/CustomerAssignmentModal';
 import RoomArrangementModal from '../../components/booking/RoomArrangementModal';
-import CrmItineraryDisplay from '../../components/itinerary/display/CrmItineraryDisplay';
 import { AuthContext } from '../../context/AuthContext';
 import bookingService from '../../services/bookingService';
+
+// Theme colors
+const primaryColor = '#093923'; // Dark Green
+const secondaryColor = '#13804e'; // Lighter Green
+const accentColor = '#eef7f2'; // Light Green Background
+const textColor = '#093923'; // Dark Green text
+const textColorLight = '#093923/70'; // Lighter dark green text
+const borderColor = '#093923/10'; // Subtle border
+
+// Ant Design theme configuration
+const antTheme = {
+  token: {
+    colorPrimary: secondaryColor,
+    colorBorder: `rgba(9, 57, 35, 0.1)`, // borderColor equivalent
+    borderRadius: 8,
+    colorText: textColor,
+    colorTextSecondary: `rgba(9, 57, 35, 0.7)`, // textColorLight equivalent
+    controlHeight: 40,
+  },
+  components: {
+    Button: {
+      borderRadius: 8,
+      controlHeight: 40,
+      paddingContentHorizontal: 16,
+    },
+    Input: {
+      borderRadius: 8,
+      controlHeight: 40,
+    },
+    Select: {
+      borderRadius: 8,
+      controlHeight: 40,
+    },
+    DatePicker: {
+      borderRadius: 8,
+      controlHeight: 40,
+    },
+    Checkbox: {
+      borderRadius: 4,
+    }
+  }
+};
+
+// Update the input styles to be more specific
+const inputStyles = {
+  '.ant-select': {
+    width: '100%',
+  },
+  '.ant-select-selector': {
+    height: '40px !important',
+    padding: '0 11px !important',
+  },
+  '.ant-select-selection-search': {
+    height: '38px !important',
+    display: 'flex !important',
+    alignItems: 'center !important',
+  },
+  '.ant-select-selection-search-input': {
+    height: '38px !important',
+  },
+  '.ant-select-selection-placeholder': {
+    lineHeight: '38px !important',
+    display: 'flex !important',
+    alignItems: 'center !important',
+  },
+  '.ant-select-selection-item': {
+    lineHeight: '38px !important',
+    display: 'flex !important',
+    alignItems: 'center !important',
+  }
+};
+
+// Add specific styles for the wrapper div
+const selectorWrapperStyles = {
+  '.airport-selector-wrapper': {
+    '.ant-select': {
+      width: '100%',
+    },
+    '.ant-select-selector': {
+      minHeight: '40px !important',
+      height: '40px !important',
+      display: 'flex',
+      alignItems: 'center',
+    }
+  }
+};
 
 const ItineraryBookingPage = () => {
   const { user: agent } = useContext(AuthContext); // Get agent details from AuthContext
@@ -112,7 +199,7 @@ const ItineraryBookingPage = () => {
           newErrors.endDate = 'End date is required';
         }
         if (formData.departureDates.startDate && formData.departureDates.endDate && 
-            new Date(formData.departureDates.endDate) <= new Date(formData.departureDates.startDate)) {
+            dayjs(formData.departureDates.endDate).isBefore(dayjs(formData.departureDates.startDate))) {
         newErrors.endDate = 'End date must be after start date';
       }
         break;
@@ -176,7 +263,17 @@ const ItineraryBookingPage = () => {
   // Handle input changes
   const handleChange = useCallback((section, field, value) => {
     setFormData(prev => {
-      if (section) {
+      if (section === 'departureDates' && field === 'range') {
+        // Handle RangePicker value: [startDate, endDate]
+        const [start, end] = value || [null, null]; // Handle null case (clearing selection)
+        return {
+          ...prev,
+          departureDates: {
+            startDate: start ? start.format('YYYY-MM-DD') : '',
+            endDate: end ? end.format('YYYY-MM-DD') : ''
+          }
+        };
+      } else if (section) {
         return {
       ...prev,
           [section]: {
@@ -190,6 +287,14 @@ const ItineraryBookingPage = () => {
         [field]: value
       };
     });
+    // Clear errors for the specific field being changed
+    if (section === 'departureDates' && field === 'range') {
+      setErrors(prevErrors => ({ ...prevErrors, startDate: undefined, endDate: undefined }));
+    } else if (section && field) {
+       setErrors(prevErrors => ({ ...prevErrors, [field]: undefined }));
+    } else if (field) {
+         setErrors(prevErrors => ({ ...prevErrors, [field]: undefined }));
+    }
   }, []);
   
   // Navigation handlers
@@ -448,37 +553,28 @@ const ItineraryBookingPage = () => {
       case 0:
   return (
           <div className="w-full px-4 sm:px-8 py-4">
-            <h2 className="text-xl font-medium text-gray-800 mb-2 text-center">
+            <h2 className={`text-xl font-semibold text-[${textColor}] mb-2 text-center`}>
               Select Cities
             </h2>
             
-            <p className="text-gray-600 text-center mb-6 italic">
+            <p className={`text-[${textColorLight}] text-center mb-6 italic`}>
               Please select cities in the order you wish to travel
             </p>
 
             <div className="mb-8 relative">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className={`block text-sm font-medium text-[${textColor}] mb-2`}>
                 Search for a Destination
               </label>
-              <div className="relative w-full">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
+              <Input.Search
                   placeholder="Search cities, countries, or continents..."
                   value={formData.citySearch}
                   onChange={(e) => handleChange(null, 'citySearch', e.target.value)}
-                  className="w-full h-12 pl-10 pr-4 text-base rounded-xl 
-                           border border-gray-200 dark:border-gray-700
-                           focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent
-                           placeholder-gray-400 dark:placeholder-gray-500"
-                />
-              </div>
+                loading={isSearching}
+                className="w-full"
+              />
 
-              {/* Search Results Dropdown */}
-              {isSearching ? (
-                <div className="mt-2 text-center text-gray-500">Searching...</div>
-              ) : formData.citySearch.length > 2 && (
-                <div className="mt-2 w-full absolute z-10 bg-white rounded-xl border border-gray-200 shadow-lg max-h-96 overflow-y-auto">
+              {formData.citySearch.length > 2 && (
+                <div className={`mt-2 w-full absolute z-10 bg-white rounded-xl border border-[${borderColor}] shadow-lg max-h-96 overflow-y-auto`}>
                   {Array.isArray(formData.searchResults) && formData.searchResults.length > 0 ? (
                     formData.searchResults.map((option) => (
                       <div
@@ -488,16 +584,16 @@ const ItineraryBookingPage = () => {
                           handleChange(null, 'citySearch', '');
                           setFormData(prev => ({ ...prev, cities: [] })); 
                         }}
-                        className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                        className={`px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-[${accentColor}] text-[${textColor}]`}
                       >
                         <span>{option.name}</span>
-                        <span className="text-sm text-gray-500 capitalize ml-4">
+                        <span className={`text-sm text-[${textColorLight}] capitalize ml-4`}>
                           {option.type}
                         </span>
                       </div>
                     ))
                   ) : (
-                    <div className="px-4 py-3 text-center text-gray-500">No results found</div>
+                    <div className={`px-4 py-3 text-center text-[${textColorLight}]`}>No results found</div>
                   )}
                 </div>
               )}
@@ -505,7 +601,7 @@ const ItineraryBookingPage = () => {
             
             {/* City Selection Grid */}
             {isFetchingCities ? (
-               <div className="mt-4 text-center text-gray-500">Loading cities...</div>
+              <div className={`mt-4 text-center text-[${textColorLight}]`}>Loading cities...</div>
             ) : formData.initialDestination && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {Array.isArray(formData.cities) && formData.cities.length > 0 ? (
@@ -526,7 +622,7 @@ const ItineraryBookingPage = () => {
                           }));
                         }}
                         className={`relative h-48 rounded-xl overflow-hidden cursor-pointer transition-all duration-300
-                          ${isSelected ? 'ring-4 ring-emerald-500' : 'hover:ring-2 hover:ring-emerald-300'}`}
+                          ${isSelected ? `ring-4 ring-[${secondaryColor}]` : `hover:ring-2 hover:ring-[${secondaryColor}]/50`}`}
                       >
                         <img
                           src={city.imageUrl || "default-city-image.jpg"}
@@ -544,7 +640,7 @@ const ItineraryBookingPage = () => {
                     );
                   })
                 ) : (
-                  <div className="col-span-full text-center text-gray-500">No cities found for this destination.</div>
+                  <div className={`col-span-full text-center text-[${textColorLight}]`}>No cities found for this destination.</div>
                 )}
               </div>
             )}
@@ -557,106 +653,82 @@ const ItineraryBookingPage = () => {
         
       case 1:
         return (
-          <div className="departure-step">
+          <div className="departure-step p-4">
             <div className="mb-6">
-              <h2 className="text-xl font-medium text-gray-800 mb-2">Departure Details</h2>
-              <p className="text-gray-600">Enter departure city (if international) and travel dates</p>
+              <h2 className={`text-xl font-semibold text-[${textColor}] mb-2`}>Departure Details</h2>
+              <p className={`text-[${textColorLight}]`}>Enter departure city (if international) and travel dates</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Departure City (Required for International)
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="airport-selector-wrapper">
+                <label className={`block text-sm font-medium text-[${textColor}] mb-1`}>
+                  Departure City
               </label>
+                <div style={{ height: '40px' }}>
                 <AirportSelector
                   value={formData.departureCity}
                   onChange={(airport) => handleChange(null, 'departureCity', airport)}
                   placeholder="Search departure city/airport..."
                   disabled={!formData.includeInternational}
+                    style={inputStyles}
+                    className="h-[40px]"
                 />
+                </div>
                 {errors.departureCity && (
                   <p className="mt-1 text-sm text-red-600">{errors.departureCity}</p>
                 )}
-                 {!formData.includeInternational && <p className="mt-1 text-xs text-gray-500">Departure city is optional for domestic travel.</p>}
+                
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block text-sm font-medium text-[${textColor}] mb-1`}>
                   Travel Dates
                 </label>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Start Date</label>
-              <input
-                type="date"
-                      className="block w-full py-2 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      value={formData.departureDates.startDate}
-                      min={new Date().toISOString().split('T')[0]}
-                      onChange={(e) => handleChange('departureDates', 'startDate', e.target.value)}
-              />
-              {errors.startDate && (
-                <p className="mt-1 text-sm text-red-600">{errors.startDate}</p>
-              )}
-            </div>
-            <div>
-                    <label className="block text-xs text-gray-500 mb-1">End Date</label>
-              <input
-                type="date"
-                      className="block w-full py-2 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      value={formData.departureDates.endDate}
-                      onChange={(e) => handleChange('departureDates', 'endDate', e.target.value)}
-                      min={formData.departureDates.startDate || new Date().toISOString().split('T')[0]}
-              />
-              {errors.endDate && (
-                <p className="mt-1 text-sm text-red-600">{errors.endDate}</p>
-              )}
-                  </div>
-                </div>
+                <DatePicker.RangePicker
+                  value={[
+                    formData.departureDates.startDate ? dayjs(formData.departureDates.startDate) : null,
+                    formData.departureDates.endDate ? dayjs(formData.departureDates.endDate) : null
+                  ]}
+                  onChange={(dates) => handleChange('departureDates', 'range', dates)}
+                  format="YYYY-MM-DD"
+                  disabledDate={(current) => current && current < dayjs().startOf('day')}
+                  className="w-full"
+                  style={{ height: '40px' }}
+                />
+                {(errors.startDate || errors.endDate) && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.startDate && errors.endDate 
+                      ? 'Start and End dates are required.' 
+                      : errors.startDate || errors.endDate}
+                  </p>
+                )}
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="includeInternational"
+              <Checkbox
                   checked={formData.includeInternational}
                   onChange={(e) => {
                       handleChange(null, 'includeInternational', e.target.checked);
                       if (!e.target.checked) handleChange(null, 'departureCity', null);
                   }}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                />
-                <label htmlFor="includeInternational" className="ml-2 text-sm text-gray-700">
+              >
                   Include International Travel
-              </label>
-              </div>
+              </Checkbox>
               
-              <div className="flex items-center">
-              <input
-                  type="checkbox"
-                  id="includeGroundTransfer"
+              <Checkbox
                   checked={formData.includeGroundTransfer}
                   onChange={(e) => handleChange(null, 'includeGroundTransfer', e.target.checked)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                />
-                <label htmlFor="includeGroundTransfer" className="ml-2 text-sm text-gray-700">
+              >
                   Include Ground Transfers
-                </label>
-            </div>
+              </Checkbox>
             
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="includeFerryTransport"
+              <Checkbox
                   checked={formData.includeFerryTransport}
                   onChange={(e) => handleChange(null, 'includeFerryTransport', e.target.checked)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                />
-                <label htmlFor="includeFerryTransport" className="ml-2 text-sm text-gray-700">
+              >
                   Include Ferry Transport
-              </label>
-            </div>
+              </Checkbox>
           </div>
           </div>
         );
@@ -664,16 +736,16 @@ const ItineraryBookingPage = () => {
       case 2:
         const travelerTypes = ['couple', 'family', 'friends', 'solo'];
         return (
-          <div className="travelers-step">
+          <div className="travelers-step p-4">
             <div className="mb-6">
-              <h2 className="text-xl font-medium text-gray-800 mb-2">Travelers Details</h2>
-              <p className="text-gray-600">Select traveler type and configure rooms</p>
+              <h2 className={`text-xl font-semibold text-[${textColor}] mb-2`}>Travelers Details</h2>
+              <p className={`text-[${textColorLight}]`}>Select traveler type and configure rooms</p>
               </div>
             
             <div className="space-y-6">
               {/* Traveler Type Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium text-[${textColor}] mb-2`}>
                   Traveler Type
                 </label>
                 <div className="flex flex-wrap gap-3">
@@ -682,10 +754,10 @@ const ItineraryBookingPage = () => {
                       key={type}
                       type="button"
                       onClick={() => handleChange('travelersDetails', 'type', type)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium border capitalize
+                      className={`px-4 py-2 rounded-full text-sm font-medium border capitalize transition-colors duration-150
                         ${formData.travelersDetails.type === type 
-                          ? 'bg-indigo-600 text-white border-indigo-600' 
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}
+                          ? `bg-[${primaryColor}] text-white border-[${primaryColor}]` // Selected: Dark green bg
+                          : `bg-white text-[${textColor}] border-[${borderColor}] hover:bg-[${accentColor}] hover:border-[${secondaryColor}]`} // Default: Light green hover
                       `}
                     >
                       {type}
@@ -699,15 +771,15 @@ const ItineraryBookingPage = () => {
 
               {/* Room Arrangement Summary & Button */}
               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                 <label className={`block text-sm font-medium text-[${textColor}] mb-2`}>
                   Room Arrangement
                 </label>
-                <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                  <p className="text-sm text-gray-800 truncate pr-4">{getRoomSummary()}</p>
+                <div className={`flex items-center justify-between p-4 bg-[${accentColor}] border border-[${borderColor}] rounded-lg`}>
+                  <p className={`text-sm text-[${textColor}] truncate pr-4`}>{getRoomSummary()}</p>
                   <button
                     type="button"
                     onClick={() => setIsRoomModalOpen(true)}
-                    className="inline-flex items-center px-3 py-1.5 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    className={`inline-flex items-center px-3 py-1.5 border border-[${secondaryColor}]/50 rounded-md shadow-sm text-sm font-medium text-[${secondaryColor}] bg-white hover:bg-[${accentColor}] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[${secondaryColor}]`}
                   >
                     <PencilIcon className="h-4 w-4 mr-1" />
                     Edit
@@ -744,13 +816,13 @@ const ItineraryBookingPage = () => {
         return (
           <div className="preferences-step px-4">
             <div className="mb-6 text-center">
-              <h2 className="text-xl font-medium text-gray-800 mb-2">Preferences</h2>
-              <p className="text-gray-600">Select interests and budget for the trip</p>
+              <h2 className={`text-xl font-semibold text-[${textColor}] mb-2`}>Preferences</h2>
+              <p className={`text-[${textColorLight}]`}>Select interests and budget for the trip</p>
             </div>
             
             {/* Interests Section */}
             <div className="mb-8">
-              <h3 className="text-lg font-medium text-gray-700 mb-3">Interest Preferences</h3>
+              <h3 className={`text-lg font-medium text-[${textColor}] mb-3`}>Interest Preferences</h3>
               <div className="flex flex-wrap gap-3 justify-center">
                 {interestOptions.map((interest) => (
                 <button
@@ -759,8 +831,8 @@ const ItineraryBookingPage = () => {
                     onClick={() => handleInterestChange(interest)}
                     className={`px-5 py-3 rounded-full text-sm font-medium border-2 transition-colors duration-150
                       ${(formData.preferences.selectedInterests || []).includes(interest)
-                        ? 'bg-indigo-600 text-white border-indigo-600' 
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-500 hover:text-indigo-600'}
+                        ? `bg-[${primaryColor}] text-white border-[${primaryColor}]` // Selected: Dark green bg
+                        : `bg-white text-[${textColor}] border-[${borderColor}] hover:border-[${secondaryColor}] hover:text-[${secondaryColor}]`} // Default: Hover effect
                     `}
                   >
                     {interest}
@@ -774,7 +846,7 @@ const ItineraryBookingPage = () => {
 
             {/* Budget Section */}
             <div>
-              <h3 className="text-lg font-medium text-gray-700 mb-3">Budget Preference</h3>
+              <h3 className={`text-lg font-medium text-[${textColor}] mb-3`}>Budget Preference</h3>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 {budgetOptions.map((option) => (
                 <button
@@ -783,8 +855,8 @@ const ItineraryBookingPage = () => {
                     onClick={() => handleBudgetChange(option)}
                     className={`flex-1 px-5 py-4 rounded-lg text-center font-medium border-2 transition-colors duration-150 flex items-center justify-center
                       ${formData.preferences.budget === option 
-                        ? 'bg-indigo-600 text-white border-indigo-600' 
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-500 hover:text-indigo-600'}
+                        ? `bg-[${primaryColor}] text-white border-[${primaryColor}]` // Selected: Dark green bg
+                        : `bg-white text-[${textColor}] border-[${borderColor}] hover:border-[${secondaryColor}] hover:text-[${secondaryColor}]`} // Default: Hover effect
                     `}
                   >
                     {option}
@@ -800,19 +872,19 @@ const ItineraryBookingPage = () => {
         
       case 4: // Customer - MODIFIED TO USE MODAL
         return (
-          <div className="customer-step space-y-6">
+          <div className="customer-step space-y-6 p-4">
             <div>
-              <h2 className="text-xl font-medium text-gray-800 mb-2">Customer Information</h2>
-              <p className="text-gray-600">Select an existing customer or register a new one. (Optional)</p>
+              <h2 className={`text-xl font-semibold text-[${textColor}] mb-2`}>Customer Information</h2>
+              <p className={`text-[${textColorLight}]`}>Select an existing customer or register a new one. (Optional)</p>
             </div>
 
             {/* Display Selected Customer Info */}
             {selectedCustomer ? (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className={`p-4 bg-[${accentColor}] border border-[${secondaryColor}]/30 rounded-lg`}>
                 <div className="flex justify-between items-start">
                     <div>
-                        <h3 className="text-lg font-medium text-green-800 mb-1">Selected Customer</h3>
-                <p className="text-sm text-green-700">
+                        <h3 className={`text-lg font-medium text-[${textColor}] mb-1`}>Selected Customer</h3>
+                <p className={`text-sm text-[${textColor}]/80`}>
                   <strong>Name:</strong> {selectedCustomer.firstName} {selectedCustomer.lastName} <br />
                   <strong>Email:</strong> {selectedCustomer.email} <br />
                           {selectedCustomer.countryCode && <><strong>Code:</strong> {selectedCustomer.countryCode} <br /></>}
@@ -824,8 +896,8 @@ const ItineraryBookingPage = () => {
               </div>
                 <button
                   type="button"
-                       onClick={openCustomerAssignmentModal} // Button now re-opens modal to change
-                       className="ml-4 inline-flex items-center px-3 py-1 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                       onClick={openCustomerAssignmentModal}
+                       className={`ml-4 inline-flex items-center px-3 py-1 border border-[${secondaryColor}]/50 rounded-md shadow-sm text-sm font-medium text-[${secondaryColor}] bg-white hover:bg-[${accentColor}] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[${secondaryColor}]`}
                 >
                        <PencilIcon className="h-4 w-4 mr-1" />
                        Change
@@ -834,12 +906,12 @@ const ItineraryBookingPage = () => {
               </div>
             ) : (
               // Button to open the modal if no customer is selected
-              <div className="text-center py-6 px-4 border-2 border-dashed border-gray-300 rounded-lg">
-                 <p className="text-gray-600 mb-4">No customer selected for this inquiry yet.</p>
+              <div className={`text-center py-6 px-4 border-2 border-dashed border-[${borderColor}] rounded-lg`}>
+                 <p className={`text-[${textColorLight}] mb-4`}>No customer selected for this inquiry yet.</p>
             <button
                     type="button"
                     onClick={openCustomerAssignmentModal}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    className={`inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[${primaryColor}] hover:bg-[${secondaryColor}] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[${primaryColor}]/50 transition-colors duration-150`}
                   >
                     <UserPlusIcon className="h-5 w-5 mr-2" />
                     Select or Register Customer
@@ -849,22 +921,15 @@ const ItineraryBookingPage = () => {
 
             {/* Employee ID Input - Now ReadOnly */}
             <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={`block text-sm font-medium text-[${textColor}] mb-1`}>
                 Employee ID
               </label>
               <input
                 type="text"
-                className="block w-full py-2 px-3 border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                value={formData.employeeId} // Value comes from state
-                readOnly // Make the field read-only
-                // Remove onChange as it's read-only
+                className={`block w-full py-2 px-3 border border-[${borderColor}] rounded-lg bg-gray-100 focus:outline-none sm:text-sm text-[${textColor}] cursor-not-allowed`}
+                value={formData.employeeId}
+                readOnly
               />
-              {/* Remove error display for employeeId */}
-              {/* 
-              {errors.employeeId && ( 
-                <p className="mt-1 text-sm text-red-600">{errors.employeeId}</p>
-              )}
-              */}
             </div>
           </div>
         );
@@ -873,46 +938,46 @@ const ItineraryBookingPage = () => {
         const reviewCustomer = formData.userInfo || selectedCustomer;
         const reviewAgent = agent;
         return (
-          <div className="review-step">
+          <div className="review-step p-4">
             <div className="mb-6">
-              <h2 className="text-xl font-medium text-gray-800 mb-2">Review Itinerary Inquiry</h2>
-              <p className="text-gray-600">Review all information before submitting the inquiry.</p>
+              <h2 className={`text-xl font-semibold text-[${textColor}] mb-2`}>Review Itinerary Inquiry</h2>
+              <p className={`text-[${textColorLight}]`}>Review all information before submitting the inquiry.</p>
             </div>
             
             <div className="space-y-4">
-               <div className="bg-gray-50 p-4 rounded-md">
-                <h3 className="font-medium text-gray-800 mb-2">Selected Cities</h3>
-                <p className="text-sm text-gray-600">
+               <div className={`bg-[${accentColor}] p-4 rounded-lg border border-[${borderColor}]`}>
+                <h3 className={`font-semibold text-[${textColor}] mb-2`}>Selected Cities</h3>
+                <p className={`text-sm text-[${textColor}]/80`}>
                   {formData.selectedCities.length > 0 
                     ? formData.selectedCities.map(city => city.name || city.city).join(', ') 
                     : 'No cities selected'}
                 </p>
               </div>
               
-              <div className="bg-gray-50 p-4 rounded-md">
-                <h3 className="font-medium text-gray-800 mb-2">Departure Details</h3>
-                 <p className="text-sm text-gray-600">
+              <div className={`bg-[${accentColor}] p-4 rounded-lg border border-[${borderColor}]`}>
+                <h3 className={`font-semibold text-[${textColor}] mb-2`}>Departure Details</h3>
+                 <p className={`text-sm text-[${textColor}]/80`}>
                   From: {formData.departureCity?.name || (formData.includeInternational ? 'Not specified' : 'N/A - Domestic')}<br />
                   Dates: {formData.departureDates.startDate || 'N/A'} to {formData.departureDates.endDate || 'N/A'}
                 </p>
-                <div className="mt-2 text-xs text-gray-500">
+                <div className={`mt-2 text-xs text-[${textColor}]/60`}>
                    <p>{formData.includeInternational ? '✓' : '✗'} International Travel</p>
                   <p>{formData.includeGroundTransfer ? '✓' : '✗'} Ground Transfers</p>
                   <p>{formData.includeFerryTransport ? '✓' : '✗'} Ferry Transport</p>
                  </div>
                </div>
               
-               <div className="bg-gray-50 p-4 rounded-md">
-                 <h3 className="font-medium text-gray-800 mb-2">Travelers</h3>
-                 <p className="text-sm text-gray-600">
+               <div className={`bg-[${accentColor}] p-4 rounded-lg border border-[${borderColor}]`}>
+                 <h3 className={`font-semibold text-[${textColor}] mb-2`}>Travelers</h3>
+                 <p className={`text-sm text-[${textColor}]/80`}>
                    Type: {formData.travelersDetails.type || 'Not specified'}<br />
                   Rooms: {getRoomSummary()}
                  </p>
                </div>
               
-               <div className="bg-gray-50 p-4 rounded-md">
-                 <h3 className="font-medium text-gray-800 mb-2">Preferences</h3>
-                 <p className="text-sm text-gray-600">
+               <div className={`bg-[${accentColor}] p-4 rounded-lg border border-[${borderColor}]`}>
+                 <h3 className={`font-semibold text-[${textColor}] mb-2`}>Preferences</h3>
+                 <p className={`text-sm text-[${textColor}]/80`}>
                    Interests: {formData.preferences.selectedInterests.length > 0 
                     ? formData.preferences.selectedInterests.join(', ') 
                      : 'None selected'}<br />
@@ -921,25 +986,25 @@ const ItineraryBookingPage = () => {
                </div>
 
               {/* Updated Customer Info Review */}
-              <div className="bg-gray-50 p-4 rounded-md">
-                <h3 className="font-medium text-gray-800 mb-2">Customer Information</h3>
+              <div className={`bg-[${accentColor}] p-4 rounded-lg border border-[${borderColor}]`}>
+                <h3 className={`font-semibold text-[${textColor}] mb-2`}>Customer Information</h3>
                 {reviewCustomer ? (
-                  <p className="text-sm text-gray-600">
+                  <p className={`text-sm text-[${textColor}]/80`}>
                     Name: {reviewCustomer.firstName} {reviewCustomer.lastName}<br />
                     Email: {reviewCustomer.email}<br />
                     Phone: {reviewCustomer.phoneNumber} <br/>
                     ID: {reviewCustomer._id}
                   </p>
                 ) : (
-                  <p className="text-sm text-gray-500 italic">No customer selected.</p>
+                  <p className={`text-sm text-[${textColorLight}] italic`}>No customer selected.</p>
                 )}
               </div>
               
               {/* Updated Agent Info Review */}
-              <div className="bg-gray-50 p-4 rounded-md">
-                <h3 className="font-medium text-gray-800 mb-2">Agent Information</h3>
+              <div className={`bg-[${accentColor}] p-4 rounded-lg border border-[${borderColor}]`}>
+                <h3 className={`font-semibold text-[${textColor}] mb-2`}>Agent Information</h3>
                  {!reviewAgent ? <p className="text-sm text-red-600">Agent details missing!</p> :
-                <p className="text-sm text-gray-600">
+                <p className={`text-sm text-[${textColor}]/80`}>
                   Employee ID: {formData.employeeId || 'Not available'}<br/> {/* Reads from state */}
                      Agent Name: {reviewAgent.name || 'N/A'} <br/>
                      Agent Email: {reviewAgent.email || 'N/A'} <br/>
@@ -965,7 +1030,7 @@ const ItineraryBookingPage = () => {
       default:
         return null;
     }
-  }, [currentStep, formData, errors, isSearching, isFetchingCities, handleChange, getRoomSummary, agent, selectedCustomer, openCustomerAssignmentModal]);
+  }, [currentStep, formData, errors, isSearching, isFetchingCities, handleChange, getRoomSummary, agent, selectedCustomer, openCustomerAssignmentModal, handleCustomerSelectionFromModal, handleSaveRooms, isRoomModalOpen, isAssignModalOpen, setIsRoomModalOpen, setIsAssignModalOpen, setErrors, setFormData, setSelectedCustomer, location.state, validateStep]);
   
   // Add useEffect for API calls
   useEffect(() => {
@@ -1065,105 +1130,29 @@ const ItineraryBookingPage = () => {
 
   // Render the main component structure
   return (
-    <>
-    {(() => {
-          // MODIFICATION: Check loading state first
-          if (isLoadingItinerary) {
-             return (
-                 <div className="flex justify-center items-center h-screen">
-                     <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-500"></div>
-                     <p className="ml-4 text-lg text-gray-600">Loading Itinerary Details...</p>
-                 </div>
-             );
+    <ConfigProvider
+      theme={{
+        ...antTheme,
+        components: {
+          ...antTheme.components,
+          Select: {
+            ...antTheme.components.Select,
+            controlHeight: 40,
+            controlHeightLG: 40,
+            controlHeightSM: 40,
           }
-          
-          // MODIFICATION: Check for loading error
-          if (loadItineraryError) {
-              return (
-                 <div className="max-w-3xl mx-auto px-4 py-12 text-center">
-                      <div className="bg-white shadow-lg rounded-lg p-8 border border-red-200">
-                         <svg className="mx-auto h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                         </svg>
-                         <h2 className="mt-4 text-2xl font-bold text-gray-900">Error Loading Itinerary</h2>
-                         <p className="mt-2 text-red-600">
-                            {loadItineraryError}
-                         </p>
-                         <p className="mt-3 text-sm text-gray-500">
-                            Please check the itinerary token or try again later.
-                         </p>
-                         {/* Optionally add a button to go back */}
-                         {/* <button onClick={() => navigate('/bookings')} className="mt-6 ...">Go Back</button> */}
-                      </div>
-                 </div>
-              );
-          }
-          
-          // Existing logic: Render itinerary display if loaded
-  if (generatedItinerary) {
-            // Use the CrmItineraryDisplay component now
-    return (
-              <div className="max-w-7xl mx-auto p-6 bg-white shadow-lg rounded-lg">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold text-gray-800">GENERATED ITINERARY</h2>
-        <button 
-                    onClick={handleCreateNewInquiry}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Create New Inquiry
-            </button>
-                </div>
-          <CrmItineraryDisplay itinerary={generatedItinerary} />
-              </div>
-            );
-          } else if (submittedInquiryToken) {
-            // ... Inquiry Success View ...
-             return (
-                 <div className="max-w-3xl mx-auto px-4 py-12 text-center">
-                    {/* ... JSX ... */}
-                      {/* Inquiry Success content */}
-                      <div className="bg-white shadow-lg rounded-lg p-8">
-                        <svg className="mx-auto h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <h2 className="mt-4 text-2xl font-bold text-gray-900">Inquiry Submitted Successfully!</h2>
-                        <p className="mt-2 text-gray-600">
-                          Your itinerary inquiry has been created. You can now generate the detailed itinerary.
-                        </p>
-                        <p className="mt-4 text-sm font-mono bg-gray-100 p-2 rounded inline-block">
-                          Inquiry Token: <span className="font-semibold">{submittedInquiryToken}</span>
-                        </p>
-                        <div className="mt-8 space-y-4">
-                          <button
-                            type="button"
-                            onClick={handleGenerateItinerary}
-                            disabled={isCreatingItinerary}
-                            className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                          >
-                            {isCreatingItinerary ? 'Generating...' : 'Generate Detailed Itinerary'}
-                            {isCreatingItinerary && <ArrowPathIcon className="animate-spin ml-2 h-5 w-5" />}
-                          </button>
-                          <button
-                            onClick={handleCreateNewInquiry}
-                            className="w-full inline-flex items-center justify-center px-6 py-3 border border-gray-300 rounded-md shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                          >
-                            Create Another Inquiry
-                          </button>
-                        </div>
-          </div>
-      </div>
-    );
-          } else {
-            // ... Multi-Step Form View ...
-  return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+        }
+      }}
+    >
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-5xl mx-auto">
                    {/* Header, Progress, Form Structure */}
-      <div className="mb-8">
-                      <h1 className="text-3xl font-bold text-gray-900">Create Itinerary Inquiry</h1>
-                      <p className="mt-2 text-gray-600">Fill in the details to create a new itinerary inquiry.</p>
+          <div className="mb-10 border-b border-[${borderColor}] pb-5">
+            <h1 className={`text-2xl font-bold text-[${textColor}]`}>Create Itinerary Inquiry</h1>
+            <p className={`mt-1 text-sm text-[${textColorLight}]`}>Fill in the details to create a new itinerary inquiry.</p>
       </div>
       {/* Progress bar */}
-      <div className="mb-8">
+          <div className="mb-10">
         <div className="flex items-center justify-between mb-2">
           {steps.map((step, idx) => (
             <div 
@@ -1171,16 +1160,16 @@ const ItineraryBookingPage = () => {
               className={`flex flex-col items-center ${idx < steps.length - 1 ? 'w-full' : ''}`}
             >
               <div 
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                  ${idx < currentStep ? 'bg-indigo-600 text-white' : 
-                    idx === currentStep ? 'bg-indigo-100 text-indigo-600 border-2 border-indigo-600' : 
-                    'bg-gray-100 text-gray-500'}`}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all duration-300
+                      ${idx < currentStep ? `bg-[${primaryColor}] text-white border-[${primaryColor}]` : // Completed: Dark Green
+                        idx === currentStep ? `bg-[${accentColor}] text-[${primaryColor}] border-[${primaryColor}]` : // Current: Light Green bg, Dark Green text/border
+                        `bg-gray-100 text-gray-400 border-gray-200`}`} // Upcoming: Gray
               >
                 {idx + 1}
               </div>
               <span 
-                className={`text-xs mt-1 text-center
-                  ${idx <= currentStep ? 'text-indigo-600 font-medium' : 'text-gray-500'}`}
+                    className={`text-xs mt-1 text-center transition-colors duration-300
+                      ${idx <= currentStep ? `text-[${primaryColor}] font-medium` : 'text-gray-500'}`}
               >
                 {step.title}
               </span>
@@ -1188,57 +1177,57 @@ const ItineraryBookingPage = () => {
           ))}
         </div>
         <div className="relative pt-1">
-          <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
+              <div className={`overflow-hidden h-2 text-xs flex rounded-full bg-[${borderColor}]`}>
             <div 
-              className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-600 transition-all duration-500 ease-out"
+                  className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-[${primaryColor}] transition-all duration-500 ease-out rounded-full`}
               style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
             ></div>
           </div>
         </div>
       </div>
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-                       <form onSubmit={handleSubmit} /* className="bg-white shadow-md rounded-lg p-6" - Removed redundant classes */>
-                          <div className="mb-8 min-h-[300px]">
+          <div className={`bg-white rounded-xl shadow-lg border border-[${borderColor}] p-6 sm:p-8 mb-8`}>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-8 min-h-[350px]">
             {renderStepContent()}
           </div>
+              
           {/* Navigation buttons */}
-          <div className="mt-8 pt-6 border-t border-gray-200 flex justify-between">
-            <button
-              type="button"
+              <div className={`mt-8 pt-6 border-t border-[${borderColor}] flex justify-between`}>
+                <Button
               onClick={handleBack}
                                     disabled={currentStep === 0 || isSubmittingInquiry || isCreatingItinerary}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                  icon={<ChevronLeftIcon className="h-5 w-5 mr-2" />}
             >
-              <ChevronLeftIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
               Back
-            </button>
+                </Button>
+                
             {currentStep < steps.length - 1 ? (
-              <button
-                type="button"
+                  <Button
+                    type="primary"
                 onClick={(e) => {
                   e.preventDefault();
                   handleNext();
                 }}
                                     disabled={isSubmittingInquiry || isCreatingItinerary}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
                 Next
-                <ChevronRightIcon className="ml-2 -mr-1 h-5 w-5" aria-hidden="true" />
-              </button>
+                    <ChevronRightIcon className="ml-2 h-5 w-5" />
+                  </Button>
             ) : (
-            <button
-              type="submit"
+                  <Button
+                    type="primary"
+                    htmlType="submit"
                                     disabled={isSubmittingInquiry || isCreatingItinerary}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    loading={isSubmittingInquiry}
             >
                                     {isSubmittingInquiry ? 'Submitting Inquiry...' : 'Submit Inquiry'}
-                                    {isSubmittingInquiry && <ArrowPathIcon className="animate-spin ml-2 h-5 w-5" />}
-            </button>
+                  </Button>
             )}
           </div>
         </form>
       </div>
-                   {/* Room Modal */}
+
+          {/* Modals */}
       <RoomArrangementModal 
         isOpen={isRoomModalOpen}
         onClose={() => setIsRoomModalOpen(false)}
@@ -1246,18 +1235,15 @@ const ItineraryBookingPage = () => {
         onSave={handleSaveRooms}
       />
                  </div>
-            );
-          }
-      })()}
+      </div>
 
-      {/* Render CustomerAssignmentModal (controlled by isAssignModalOpen) */}
       <CustomerAssignmentModal
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
         onCustomerSelect={handleCustomerSelectionFromModal}
-        onCustomerRegister={handleCustomerSelectionFromModal} // Use same handler for registration success
+        onCustomerRegister={handleCustomerSelectionFromModal}
       />
-    </>
+    </ConfigProvider>
   );
 };
 

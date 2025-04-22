@@ -23,14 +23,14 @@ const BookingsPage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-[#093923]">
           {activeMainTab === 'bookings' ? 'Bookings' : 'Inquiries'}
         </h1>
         {/* Conditionally show buttons based on the active MAIN tab */}
         {activeMainTab === 'bookings' && (
           <Link
             to="/bookings/create" 
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#13804e] hover:bg-[#0d5c3a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#13804e]/50 transition-all ease duration-200"
           >
             <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
             New Booking
@@ -39,7 +39,7 @@ const BookingsPage = () => {
          {activeMainTab === 'inquiries' && (
            <Link
             to="/bookings/itinerary" // Link to the itinerary creation page for inquiries
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#13804e] hover:bg-[#0d5c3a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#13804e]/50 transition-all ease duration-200"
            >
              <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
              Add Itinerary Inquiry
@@ -48,7 +48,7 @@ const BookingsPage = () => {
       </div>
 
       {/* Main Tabs */}
-      <div className="border-b border-gray-200 mb-6">
+      <div className="border-b border-[#093923]/10 mb-6">
         <nav className="-mb-px flex space-x-8" aria-label="Main Tabs">
           {mainTabs.map((tab) => (
             <button
@@ -56,9 +56,9 @@ const BookingsPage = () => {
               onClick={() => handleMainTabChange(tab.id)}
               className={`${
                 activeMainTab === tab.id
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-lg`}
+                  ? 'border-[#13804e] text-[#13804e]'
+                  : 'border-transparent text-[#093923]/60 hover:text-[#093923] hover:border-[#093923]/30'
+              } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-lg transition-all ease duration-200`}
             >
               {tab.label}
             </button>

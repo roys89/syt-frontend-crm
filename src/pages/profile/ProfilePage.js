@@ -1,4 +1,5 @@
 // src/pages/profile/ProfilePage.js
+import { KeyIcon, ShieldCheckIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import { useContext, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../../context/AuthContext';
@@ -7,23 +8,23 @@ import { AuthContext } from '../../context/AuthContext';
 const PermissionItem = ({ label, granted }) => {
   if (!granted) return null;
   return (
-    <li className="flex items-center justify-between py-2 border-b border-gray-200 last:border-b-0">
-      <span className="text-sm text-gray-700">{label}</span>
-      <span className="text-sm font-medium text-green-600">Granted</span>
+    <li className="flex items-center justify-between py-2.5 border-b border-[#093923]/10 last:border-b-0">
+      <span className="text-sm text-[#13804e]">{label}</span>
+      <span className="text-xs font-medium text-white bg-[#13804e] px-2 py-0.5 rounded-full">Granted</span>
     </li>
   );
 };
 
 // Helper function to define SVG icons
 const EyeIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gray-500">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-[#093923]/60">
     <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
   </svg>
 );
 
 const EyeSlashIcon = () => (
-   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gray-500">
+   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-[#093923]/60">
     <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
   </svg>
 );
@@ -93,19 +94,18 @@ const ProfilePage = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">Your Profile</h1>
+      <h1 className="text-2xl font-bold text-[#093923] mb-8">Your Profile</h1>
 
       <form onSubmit={onSubmit} className="space-y-8">
         {/* Personal Information Card */}
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-700">Personal Information</h2>
-          </div>
-          <div className="p-5 space-y-4">
-            {/* Changed to 3 columns */}
+        <div className="p-6 bg-white shadow-lg rounded-xl border border-[#093923]/10">
+          <h3 className="text-lg font-semibold leading-6 text-[#093923] mb-6 border-b border-[#093923]/10 pb-3 flex items-center">
+            <UserCircleIcon className="h-5 w-5 mr-2 text-[#13804e]" /> Personal Information
+          </h3>
+          <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="name" className="block text-sm font-medium text-[#093923] mb-1">
                   Full name
                 </label>
                 <input
@@ -113,14 +113,13 @@ const ProfilePage = () => {
                   name="name"
                   id="name"
                   autoComplete="name"
-                  /* Removed max-w-md */
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="block w-full px-3 py-2 border border-[#093923]/20 focus:ring-2 focus:ring-[#13804e]/30 focus:border-[#13804e] sm:text-sm rounded-lg transition-all ease duration-150 shadow-sm"
                   value={formData.name}
                   onChange={onChange}
                 />
               </div>
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="email" className="block text-sm font-medium text-[#093923] mb-1">
                   Email address
                 </label>
                 <input
@@ -128,23 +127,20 @@ const ProfilePage = () => {
                   name="email"
                   id="email"
                   autoComplete="email"
-                  /* Removed max-w-md */
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100 sm:text-sm cursor-not-allowed"
+                  className="block w-full px-3 py-2 border border-[#093923]/20 sm:text-sm rounded-lg bg-gray-100 cursor-not-allowed shadow-sm"
                   value={formData.email}
                   readOnly
                 />
               </div>
-             {/* Moved Role here */}
-             <div>
-                <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+              <div>
+                <label htmlFor="role" className="block text-sm font-medium text-[#093923] mb-1">
                   Role
                 </label>
                 <input
                   type="text"
                   name="role"
                   id="role"
-                  /* Removed max-w-xs */
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100 sm:text-sm cursor-not-allowed capitalize"
+                  className="block w-full px-3 py-2 border border-[#093923]/20 sm:text-sm rounded-lg bg-gray-100 cursor-not-allowed shadow-sm capitalize"
                   value={formData.role}
                   readOnly
                 />
@@ -154,32 +150,30 @@ const ProfilePage = () => {
         </div>
 
         {/* Change Password Card */}
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-700">Change Password</h2>
-             <p className="text-sm text-gray-500 mt-1">Leave fields blank if you do not want to change your password.</p>
-          </div>
-          <div className="p-5 space-y-4">
-            {/* Changed to 3 columns */}
+        <div className="p-6 bg-white shadow-lg rounded-xl border border-[#093923]/10">
+          <h3 className="text-lg font-semibold leading-6 text-[#093923] mb-1 flex items-center">
+             <KeyIcon className="h-5 w-5 mr-2 text-[#13804e]" /> Change Password
+          </h3>
+           <p className="text-xs text-[#13804e]/80 mb-6 border-b border-[#093923]/10 pb-3">Leave fields blank if you do not want to change your password.</p>
+          <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Current Password */}
               <div>
-                <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="currentPassword" className="block text-sm font-medium text-[#093923] mb-1">
                   Current Password
                 </label>
-                <div className="relative">
+                <div className="relative mt-1">
                   <input
                     type={showCurrentPassword ? 'text' : 'password'}
                     name="currentPassword"
                     id="currentPassword"
                     autoComplete="current-password"
-                    /* Removed max-w-md */
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-10" /* Added pr-10 */
+                    className="block w-full px-3 py-2 border border-[#093923]/20 focus:ring-2 focus:ring-[#13804e]/30 focus:border-[#13804e] sm:text-sm rounded-lg transition-all ease duration-150 shadow-sm pr-10"
                     value={formData.currentPassword}
                     onChange={onChange}
                   />
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
                   >
@@ -189,22 +183,21 @@ const ProfilePage = () => {
               </div>
               {/* New Password */}
               <div>
-                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="newPassword" className="block text-sm font-medium text-[#093923] mb-1">
                   New Password
                 </label>
-                <div className="relative">
+                <div className="relative mt-1">
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     name="newPassword"
                     id="newPassword"
                     autoComplete="new-password"
-                     /* Removed max-w-md */
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-10" /* Added pr-10 */
+                    className="block w-full px-3 py-2 border border-[#093923]/20 focus:ring-2 focus:ring-[#13804e]/30 focus:border-[#13804e] sm:text-sm rounded-lg transition-all ease duration-150 shadow-sm pr-10"
                     value={formData.newPassword}
                     onChange={onChange}
                   />
-                   <button 
-                    type="button" 
+                   <button
+                    type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
                   >
@@ -214,22 +207,21 @@ const ProfilePage = () => {
               </div>
                {/* Confirm New Password */}
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-[#093923] mb-1">
                   Confirm New Password
                 </label>
-                <div className="relative">
+                <div className="relative mt-1">
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     name="confirmPassword"
                     id="confirmPassword"
                     autoComplete="new-password"
-                    /* Removed max-w-md */
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-10" /* Added pr-10 */
+                    className="block w-full px-3 py-2 border border-[#093923]/20 focus:ring-2 focus:ring-[#13804e]/30 focus:border-[#13804e] sm:text-sm rounded-lg transition-all ease duration-150 shadow-sm pr-10"
                     value={formData.confirmPassword}
                     onChange={onChange}
                   />
-                   <button 
-                    type="button" 
+                   <button
+                    type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
                   >
@@ -242,16 +234,16 @@ const ProfilePage = () => {
         </div>
 
         {/* Permissions Card (Unchanged) */}
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-700">Permissions</h2>
-            <p className="text-sm text-gray-500 mt-1">Your capabilities within the system.</p>
-          </div>
-          <div className="p-5">
+        <div className="p-6 bg-white shadow-lg rounded-xl border border-[#093923]/10">
+          <h3 className="text-lg font-semibold leading-6 text-[#093923] mb-1 flex items-center">
+             <ShieldCheckIcon className="h-5 w-5 mr-2 text-[#13804e]" /> Permissions
+          </h3>
+          <p className="text-xs text-[#13804e]/80 mb-6 border-b border-[#093923]/10 pb-3">Your capabilities within the system.</p>
+          <div className="p-0">
             {user?.role === 'admin' ? (
-               <p className="text-sm text-gray-700 font-medium">Administrators have all permissions.</p>
+               <p className="text-sm text-[#13804e] font-medium">Administrators have all permissions.</p>
             ) : (
-              <ul className="divide-y divide-gray-200">
+              <ul className="divide-y divide-[#093923]/10">
                 <PermissionItem label="Add Lead" granted={user?.permissions?.canAddLead} />
                 <PermissionItem label="Remove Lead" granted={user?.permissions?.canRemoveLead} />
                 <PermissionItem label="View Leads" granted={user?.permissions?.canViewLeads} />
@@ -260,9 +252,9 @@ const ProfilePage = () => {
                 <PermissionItem label="Manage Bookings" granted={user?.permissions?.bookings} />
               </ul>
             )}
-            {!user?.role === 'admin' && 
-             !Object.values(user?.permissions || {}).some(p => p) && 
-             (<p className='text-sm text-gray-500 mt-2'>You currently have no specific permissions assigned.</p>)
+            {!user?.role === 'admin' &&
+             !Object.values(user?.permissions || {}).some(p => p) &&
+             (<p className='text-sm text-[#093923]/60 mt-2'>You currently have no specific permissions assigned.</p>)
             }
           </div>
         </div>
@@ -271,7 +263,7 @@ const ProfilePage = () => {
         <div className="flex justify-end pt-4">
           <button
             type="submit"
-            className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            className={`inline-flex items-center justify-center px-6 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${isLoading ? 'bg-[#093923]/50 cursor-not-allowed' : 'bg-[#093923] hover:bg-[#022316]'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]/50 transition-all ease duration-200`}
             disabled={isLoading}
           >
             {isLoading ? (

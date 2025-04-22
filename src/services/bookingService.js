@@ -2,9 +2,9 @@
 import axios from 'axios';
 import config from '../config';
 import {
-    transformTCBookingResponse,
-    transformTCFareRulesResponse,
-    transformTCFlightSearchResponse
+  transformTCBookingResponse,
+  transformTCFareRulesResponse,
+  transformTCFlightSearchResponse
 } from './transformers/flight/tcTransformer';
 
 // API endpoints

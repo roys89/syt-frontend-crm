@@ -230,18 +230,18 @@ const BookingsTabContent = () => {
   return (
     <div>
        {/* Sub Tabs for Bookings */}
-       <div className="border-b border-gray-200 mb-6">
+       <div className="border-b border-[#093923]/10 mb-6">
         <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Sub Tabs">
           {bookingSubTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => handleSubTabChange(tab.id)}
-              disabled={loading} // Disable tabs while loading
+              disabled={loading}
               className={`${
                 activeSubTab === tab.id
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
+                  ? 'border-[#13804e] text-[#13804e]'
+                  : 'border-transparent text-[#093923]/60 hover:text-[#093923] hover:border-[#093923]/30'
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all ease duration-200`}
             >
               {tab.label}
             </button>
@@ -252,17 +252,16 @@ const BookingsTabContent = () => {
        {/* Loading State */}
        {loading && (
         <div className="text-center py-12">
-            <ArrowPathIcon className="animate-spin h-8 w-8 text-indigo-600 mx-auto mb-4" />
-            <p className="text-sm text-gray-500">Loading bookings...</p>
+            <ArrowPathIcon className="animate-spin h-8 w-8 text-[#13804e] mx-auto mb-4" />
+            <p className="text-sm text-[#093923]/60">Loading bookings...</p>
         </div>
        )}
 
        {/* Error State */}
        {!loading && error && (
-        <div className="text-center py-12 bg-red-50 border border-red-200 rounded-lg">
-          <h3 className="text-lg font-medium text-red-800">Error Loading Bookings</h3>
-          <p className="mt-2 text-sm text-red-600">{error}</p>
-          {/* Optional: Add a retry button here */}
+        <div className="text-center py-12 bg-[#dc2626]/5 border border-[#dc2626]/20 rounded-lg">
+          <h3 className="text-lg font-medium text-[#dc2626]">Error Loading Bookings</h3>
+          <p className="mt-2 text-sm text-[#dc2626]/80">{error}</p>
         </div>
        )}
 
@@ -270,18 +269,18 @@ const BookingsTabContent = () => {
        {!loading && !error && (
          <> 
            {filteredData.length === 0 ? (
-             <div className="text-center py-12 bg-white shadow rounded-lg">
-               <h3 className="text-lg font-medium text-gray-900">
+             <div className="text-center py-12 bg-white shadow-lg rounded-xl border border-[#093923]/10">
+               <h3 className="text-lg font-medium text-[#093923]">
                  No {activeSubTab !== 'all' ? `${activeSubTab} ` : ''} bookings found
                  {activeSubTab !== 'all' ? ` for this type` : ''}.
                </h3>
-               <p className="mt-2 text-sm text-gray-500">
+               <p className="mt-2 text-sm text-[#13804e]">
                  You currently don't have any assigned bookings in this category.
                </p>
                <div className="mt-6">
                    <Link
-                     to="/bookings/create" // Link to general booking creation
-                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                     to="/bookings/create"
+                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#13804e] hover:bg-[#0d5c3a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#13804e]/50 transition-all ease duration-200"
                    >
                      <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
                      New Booking
@@ -289,30 +288,38 @@ const BookingsTabContent = () => {
                  </div>
              </div>
            ) : (
-             <div className="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-               <table className="min-w-full divide-y divide-gray-300">
-                 <thead className="bg-gray-50">
+             <div className="overflow-x-auto shadow-lg ring-1 ring-[#093923]/5 sm:rounded-xl">
+               <table className="min-w-full divide-y divide-[#093923]/10">
+                 <thead className="bg-[#093923]/5">
                    <tr>
-                     {/* Adjusting Headers for Itinerary View */}
-                     <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                     <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-[#093923] sm:pl-6">
                        Type
                      </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                        Client
                      </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                        Details / Token
                      </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                        Date Added
                      </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                       Status
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                       Payment Status
                      </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                       Booking Status
+                     </th>
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                       Booking ID
+                     </th>
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                       Payment ID
+                     </th>
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                          Assigned To
                      </th>
-                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                          Amount / Duration
                      </th>
                      <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
@@ -320,33 +327,48 @@ const BookingsTabContent = () => {
                      </th>
                    </tr>
                  </thead>
-                 <tbody className="bg-white divide-y divide-gray-200">
+                 <tbody className="bg-white divide-y divide-[#093923]/5">
                    {filteredData.map((item) => (
-                     <tr key={item.itineraryToken || item._id} className="hover:bg-gray-50">
+                     <tr key={item.itineraryToken || item._id} className="hover:bg-[#093923]/5 transition-colors ease duration-200">
                        <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
                          <div className={`flex items-center`}>
                            <div className={`h-6 w-1 ${getTypeIndicator(item.type)} mr-3`}></div>
-                           <span className="font-medium text-gray-900 capitalize">{item.type}</span>
+                           <span className="font-medium text-[#093923] capitalize">{item.type}</span>
                          </div>
                        </td>
-                       <td className="px-3 py-4 text-sm text-gray-500">
+                       <td className="px-3 py-4 text-sm text-[#093923]/80">
                          {item.clientName || `${item.customer?.firstName || ''} ${item.customer?.lastName || ''}`.trim() || 'N/A'}
                        </td>
-                       <td className="px-3 py-4 text-sm text-gray-500">
+                       <td className="px-3 py-4 text-sm text-[#093923]/80">
                          {renderBookingDetails(item)}
                        </td>
-                       <td className="px-3 py-4 text-sm text-gray-500 whitespace-nowrap">
+                       <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
                          {formatDate(item.createdAt)}
                        </td>
                        <td className="px-3 py-4 text-sm whitespace-nowrap">
-                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.status)} capitalize`}>
-                           {item.status || 'Unknown'}
+                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.type === 'itinerary' ? item.paymentStatus : item.status)} capitalize`}>
+                           {item.type === 'itinerary' ? item.paymentStatus || 'Unknown' : item.status || 'Unknown'}
                          </span>
                        </td>
-                        <td className="px-3 py-4 text-sm text-gray-500 whitespace-nowrap">
+                       <td className="px-3 py-4 text-sm whitespace-nowrap">
+                         {item.type === 'itinerary' ? (
+                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.bookingStatus)} capitalize`}>
+                             {item.bookingStatus || 'N/A'}
+                           </span>
+                         ) : (
+                           'N/A' // Show N/A for non-itinerary types
+                         )}
+                       </td>
+                       <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                         {item.bookingId || '-'}
+                       </td>
+                       <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                         {item.paymentId || '-'}
+                       </td>
+                       <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
                            {item.assignedTo ? item.assignedTo.name : 'Unassigned'}
                          </td>
-                       <td className="px-3 py-4 text-sm text-gray-500 whitespace-nowrap">
+                       <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
                            {item.type === 'itinerary' 
                              ? (item.totalDays ? `${item.totalDays} Days` : 'N/A')
                              : (item.totalAmount != null ? `₹${item.totalAmount.toLocaleString()}` : 'N/A')
@@ -354,24 +376,21 @@ const BookingsTabContent = () => {
                          </td>
                        <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                           <div className="flex items-center justify-end space-x-3">
-                            {/* View/Modify Button (fixed) */}
                             {item.type === 'itinerary' && (
                                 <button 
                                   onClick={() => handleViewItineraryClick(item)}
-                                  className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-100"
+                                  className="text-[#13804e] hover:text-[#0d5c3a] p-1 rounded hover:bg-[#13804e]/10 transition-colors ease duration-200"
                                   title={`View/Modify Itinerary ${item.itineraryToken}`}
                                 >
                                   <span className="sr-only">View/Modify Itinerary</span>
                                   <EyeIcon className="h-5 w-5" />
                                 </button>
                             )}
-                            {/* View Inquiry Button (REMOVED) */}
                             
-                            {/* Delete Button */}
-                            {item.type === 'itinerary' && item.itineraryToken && ( // Only allow deleting itineraries for now
+                            {item.type === 'itinerary' && item.itineraryToken && (
                               <button
                                 onClick={() => handleDeleteItinerary(item)}
-                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="text-[#dc2626] hover:text-[#b91c1c] p-1 rounded hover:bg-[#dc2626]/10 transition-colors ease duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title={`Delete Itinerary ${item.itineraryToken}`}
                                 disabled={deletingItemId === (item.itineraryToken || item._id)}
                               >
@@ -383,7 +402,6 @@ const BookingsTabContent = () => {
                                 )}
                               </button>
                             )}
-                            {/* Share Button (Existing) */}
                             {item.type === 'itinerary' && (
                               <ShareItineraryButton 
                                 itineraryToken={item.itineraryToken}

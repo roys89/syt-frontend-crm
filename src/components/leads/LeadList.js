@@ -11,17 +11,17 @@ import StatusUpdateModal from './StatusUpdateModal';
 // Helper function for status badges (you might want to move this to a utils file)
 const getStatusBadgeClass = (status) => {
   switch (status) {
-    case 'new': return 'bg-blue-100 text-blue-800';
-    case 'assigned': return 'bg-cyan-100 text-cyan-800';
-    case 'contacted': return 'bg-purple-100 text-purple-800'; // Keep old or replace?
-    case 'follow up': return 'bg-yellow-100 text-yellow-800';
-    case 'proposal': return 'bg-orange-100 text-orange-800'; // Keep old or replace?
+    case 'new': return 'bg-[#093923]/10 text-[#093923]';
+    case 'assigned': return 'bg-[#13804e]/10 text-[#13804e]';
+    case 'contacted': return 'bg-[#1a9d6c]/10 text-[#1a9d6c]';
+    case 'follow up': return 'bg-[#22c35e]/10 text-[#22c35e]';
+    case 'proposal': return 'bg-[#2a9d8f]/10 text-[#2a9d8f]';
     case 'won':
-    case 'closed_won': return 'bg-green-100 text-green-800';
+    case 'closed_won': return 'bg-[#13804e]/10 text-[#13804e]';
     case 'lost':
-    case 'closed_lost': return 'bg-red-100 text-red-800';
-    case 'qualified': return 'bg-teal-100 text-teal-800'; // Keep old or replace?
-    case 'negotiation': return 'bg-amber-100 text-amber-800'; // Keep old or replace?
+    case 'closed_lost': return 'bg-[#dc2626]/10 text-[#dc2626]';
+    case 'qualified': return 'bg-[#16a34a]/10 text-[#16a34a]';
+    case 'negotiation': return 'bg-[#d97706]/10 text-[#d97706]';
     default: return 'bg-gray-100 text-gray-800';
   }
 };
@@ -202,8 +202,8 @@ const LeadList = () => {
     <div>
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Leads</h1>
-          <p className="mt-2 text-sm text-gray-700">
+          <h1 className="text-2xl font-bold text-[#093923]">Leads</h1>
+          <p className="mt-2 text-sm text-[#13804e]">
             A list of all leads in your itinerary planning system
           </p>
         </div>
@@ -212,7 +212,7 @@ const LeadList = () => {
             <>
               <Link
                 to="/leads/website"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#022316] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]/20 transition-all duration-200"
               >
                 <UsersIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
                 Website Leads
@@ -223,14 +223,14 @@ const LeadList = () => {
             <>
               <Link
                 to="/leads/upload"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#13804e] hover:bg-[#0d5c3a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#13804e]/20 transition-all duration-200"
               >
                 <DocumentPlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
                 Bulk Upload
               </Link>
               <Link
                 to="/leads/add"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#022316] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]/20 transition-all duration-200"
               >
                 Add Lead
               </Link>
@@ -239,21 +239,21 @@ const LeadList = () => {
         </div>
       </div>
 
-      {/* ** NEW: Filter and Search Section ** */}
-      <div className="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end">
+      {/* Filter and Search Section */}
+      <div className="mb-6 p-4 bg-[#093923]/5 rounded-xl shadow-sm border border-[#093923]/10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Search Input */}
-          <div className="md:col-span-2 xl:col-span-2">
-            <label htmlFor="search" className="block text-sm font-medium text-gray-700">Search (Name/Email)</label>
-            <div className="mt-1 relative rounded-md shadow-sm">
+          <div className="md:col-span-2 lg:col-span-1">
+            <label htmlFor="search" className="block text-sm font-medium text-[#093923] mb-1">Search (Name/Email)</label>
+            <div className="relative rounded-lg shadow-sm">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                <MagnifyingGlassIcon className="h-5 w-5 text-[#093923]/40" aria-hidden="true" />
               </div>
               <input
                 type="search"
                 name="search"
                 id="search"
-                className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md"
+                className="block w-full pl-10 pr-3 py-2 border border-[#093923]/20 focus:ring-[#093923]/20 focus:border-[#093923]/20 sm:text-sm rounded-lg transition-all ease duration-200"
                 placeholder="Search leads..."
                 value={searchTerm}
                 onChange={handleSearchChange}
@@ -263,11 +263,11 @@ const LeadList = () => {
 
           {/* Status Filter */}
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
+            <label htmlFor="status" className="block text-sm font-medium text-[#093923] mb-1">Status</label>
             <select 
               id="status" 
               name="status"
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+              className="block w-full pl-3 pr-10 py-2 border border-[#093923]/20 focus:ring-[#093923]/20 focus:border-[#093923]/20 sm:text-sm rounded-lg transition-all ease duration-200"
               value={filters.status}
               onChange={handleFilterChange}
             >
@@ -280,11 +280,11 @@ const LeadList = () => {
 
           {/* Lead Type Filter */}
           <div>
-            <label htmlFor="leadType" className="block text-sm font-medium text-gray-700">Lead Type</label>
+            <label htmlFor="leadType" className="block text-sm font-medium text-[#093923] mb-1">Lead Type</label>
             <select 
               id="leadType" 
               name="leadType"
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+              className="block w-full pl-3 pr-10 py-2 border border-[#093923]/20 focus:ring-[#093923]/20 focus:border-[#093923]/20 sm:text-sm rounded-lg transition-all ease duration-200"
               value={filters.leadType}
               onChange={handleFilterChange}
             >
@@ -296,12 +296,13 @@ const LeadList = () => {
           </div>
           
           {/* Assigned To Filter */}
-          <div>
-            <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700">Assigned To</label>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label htmlFor="assignedTo" className="block text-sm font-medium text-[#093923] mb-1">Assigned To</label>
             <select 
               id="assignedTo" 
               name="assignedTo"
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                className="block w-full pl-3 pr-10 py-2 border border-[#093923]/20 focus:ring-[#093923]/20 focus:border-[#093923]/20 sm:text-sm rounded-lg transition-all ease duration-200"
               value={filters.assignedTo}
               onChange={handleFilterChange}
             >
@@ -311,57 +312,27 @@ const LeadList = () => {
               ))}
             </select>
           </div>
-          
-          {/* Date Filters (Simplified - Consider using a date range picker component) */}
-          {/* Start Date */}
-          {/* <div>
-            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Created After</label>
-            <input 
-              type="date" 
-              id="startDate" 
-              name="startDate"
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-              value={filters.startDate}
-              onChange={handleFilterChange}
-            />
-          </div> */}
-          {/* End Date */}
-          {/* <div>
-            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">Created Before</label>
-            <input 
-              type="date" 
-              id="endDate" 
-              name="endDate"
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-              value={filters.endDate}
-              onChange={handleFilterChange}
-            />
-          </div> */}
-
-          {/* Clear Filters Button */}
-          <div className="flex items-end">
             <button
               type="button"
               onClick={clearFilters}
-              className="mt-1 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="inline-flex items-center justify-center px-3 py-2 border border-[#093923]/20 shadow-sm text-sm font-medium rounded-lg text-[#093923] bg-white hover:bg-[#093923]/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]/20 transition-all ease duration-200"
+              title="Clear Filters"
             >
-              <XMarkIcon className="-ml-1 mr-1 h-5 w-5 text-gray-400" aria-hidden="true" />
-              Clear
+              <XMarkIcon className="h-5 w-5 text-[#093923]/40" aria-hidden="true" />
             </button>
           </div>
         </div>
       </div>
-      {/* ** END Filter and Search Section ** */}
 
       {selectedLeads.length > 0 && (
-        <div className="mb-4 p-4 bg-gray-50 rounded-md shadow-sm flex items-center justify-between">
-          <span>
+        <div className="mb-4 p-4 bg-[#093923]/5 rounded-lg shadow-sm flex items-center justify-between transition-all ease duration-200">
+          <span className="text-[#093923] transition-all ease duration-200">
             {selectedLeads.length} {selectedLeads.length === 1 ? 'lead' : 'leads'} selected
           </span>
           {user?.permissions?.canRemoveLead && (
             <button
               onClick={handleDeleteSelectedLeads}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="inline-flex items-center px-3 py-1.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#dc2626] hover:bg-[#b91c1c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#dc2626]/20 transition-all ease duration-200"
             >
               <TrashIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
               Delete Selected
@@ -371,16 +342,16 @@ const LeadList = () => {
       )}
 
       {leads.length === 0 ? (
-        <div className="text-center py-12 bg-white shadow rounded-lg">
-          <h3 className="text-lg font-medium text-gray-900">No leads found</h3>
-          <p className="mt-2 text-sm text-gray-500">
+        <div className="text-center py-12 bg-white shadow-lg rounded-xl border border-[#093923]/10">
+          <h3 className="text-lg font-medium text-[#093923]">No leads found</h3>
+          <p className="mt-2 text-sm text-[#13804e]">
             Get started by creating a new lead or importing leads from a CSV file.
           </p>
           {user?.permissions?.canAddLead && (
             <div className="mt-6">
               <Link
                 to="/leads/add"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#022316] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]/20 transition-all duration-200"
               >
                 Add Lead
               </Link>
@@ -391,35 +362,35 @@ const LeadList = () => {
         <div className="flex flex-col">
           <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
             <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
-              <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+              <div className="shadow-lg overflow-hidden border-b border-[#093923]/10 sm:rounded-xl">
+                <table className="min-w-full divide-y divide-[#093923]/10">
+                  <thead className="bg-[#093923]/5">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                         <input
                           type="checkbox"
-                          className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                          className="focus:ring-[#093923]/20 h-4 w-4 text-[#093923] border-[#093923]/20 rounded transition-all ease duration-200"
                           onChange={handleSelectAll}
                           checked={leads.length > 0 && selectedLeads.length === leads.length}
                           indeterminate={selectedLeads.length > 0 && selectedLeads.length < leads.length}
                         />
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                         Name
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                         Email
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                         Status
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                         Lead Type
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                         Travel Plans
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#093923] uppercase tracking-wider">
                         Assigned To
                       </th>
                       <th scope="col" className="relative px-6 py-3">
@@ -427,24 +398,24 @@ const LeadList = () => {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-[#093923]/10">
                     {leads.map((lead) => (
-                      <tr key={lead._id} className={`${selectedLeads.includes(lead._id) ? 'bg-blue-50' : ''} hover:bg-gray-50`}>
+                      <tr key={lead._id} className={`${selectedLeads.includes(lead._id) ? 'bg-[#093923]/5' : ''} hover:bg-[#093923]/5 transition-colors duration-200`}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="checkbox"
-                            className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                            className="focus:ring-[#093923]/20 h-4 w-4 text-[#093923] border-[#093923]/20 rounded transition-all ease duration-200"
                             onChange={() => handleSelectLead(lead._id)}
                             checked={selectedLeads.includes(lead._id)}
                           />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-[#093923]">
                             {lead.firstName} {lead.lastName}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{lead.email}</div>
+                          <div className="text-sm text-[#13804e]">{lead.email}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${getStatusBadgeClass(lead.status)}`}>
@@ -453,25 +424,24 @@ const LeadList = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full capitalize
-                            ${lead.leadType === 'website' ? 'bg-blue-100 text-blue-800' : 
-                              lead.leadType === 'updated' ? 'bg-yellow-100 text-yellow-800' : 
-                              lead.leadType === 'ad' ? 'bg-purple-100 text-purple-800' : 
+                            ${lead.leadType === 'website' ? 'bg-[#093923]/10 text-[#093923]' : 
+                              lead.leadType === 'updated' ? 'bg-[#13804e]/10 text-[#13804e]' : 
+                              lead.leadType === 'ad' ? 'bg-[#1a9d6c]/10 text-[#1a9d6c]' : 
                               'bg-gray-100 text-gray-800'}`}>
                             {lead.leadType || 'N/A'} 
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#093923]">
                           {lead.itineraryPreferences?.destination || 'Not specified'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {/* Display Name and Employee ID */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#13804e]">
                           {lead.assignedTo ? `${lead.assignedTo.name} ${lead.assignedTo.employeeId ? `(${lead.assignedTo.employeeId})` : ''}` : 'Unassigned'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end items-center space-x-3">
                             <Link
                               to={`/leads/view/${lead._id}`}
-                              className="text-indigo-600 hover:text-indigo-900"
+                              className="text-[#13804e] hover:text-[#093923] transition-colors duration-200"
                               title="View Lead"
                             >
                               <span className="sr-only">View</span>
@@ -480,7 +450,7 @@ const LeadList = () => {
                             {user?.permissions?.canAddLead && (
                               <Link
                                 to={`/leads/edit/${lead._id}`}
-                                className="text-indigo-600 hover:text-indigo-900"
+                                className="text-[#13804e] hover:text-[#093923] transition-colors duration-200"
                                 title="Edit Lead"
                               >
                                 <span className="sr-only">Edit</span>
@@ -490,7 +460,7 @@ const LeadList = () => {
                             {user?.permissions?.canRemoveLead && (
                               <button
                                 onClick={() => handleDeleteLead(lead._id)}
-                                className="text-red-600 hover:text-red-900"
+                                className="text-[#dc2626] hover:text-[#b91c1c] transition-colors duration-200"
                                 title="Delete Lead"
                               >
                                 <span className="sr-only">Delete</span>
@@ -500,7 +470,7 @@ const LeadList = () => {
                             {user?.permissions?.canAddLead && (
                               <button
                                 onClick={() => openStatusModal(lead)}
-                                className="text-gray-500 hover:text-indigo-600"
+                                className="text-[#093923]/60 hover:text-[#093923] transition-colors duration-200"
                                 title="Update Status"
                               >
                                 <span className="sr-only">Update Status</span>
@@ -518,7 +488,7 @@ const LeadList = () => {
           </div>
         </div>
       )}
-      {/* ** NEW: Status Update Modal ** */}
+
       <StatusUpdateModal
         isOpen={isStatusModalOpen}
         onClose={closeStatusModal}

@@ -37,7 +37,7 @@ const InquiriesTabContent = () => {
 
   useEffect(() => {
     if (!deletingInquiryToken) {
-        fetchInquiries();
+    fetchInquiries();
     }
   }, [deletingInquiryToken]);
 
@@ -157,10 +157,10 @@ const InquiriesTabContent = () => {
     }
   };
 
-  if (isLoading && !isCreating && !isAssigningUser) { // Updated loading check
+  if (isLoading && !isCreating && !isAssigningUser) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#13804e]"></div>
       </div>
     );
   }
@@ -169,35 +169,33 @@ const InquiriesTabContent = () => {
     <>
       <div>
         {inquiries.length === 0 && !isLoading ? (
-          <div className="text-center py-12 bg-white shadow rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900">No itinerary inquiries found</h3>
-            <p className="mt-2 text-sm text-gray-500">
+          <div className="text-center py-12 bg-white shadow-lg rounded-xl border border-[#093923]/10">
+            <h3 className="text-lg font-medium text-[#093923]">No itinerary inquiries found</h3>
+            <p className="mt-2 text-sm text-[#13804e]">
               You currently don't have any inquiries assigned to you.
             </p>
-             {/* Button moved to the main BookingsPage header */}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-300">
-              <thead className="bg-gray-50">
+          <div className="overflow-x-auto shadow-lg ring-1 ring-[#093923]/5 sm:rounded-xl">
+            <table className="min-w-full divide-y divide-[#093923]/10">
+              <thead className="bg-[#093923]/5">
                 <tr>
-                  {/* Adjusted Columns - Added py-3.5 consistently */}
-                  <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                  <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-[#093923] sm:pl-6">
                      Inquiry Token
                   </th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                     Customer
                   </th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                     Details
                   </th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                     Date Added
                   </th>
-                   <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                   <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                     Agent Name
                   </th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                     Status
                   </th>
                   <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
@@ -205,23 +203,21 @@ const InquiriesTabContent = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-[#093923]/5">
                 {inquiries.map((item) => (
-                  <tr key={item.inquiryToken} className="hover:bg-gray-50 align-top">
-                    {/* Inquiry Token - Adjusted padding */}
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-mono text-xs text-gray-600 sm:pl-6">
+                  <tr key={item.inquiryToken} className="hover:bg-[#093923]/5 align-top transition-colors ease duration-200">
+                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-mono text-xs text-[#093923]/60 sm:pl-6">
                        {item.inquiryToken}
                      </td>
-                    {/* Customer - Adjusted padding */}
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-[#093923]/80">
                       {item.customerName ? (
                         item.customerName
                       ) : (
                         <button 
                           onClick={() => handleAssignUserClick(item.inquiryToken)} 
-                          className="inline-flex items-center text-blue-600 hover:text-blue-800 focus:outline-none disabled:opacity-50"
+                          className="inline-flex items-center text-[#13804e] hover:text-[#0d5c3a] focus:outline-none disabled:opacity-50 transition-colors ease duration-200"
                           title="Assign User"
-                          disabled={!!isCreating || isAssigningUser} // Disable if creating itinerary OR assigning user
+                          disabled={!!isCreating || isAssigningUser}
                         >
                            {isAssigningUser && assignTargetInquiryToken === item.inquiryToken ? (
                                 <><ArrowPathIcon className="animate-spin h-5 w-5 mr-1" /> Assigning...</>
@@ -231,12 +227,11 @@ const InquiriesTabContent = () => {
                         </button>
                       )}
                     </td>
-                     {/* Details - Adjusted padding and layout */}
-                    <td className="px-3 py-4 text-sm text-gray-500">
+                     <td className="px-3 py-4 text-sm text-[#093923]/80">
                       {item.citiesList && item.citiesList.length > 0 ? (
                         <div>
-                          <div className="font-medium text-gray-900 truncate" title={item.citiesList.join(', ')}>{item.citiesList.join(', ')}</div>
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="font-medium text-[#093923] truncate" title={item.citiesList.join(', ')}>{item.citiesList.join(', ')}</div>
+                          <div className="text-xs text-[#13804e] mt-1">
                              <span>{item.totalDays || 0} Days</span>
                              <span className="mx-1">/</span>
                              <span>{item.travelerCount || 0} Travelers</span>
@@ -246,15 +241,12 @@ const InquiriesTabContent = () => {
                         'N/A'
                       )}
                     </td>
-                     {/* Date Added - Adjusted padding */}
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                     <td className="whitespace-nowrap px-3 py-4 text-sm text-[#093923]/80">
                       {formatDate(item.createdAt)}
                     </td>
-                    {/* Agent Name - Adjusted padding */}
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                      {item.agentName || <span className="text-gray-400 italic">Customer Made</span>}
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-[#093923]/80">
+                      {item.agentName || <span className="text-[#093923]/40 italic">Customer Made</span>}
                     </td>
-                    {/* Status - Adjusted padding and logic */}
                     <td className="whitespace-nowrap px-3 py-4 text-sm">
                       <span 
                         className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.status, item.hasItinerary)}`}
@@ -262,33 +254,28 @@ const InquiriesTabContent = () => {
                         {item.hasItinerary ? 'Itinerary Created' : item.status}
                       </span>
                     </td>
-                    {/* Actions - Adjusted padding */}
                     <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                       {/* MODIFIED: Actions container */}
                       <div className="flex items-center justify-end space-x-3">
-                        {item.hasItinerary ? (
+                      {item.hasItinerary ? (
                            <> 
-                             {/* View/Modify Itinerary Button (Existing) */}
-                             <button 
-                               onClick={() => handleViewItineraryClick(item)}
+                           <button 
+                             onClick={() => handleViewItineraryClick(item)}
                                disabled={item.paymentStatus !== 'pending'} 
-                               className="inline-flex items-center text-indigo-600 hover:text-indigo-900 disabled:text-gray-400 disabled:cursor-not-allowed p-1 rounded hover:bg-indigo-100"
-                               title={item.paymentStatus !== 'pending' ? `Cannot modify, status: ${item.paymentStatus || 'N/A'}` : `View/Modify Itinerary ${item.itineraryToken}`}
-                              >
-                               <EyeIcon className="h-5 w-5" aria-hidden="true" /> 
+                               className="inline-flex items-center text-[#13804e] hover:text-[#0d5c3a] disabled:text-[#093923]/40 disabled:cursor-not-allowed p-1 rounded hover:bg-[#13804e]/10 transition-colors ease duration-200"
+                             title={item.paymentStatus !== 'pending' ? `Cannot modify, status: ${item.paymentStatus || 'N/A'}` : `View/Modify Itinerary ${item.itineraryToken}`}
+                            >
+                             <EyeIcon className="h-5 w-5" aria-hidden="true" /> 
                              </button>
-                             {/* View Inquiry Button (when Itinerary exists) */}
                              <Link
                                 to={`/inquiry/${item.inquiryToken}`} 
-                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100"
+                                className="text-[#13804e] hover:text-[#0d5c3a] p-1 rounded hover:bg-[#13804e]/10 transition-colors ease duration-200"
                                 title={`View Inquiry ${item.inquiryToken}`}
                               >
                                 <DocumentMagnifyingGlassIcon className="h-5 w-5" />
                               </Link>
-                             {/* Delete Inquiry Button (when Itinerary exists) */}
                              <button
                                 onClick={() => handleDeleteInquiry(item.inquiryToken)}
-                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="text-[#dc2626] hover:text-[#b91c1c] p-1 rounded hover:bg-[#dc2626]/10 transition-colors ease duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title={`Delete Inquiry ${item.inquiryToken}`}
                                 disabled={deletingInquiryToken === item.inquiryToken || isCreating || isAssigningUser}
                               >
@@ -297,35 +284,32 @@ const InquiriesTabContent = () => {
                                 ) : (
                                   <TrashIcon className="h-5 w-5" />
                                 )}
-                              </button>
+                           </button>
                            </>
-                        ) : (
+                      ) : (
                           <> 
-                            {/* Create Itinerary Button (Existing) */}
-                            <button 
-                              onClick={() => handleCreateItinerary(item.inquiryToken)}
-                              className={`inline-flex items-center text-green-600 hover:text-green-800 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${isCreating === item.inquiryToken ? 'animate-pulse' : ''} p-1 rounded hover:bg-green-100`}
-                              title="Create Itinerary from Inquiry"
+                        <button 
+                          onClick={() => handleCreateItinerary(item.inquiryToken)}
+                              className={`inline-flex items-center text-[#13804e] hover:text-[#0d5c3a] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${isCreating === item.inquiryToken ? 'animate-pulse' : ''} p-1 rounded hover:bg-[#13804e]/10 transition-colors ease duration-200`}
+                          title="Create Itinerary from Inquiry"
                               disabled={!!isCreating || isAssigningUser || !!deletingInquiryToken}
-                            >
-                              {isCreating === item.inquiryToken ? (
+                        >
+                          {isCreating === item.inquiryToken ? (
                                  <ArrowPathIcon className="h-5 w-5 animate-spin" />
                               ) : ( 
                                  <DocumentPlusIcon className="h-5 w-5" />
                               )}
                             </button>
-                            {/* View Inquiry Button (when NO Itinerary exists) */}
                              <Link
                                 to={`/inquiry/${item.inquiryToken}`} 
-                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100"
+                                className="text-[#13804e] hover:text-[#0d5c3a] p-1 rounded hover:bg-[#13804e]/10 transition-colors ease duration-200"
                                 title={`View Inquiry ${item.inquiryToken}`}
                               >
                                 <DocumentMagnifyingGlassIcon className="h-5 w-5" />
                               </Link>
-                            {/* Delete Inquiry Button (when NO Itinerary exists) */}
                             <button
                               onClick={() => handleDeleteInquiry(item.inquiryToken)}
-                              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="text-[#dc2626] hover:text-[#b91c1c] p-1 rounded hover:bg-[#dc2626]/10 transition-colors ease duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                               title={`Delete Inquiry ${item.inquiryToken}`}
                               disabled={deletingInquiryToken === item.inquiryToken || isCreating || isAssigningUser}
                             >
@@ -333,10 +317,10 @@ const InquiriesTabContent = () => {
                                 <ArrowPathIcon className="h-5 w-5 animate-spin" />
                               ) : (
                                 <TrashIcon className="h-5 w-5" />
-                              )}
-                            </button>
+                          )}
+                        </button>
                           </>
-                        )}
+                      )}
                       </div>
                     </td>
                   </tr>
@@ -351,8 +335,8 @@ const InquiriesTabContent = () => {
       <CustomerAssignmentModal
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
-        onCustomerSelect={handleCustomerSelectedForAssignment} // Use the new assignment handler
-        onCustomerRegister={handleCustomerSelectedForAssignment} // Use same handler for register
+        onCustomerSelect={handleCustomerSelectedForAssignment}
+        onCustomerRegister={handleCustomerSelectedForAssignment}
       />
     </>
   );

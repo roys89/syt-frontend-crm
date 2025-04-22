@@ -1,4 +1,5 @@
 // src/components/users/UserForm.js
+import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -30,8 +31,23 @@ const UserForm = () => {
     if (id) {
       setIsEditMode(true);
       fetchUser(id);
+    } else {
+      // Ensure default permissions are set for 'user' role when adding new
+      if (formData.role === 'user') {
+        setFormData(prev => ({ 
+          ...prev, 
+          permissions: { 
+            canAddLead: false, 
+            canRemoveLead: false, 
+            canViewLeads: true, 
+            canAddUser: false, 
+            canRemoveUser: false, 
+            bookings: false 
+          }
+        }));
+      }
     }
-  }, [id]);
+  }, [id]); // Removed formData.role dependency to avoid potential loop
 
   const fetchUser = async (userId) => {
     try {
@@ -40,18 +56,28 @@ const UserForm = () => {
       const user = response.data;
       
       setFormData({
-        name: user.name,
-        email: user.email,
-        password: '', // Don't populate password field for security
-        role: user.role,
-        permissions: user.permissions,
+        name: user.name || '',
+        email: user.email || '',
+        password: '', 
+        role: user.role || 'user',
+        // Ensure permissions object exists and provide defaults
+        permissions: {
+          canAddLead: user.permissions?.canAddLead || false,
+          canRemoveLead: user.permissions?.canRemoveLead || false,
+          canViewLeads: user.permissions?.canViewLeads === undefined ? true : user.permissions.canViewLeads, // Default view to true if undefined
+          canAddUser: user.permissions?.canAddUser || false,
+          canRemoveUser: user.permissions?.canRemoveUser || false,
+          bookings: user.permissions?.bookings || false
+        },
         employeeId: user.employeeId || ''
       });
       
-      setIsLoading(false);
     } catch (error) {
-      toast.error('Failed to fetch user details');
+      console.error("Failed to fetch user details:", error);
+      toast.error(`Failed to fetch user details: ${error.message || 'Server error'}`);
       navigate('/users');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -72,18 +98,47 @@ const UserForm = () => {
     });
   };
 
+  // When role changes, update relevant permissions
   const onRoleChange = (e) => {
     const newRole = e.target.value;
+    let newPermissions = { ...formData.permissions };
+
+    if (newRole === 'admin') {
+      // Admin gets all permissions
+      newPermissions = {
+        canAddLead: true,
+        canRemoveLead: true,
+        canViewLeads: true,
+        canAddUser: true,
+        canRemoveUser: true,
+        bookings: true,
+      };
+    } else if (newRole === 'manager') {
+       // Manager permissions (example)
+        newPermissions = {
+            ...newPermissions, // Keep existing non-admin perms like bookings
+            canAddLead: true,
+            canRemoveLead: true,
+            canViewLeads: true,
+            canAddUser: false, // Managers might not add other users
+            canRemoveUser: false,
+        };
+    } else { // 'user' role
+        // Reset non-admin specific permissions (or set defaults)
+        newPermissions = {
+            ...newPermissions, // Keep existing non-admin perms like bookings
+            canAddLead: false, // Users typically don't add leads by default
+            canRemoveLead: false,
+            canViewLeads: true, // Users can typically view leads
+            canAddUser: false,
+            canRemoveUser: false,
+        };
+    }
+
     setFormData({
       ...formData,
       role: newRole,
-      permissions: {
-        ...formData.permissions,
-        canAddUser: newRole === 'admin',
-        canRemoveUser: newRole === 'admin',
-        canAddLead: newRole === 'admin' ? true : formData.permissions.canAddLead,
-        canRemoveLead: newRole === 'admin' ? true : formData.permissions.canRemoveLead
-      }
+      permissions: newPermissions
     });
   };
 
@@ -93,7 +148,6 @@ const UserForm = () => {
     
     try {
       if (isEditMode) {
-        // If editing, don't send empty password
         const updateData = { ...formData };
         if (!updateData.password) {
           delete updateData.password;
@@ -102,13 +156,20 @@ const UserForm = () => {
         await userService.updateUser(id, updateData);
         toast.success('User updated successfully');
       } else {
+        if (!formData.password) {
+            toast.error('Password is required for new users.');
+            setIsLoading(false);
+            return;
+        }
         await userService.createUser(formData);
         toast.success('User created successfully');
       }
       
       navigate('/users');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'An error occurred');
+      console.error("Error saving user:", error);
+      toast.error(error.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} user.`);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -116,32 +177,66 @@ const UserForm = () => {
   if (isLoading && isEditMode) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#13804e]"></div>
       </div>
     );
   }
 
+  const renderPermissionCheckbox = (id, label, description, disabled = false) => (
+    <div className="relative flex items-start">
+      <div className="flex h-5 items-center">
+        <input
+          id={id}
+          name={id}
+          type="checkbox"
+          disabled={disabled}
+          className={`h-4 w-4 rounded border-[#093923]/30 text-[#13804e] focus:ring-[#13804e]/50 transition ease duration-200 ${disabled ? 'bg-gray-200 cursor-not-allowed' : ''}`}
+          checked={formData.permissions[id]}
+          onChange={onPermissionChange}
+          aria-describedby={`${id}-description`}
+        />
+      </div>
+      <div className="ml-3 text-sm">
+        <label htmlFor={id} className={`font-medium ${disabled ? 'text-[#093923]/40' : 'text-[#093923]'}`}>
+          {label}
+        </label>
+        <p id={`${id}-description`} className={`text-xs ${disabled ? 'text-[#093923]/30' : 'text-[#13804e]/80'}`}>
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+
   return (
+    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      {/* Header */}
+      <div className="mb-8 flex justify-between items-center">
     <div>
-      <div className="md:grid md:grid-cols-3 md:gap-6">
-        <div className="md:col-span-1">
-          <div className="px-4 sm:px-0">
-            <h3 className="text-lg font-medium leading-6 text-gray-900">{isEditMode ? 'Edit User' : 'Add New User'}</h3>
-            <p className="mt-1 text-sm text-gray-600">
+          <h1 className="text-2xl font-bold text-[#093923]">{isEditMode ? 'Edit User' : 'Add New User'}</h1>
+          <p className="mt-1 text-sm text-[#13804e]">
               {isEditMode
-                ? 'Update user information and permissions'
-                : 'Create a new user account with appropriate permissions'}
+              ? 'Update user information and permissions.'
+              : 'Create a new user account with appropriate role and permissions.'}
             </p>
-          </div>
         </div>
-        <div className="mt-5 md:mt-0 md:col-span-2">
-          <form onSubmit={onSubmit}>
-            <div className="shadow overflow-hidden sm:rounded-md">
-              <div className="px-4 py-5 bg-white sm:p-6">
-                <div className="grid grid-cols-6 gap-6">
-                  <div className="col-span-6 sm:col-span-3">
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                      Full Name
+        <button
+          type="button"
+          onClick={() => navigate('/users')}
+          className="inline-flex items-center px-4 py-2 border border-[#093923]/20 rounded-lg shadow-sm text-sm font-medium text-[#093923] bg-white hover:bg-[#093923]/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]/20 transition-all ease duration-200"
+        >
+          <ArrowUturnLeftIcon className="-ml-1 mr-2 h-5 w-5 text-[#093923]/80" aria-hidden="true" />
+          Back to Users
+        </button>
+      </div>
+
+      <form onSubmit={onSubmit} className="space-y-8">
+        {/* User Details Card */}
+        <div className="p-6 bg-white shadow-lg rounded-xl border border-[#093923]/10">
+          <h3 className="text-lg font-semibold leading-6 text-[#093923] mb-6 border-b border-[#093923]/10 pb-3">User Details</h3>
+          <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            <div className="sm:col-span-3">
+              <label htmlFor="name" className="block text-sm font-medium text-[#093923] mb-1">
+                Full Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -149,15 +244,15 @@ const UserForm = () => {
                       id="name"
                       autoComplete="name"
                       required
-                      className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                className="block w-full px-3 py-2 border border-[#093923]/20 focus:ring-2 focus:ring-[#13804e]/30 focus:border-[#13804e] sm:text-sm rounded-lg transition-all ease duration-150 shadow-sm"
                       value={formData.name}
                       onChange={onChange}
                     />
                   </div>
 
-                  <div className="col-span-6 sm:col-span-3">
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                      Email Address
+            <div className="sm:col-span-3">
+              <label htmlFor="email" className="block text-sm font-medium text-[#093923] mb-1">
+                Email Address <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
@@ -165,170 +260,102 @@ const UserForm = () => {
                       id="email"
                       autoComplete="email"
                       required
-                      className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                className="block w-full px-3 py-2 border border-[#093923]/20 focus:ring-2 focus:ring-[#13804e]/30 focus:border-[#13804e] sm:text-sm rounded-lg transition-all ease duration-150 shadow-sm"
                       value={formData.email}
                       onChange={onChange}
                     />
                   </div>
 
-                  <div className="col-span-6 sm:col-span-3">
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                      Password {isEditMode && '(Leave blank to keep current)'}
+            <div className="sm:col-span-3">
+              <label htmlFor="password" className="block text-sm font-medium text-[#093923] mb-1">
+                Password {isEditMode ? '(Leave blank to keep current)' : <span className="text-red-500">*</span>}
                     </label>
                     <input
                       type="password"
                       name="password"
                       id="password"
                       autoComplete="new-password"
-                      className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                className="block w-full px-3 py-2 border border-[#093923]/20 focus:ring-2 focus:ring-[#13804e]/30 focus:border-[#13804e] sm:text-sm rounded-lg transition-all ease duration-150 shadow-sm"
                       value={formData.password}
                       onChange={onChange}
                       required={!isEditMode}
                     />
                   </div>
 
-                  {/* Employee ID Field (Conditional) */}
-                  {formData.role === 'user' && (
-                    <div className="col-span-6 sm:col-span-3">
-                      <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700">
-                        Employee ID (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        name="employeeId"
-                        id="employeeId"
-                        autoComplete="off"
-                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        value={formData.employeeId}
-                        onChange={onChange}
-                      />
-                    </div>
-                  )}
-
-                  <div className="col-span-6 sm:col-span-3">
-                    <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                      Role
+            <div className="sm:col-span-3">
+              <label htmlFor="employeeId" className="block text-sm font-medium text-[#093923] mb-1">
+                Employee ID (Optional)
+              </label>
+              <input
+                type="text"
+                name="employeeId"
+                id="employeeId"
+                autoComplete="off"
+                className="block w-full px-3 py-2 border border-[#093923]/20 focus:ring-2 focus:ring-[#13804e]/30 focus:border-[#13804e] sm:text-sm rounded-lg transition-all ease duration-150 shadow-sm"
+                value={formData.employeeId}
+                onChange={onChange}
+              />
+            </div>
+            
+             <div className="sm:col-span-3">
+              <label htmlFor="role" className="block text-sm font-medium text-[#093923] mb-1">
+                Role <span className="text-red-500">*</span>
                     </label>
                     <select
                       id="role"
                       name="role"
-                      autoComplete="role"
-                      className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                required
+                className="block w-full pl-3 pr-10 py-2 border border-[#093923]/20 focus:ring-2 focus:ring-[#13804e]/30 focus:border-[#13804e] sm:text-sm rounded-lg transition-all ease duration-150 shadow-sm bg-white capitalize"
                       value={formData.role}
                       onChange={onRoleChange}
                     >
                       <option value="user">User</option>
-                      <option value="manager">Manager</option>
+                <option value="manager">Manager</option>
                       <option value="admin">Admin</option>
                     </select>
                   </div>
-
-                  <div className="col-span-6">
-                    <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">Permissions</h3>
-                    <div className="mt-4 space-y-4">
-                      <div className="flex items-start">
-                        <div className="flex items-center h-5">
-                          <input
-                            id="canAddLead"
-                            name="canAddLead"
-                            type="checkbox"
-                            className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                            checked={formData.permissions.canAddLead}
-                            onChange={onPermissionChange}
-                            disabled={formData.role === 'admin'} // Admin always has this permission
-                          />
-                        </div>
-                        <div className="ml-3 text-sm">
-                          <label htmlFor="canAddLead" className="font-medium text-gray-700">
-                            Can Add Lead
-                          </label>
-                          <p className="text-gray-500">Allow user to add new leads to the system</p>
                         </div>
                       </div>
 
-                      <div className="flex items-start">
-                        <div className="flex items-center h-5">
-                          <input
-                            id="canRemoveLead"
-                            name="canRemoveLead"
-                            type="checkbox"
-                            className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                            checked={formData.permissions.canRemoveLead}
-                            onChange={onPermissionChange}
-                            disabled={formData.role === 'admin'} // Admin always has this permission
-                          />
-                        </div>
-                        <div className="ml-3 text-sm">
-                          <label htmlFor="canRemoveLead" className="font-medium text-gray-700">
-                            Can Remove Lead
-                          </label>
-                          <p className="text-gray-500">Allow user to remove leads from the system</p>
+        {/* Permissions Card */}
+        <div className="p-6 bg-white shadow-lg rounded-xl border border-[#093923]/10">
+          <h3 className="text-lg font-semibold leading-6 text-[#093923] mb-6 border-b border-[#093923]/10 pb-3">Permissions</h3>
+          <div className="space-y-5">
+            {renderPermissionCheckbox('canViewLeads', 'Can View Leads', 'Allow user to view leads in the system.', formData.role === 'admin')}
+            {renderPermissionCheckbox('canAddLead', 'Can Add Lead', 'Allow user to add new leads to the system.', formData.role === 'admin')}
+            {renderPermissionCheckbox('canRemoveLead', 'Can Remove Lead', 'Allow user to remove leads from the system.', formData.role === 'admin')}
+            {renderPermissionCheckbox('bookings', 'Bookings Permission', 'Allow user to access and manage bookings (Flights, Hotels, etc.).', formData.role === 'admin')}
+            {renderPermissionCheckbox('canAddUser', 'Can Add Users', 'Allow user to create new user accounts (Admin only).', true)} {/* Always disabled unless admin */}
+            {renderPermissionCheckbox('canRemoveUser', 'Can Remove Users', 'Allow user to remove user accounts (Admin only).', true)} {/* Always disabled unless admin */}
                         </div>
                       </div>
 
-                      <div className="flex items-start">
-                        <div className="flex items-center h-5">
-                          <input
-                            id="canViewLeads"
-                            name="canViewLeads"
-                            type="checkbox"
-                            className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                            checked={formData.permissions.canViewLeads}
-                            onChange={onPermissionChange}
-                          />
-                        </div>
-                        <div className="ml-3 text-sm">
-                          <label htmlFor="canViewLeads" className="font-medium text-gray-700">
-                            Can View Leads
-                          </label>
-                          <p className="text-gray-500">Allow user to view leads in the system</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start">
-                        <div className="flex items-center h-5">
-                          <input
-                            id="bookings"
-                            name="bookings"
-                            type="checkbox"
-                            className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                            checked={formData.permissions.bookings}
-                            onChange={onPermissionChange}
-                            disabled={formData.role === 'admin'} // Admin always has this permission
-                          />
-                        </div>
-                        <div className="ml-3 text-sm">
-                          <label htmlFor="bookings" className="font-medium text-gray-700">
-                            Bookings Permission
-                          </label>
-                          <p className="text-gray-500">Allow user to access and manage bookings (Flights, Hotels, etc.)</p>
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="px-4 py-3 bg-gray-50 text-right sm:px-6">
+        {/* Action Buttons */}
+        <div className="flex justify-end space-x-3 pt-5">
                 <button
                   type="button"
-                  className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-3"
                   onClick={() => navigate('/users')}
+            className="px-4 py-2 border border-[#093923]/20 rounded-lg shadow-sm text-sm font-medium text-[#093923] bg-white hover:bg-[#093923]/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]/20 transition-all ease duration-200"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   disabled={isLoading}
-                >
-                  {isLoading ? 'Saving...' : isEditMode ? 'Update' : 'Create'}
+            className={`inline-flex items-center justify-center px-6 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${isLoading ? 'bg-[#093923]/50 cursor-not-allowed' : 'bg-[#093923] hover:bg-[#022316]'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]/50 transition-all ease duration-200`}
+          >
+            {isLoading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Saving...
+              </>
+            ) : isEditMode ? 'Update User' : 'Create User'}
                 </button>
-              </div>
-            </div>
-          </form>
         </div>
-      </div>
+      </form>
     </div>
   );
 };

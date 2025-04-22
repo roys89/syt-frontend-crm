@@ -6,16 +6,16 @@ const BookingOption = ({ title, description, icon: Icon, color, path }) => {
   return (
     <Link 
       to={path}
-      className="relative block p-8 overflow-hidden border border-gray-100 rounded-lg transition-all hover:shadow-lg hover:border-gray-200"
+      className="relative block p-6 overflow-hidden border border-[#093923]/10 rounded-xl shadow-lg transition-all hover:shadow-xl hover:border-[#093923]/20 bg-white"
     >
-      <span className={`absolute inset-x-0 bottom-0 h-2 ${color}`}></span>
-      <div className="flex items-center gap-4">
-        <div className={`p-3 text-white ${color} rounded-lg`}>
-          <Icon className="w-8 h-8" />
+      <span className={`absolute inset-x-0 bottom-0 h-1.5 ${color}`}></span>
+      <div className="flex items-start gap-4 sm:gap-6">
+        <div className={`p-3 text-white ${color} rounded-lg shadow-sm`}>
+          <Icon className="w-7 h-7 sm:w-8 sm:h-8" />
         </div>
-        <div>
-          <h5 className="text-xl font-bold text-gray-900">{title}</h5>
-          <p className="mt-1 text-xs font-medium text-gray-600">{description}</p>
+        <div className="flex-1">
+          <h5 className="text-lg sm:text-xl font-semibold text-[#093923]">{title}</h5>
+          <p className="mt-1 text-sm text-[#093923]/80">{description}</p>
         </div>
       </div>
     </Link>
@@ -45,7 +45,7 @@ const CreateBookingPage = () => {
       title: 'Activity Booking',
       description: 'Book tours, attractions, and experiences',
       icon: MapIcon,
-      color: 'bg-green-600',
+      color: 'bg-[#13804e]',
       path: '/bookings/activity'
     },
     {
@@ -60,9 +60,9 @@ const CreateBookingPage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-5xl mx-auto">
-        <div className="mb-10">
-          <h1 className="text-3xl font-bold text-gray-900">Create Booking</h1>
-          <p className="mt-2 text-lg text-gray-600">
+        <div className="mb-10 border-b border-[#093923]/10 pb-5">
+          <h1 className="text-2xl font-bold text-[#093923]">Create Booking</h1>
+          <p className="mt-1 text-sm text-[#093923]/70">
             Choose the type of booking you want to create for your customer
           </p>
         </div>
@@ -73,16 +73,16 @@ const CreateBookingPage = () => {
           ))}
         </div>
 
-        <div className="mt-12 bg-indigo-50 p-6 rounded-lg">
-          <h2 className="text-xl font-semibold text-indigo-900">Create a Complete Itinerary</h2>
-          <p className="mt-2 text-indigo-700">
+        <div className="mt-12 bg-[#eef7f2] p-6 rounded-xl border border-[#13804e]/20 shadow-sm">
+          <h2 className="text-lg font-semibold text-[#093923]">Create a Complete Itinerary</h2>
+          <p className="mt-2 text-sm text-[#093923]/80">
             Need to create a multi-day itinerary with various bookings? Create a comprehensive travel plan with our
             itinerary booking tool.
           </p>
           <div className="mt-4">
             <Link
               to="/bookings/itinerary"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-[#093923] hover:bg-[#022316] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]/50 transition-all ease duration-200"
             >
               Create Itinerary
             </Link>
