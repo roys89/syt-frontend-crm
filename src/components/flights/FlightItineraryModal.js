@@ -3,6 +3,7 @@ import { AlertTriangle, Briefcase, Calendar, ChevronDown, ChevronUp, Clock, Help
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import bookingService from '../../services/bookingService';
+import FlightAncillarySelectionModal from './FlightAncillarySelectionModal';
 import PassengerInfoModal from './PassengerInfoModal';
 
 const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
@@ -14,27 +15,64 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
   const [priceDetails, setPriceDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedSegment, setExpandedSegment] = useState(null);
+  const [passengerFormData, setPassengerFormData] = useState(null);
+  
+  // --- New State for Ancillary Modal ---
+  const [showAncillaryModal, setShowAncillaryModal] = useState(false);
+  const [dataForAncillaryModal, setDataForAncillaryModal] = useState(null);
+  const [confirmedAncillaries, setConfirmedAncillaries] = useState(null);
+  const [ancillariesConfirmed, setAncillariesConfirmed] = useState(false);
+  const [ancillaryCost, setAncillaryCost] = useState(0);
+  // ------------------------------------
 
   const handleBookNow = async () => {
+    // Ensure passengers are allocated AND ancillaries are confirmed before booking
     if (!isAllocated) {
+        toast.error("Please allocate passengers first.");
+        setShowPassengerInfo(true); // Re-open passenger info if not allocated
+        return;
+    }
+    if (!ancillariesConfirmed) {
+        toast.error("Please confirm seat and ancillary selections.");
+        // Ensure data is available before potentially reopening ancillary modal
+        if (passengerFormData) { // Check if we have data from initial success
+            setDataForAncillaryModal(passengerFormData);
+            setShowAncillaryModal(true); 
+        } else {
+            toast.error("Passenger details missing, please add them first.");
       setShowPassengerInfo(true);
+        }
       return;
     }
 
     try {
       setIsLoading(true);
+      // Use the latest traceId and itineraryCode (potentially updated by recheck/allocation)
+      const traceIdToUse = priceDetails?.traceIdDetails?.traceId || itineraryDetails?.data?.results?.traceId;
+      const itineraryCodeToUse = priceDetails?.itineraryCode || itineraryDetails?.data?.results?.itineraryCode;
+
+      // ** TODO: Before booking, potentially make an API call to SAVE confirmedAncillaries **
+      // This depends on backend design - ancillaries might be saved implicitly during booking
+      // or require a separate save step.
+      if (confirmedAncillaries) {
+          console.log("Simulating saving ancillaries before final booking:", confirmedAncillaries);
+          // Example: await bookingService.saveAncillarySelections(traceIdToUse, itineraryCodeToUse, confirmedAncillaries);
+      }
+
       const response = await bookingService.bookFlight({
         provider: 'TC',
-        traceId: priceDetails?.traceIdDetails?.traceId || itineraryDetails?.data?.results?.traceId,
-        itineraryCode: priceDetails?.itineraryCode || itineraryDetails?.data?.results?.itineraryCode
+        traceId: traceIdToUse,
+        itineraryCode: itineraryCodeToUse
       });
 
       if (response.success) {
         toast.success('Flight booked successfully!');
-        onClose();
-        if (onBookNow) {
-          onBookNow(response.data);
+        // ** CRITICAL: This calls the page's handleBookingSuccess **
+        if (onBookNow) { // Check if the prop exists
+          console.log("!!! FlightItineraryModal: Calling onBookNow prop with data:", response.data); // Add log
+          onBookNow(response.data); // Pass the booking response data
         }
+        // onClose(); // Let the page handle closing/state change
       } else {
         throw new Error(response.message || 'Failed to book flight');
       }
@@ -47,17 +85,156 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
   };
 
   const handlePassengerSuccess = (response) => {
-    setIsAllocated(true);
+    // 'response' is the formData collected from PassengerInfoModal
+    console.log("handlePassengerSuccess received data:", response); 
+    setIsAllocated(true); // Mark as allocated once passenger info is submitted
+    setShowPassengerInfo(false); // Close passenger modal
+    setPassengerFormData(response); // Store passenger form data for general use
+
+    // Price update logic (if response contains recheck info - adjust as needed)
     if (response.recheck) {
+      console.log("Passenger success response included recheck data:", response.recheck);
       setPriceDetails(response.recheck);
-      // Update itineraryDetails with new price if changed
       if (response.recheck.isPriceChanged) {
-        itineraryDetails.data.results.totalAmount = response.recheck.totalAmount;
-        itineraryDetails.data.results.baseFare = response.recheck.baseFare;
-        itineraryDetails.data.results.taxAndSurcharge = response.recheck.taxAndSurcharge;
+        // Update overall itinerary state if necessary (better handled via prop updates)
+        console.warn("Price changed during passenger info step - UI might need update.");
       }
     }
+
+    // --- Check if any ancillary options exist before opening modal ---
+    let hasAnyAncillaries = false;
+    try {
+      const items = itineraryDetails?.data?.results?.itineraryItems;
+      if (items && Array.isArray(items)) {
+        hasAnyAncillaries = items.some(item => {
+          const ssr = item?.itemFlight?.ssr;
+          const hasSeats = ssr?.seat?.some(s => s?.rowSeats?.length > 0);
+          const hasBaggage = ssr?.baggage?.some(b => b?.options?.length > 0);
+          const hasMeals = ssr?.meal?.some(m => m?.options?.length > 0);
+          return hasSeats || hasBaggage || hasMeals;
+        });
+      }
+    } catch (e) {
+      console.error("Error checking for ancillaries:", e);
+      hasAnyAncillaries = true; // Default to showing modal on error
+    }
+
+    if (hasAnyAncillaries) {
+      console.log("Ancillary options found, setting data and opening modal.");
+      setDataForAncillaryModal(response); // Set data specifically for the modal
+      setShowAncillaryModal(true); // Now open the modal
+    } else {
+      console.log("No ancillary options found, proceeding to allocate/recheck.");
+      // If no ancillaries, finalize allocation/recheck immediately
+      const finalPassengerData = Object.entries(response).map(([paxId, data]) => ({
+        ...data,
+        // Determine lead pax based on data structure or assume first is lead
+        isLeadPax: passengerFormData ? (passengerFormData[paxId]?.isLeadPax || paxId === '1') : paxId === '1',
+        ssr: { seat: [], baggage: [], meal: [] } // Empty SSR
+      }));
+      handleAllocateAndRecheck(finalPassengerData); 
+      setAncillariesConfirmed(true); // Mark as confirmed (no ancillaries needed)
+    }
+    // ----------------------------------------------------------------
   };
+
+  // --- New Handler for Ancillary Success ---
+  const handleAncillarySuccess = async (passengerDataWithSsr) => {
+      console.log("Ancillaries selected, final passenger data:", passengerDataWithSsr);
+      setConfirmedAncillaries(passengerDataWithSsr); // Store the final combined data
+
+      // Calculate cost from selections (passengerDataWithSsr now includes ssr)
+      let currentAncillaryCost = 0;
+      passengerDataWithSsr.forEach(pax => {
+          pax.ssr?.seat?.forEach(seat => { currentAncillaryCost += seat.amt || 0; });
+          pax.ssr?.baggage?.forEach(bag => { currentAncillaryCost += bag.amt || 0; });
+          pax.ssr?.meal?.forEach(meal => { currentAncillaryCost += meal.amt || 0; });
+      });
+      console.log("Calculated ancillary cost:", currentAncillaryCost);
+      setAncillaryCost(currentAncillaryCost);
+
+      setAncillariesConfirmed(true);
+      setShowAncillaryModal(false);
+      setDataForAncillaryModal(null); // Clear modal-specific data
+
+      // Call allocate/recheck with the final combined passenger+ssr data
+      handleAllocateAndRecheck(passengerDataWithSsr);
+
+      toast.success("Seats & Extras confirmed. Ready to book.");
+  };
+  // ----------------------------------------
+
+  // --- Helper function to handle allocation and recheck --- 
+  const handleAllocateAndRecheck = async (passengerDataWithSsr) => {
+      setIsLoading(true);
+      try {
+          const traceIdToUse = priceDetails?.traceIdDetails?.traceId || itineraryDetails?.data?.results?.traceId;
+          const itineraryCodeToUse = priceDetails?.itineraryCode || itineraryDetails?.data?.results?.itineraryCode;
+
+          if (!traceIdToUse || !itineraryCodeToUse) {
+              throw new Error("Missing Trace ID or Itinerary Code for allocation.");
+          }
+
+          // Format for bookingArray structure expected by backend
+          const bookingArray = [{
+              traceId: traceIdToUse,
+              passengers: passengerDataWithSsr // Pass the final data with SSR included
+          }];
+
+          console.log("Calling allocatePassengers with data:", JSON.stringify(bookingArray, null, 2));
+
+          // Call API to allocate passengers (now includes SSR)
+          const allocateResponse = await bookingService.allocatePassengers({
+              provider: 'TC',
+              bookingArray,
+              itineraryCode: itineraryCodeToUse
+          });
+
+          console.log("Allocate response:", allocateResponse);
+          if (!allocateResponse.success) {
+              throw new Error(allocateResponse.message || 'Failed to allocate passengers');
+          }
+
+          // Call rate recheck API using potentially updated traceId from allocation
+          const recheckTraceId = allocateResponse.data?.traceId || traceIdToUse;
+          const recheckItineraryCode = allocateResponse.data?.itineraryCode || itineraryCodeToUse;
+
+          console.log(`Rechecking rate with TraceID: ${recheckTraceId}, ItineraryCode: ${recheckItineraryCode}`);
+
+          const recheckResponse = await bookingService.recheckRate({
+              provider: 'TC',
+              traceId: recheckTraceId,
+              itineraryCode: recheckItineraryCode
+          });
+
+           console.log("Recheck response:", recheckResponse);
+          if (!recheckResponse.success) {
+             // Handle recheck failure? Maybe allow booking anyway but show warning?
+             toast.error(recheckResponse.message || 'Failed to recheck rate after allocation, proceeding with previous price.');
+             // Keep existing priceDetails if recheck fails?
+          } else {
+             // Update price details state with the latest info
+             setPriceDetails(recheckResponse.data);
+             // Show price change alert if needed
+             if (recheckResponse.data.isPriceChanged || recheckResponse.data.isBaggageChanged) {
+                 const priceDiff = (recheckResponse.data.totalAmount || 0) - (recheckResponse.data.previousTotalAmount || 0);
+                 const message = `Price/Baggage updated. ${priceDiff >= 0 ? 'Increase' : 'Decrease'} of ₹${Math.abs(priceDiff).toLocaleString()}. Previous: ₹${recheckResponse.data.previousTotalAmount?.toLocaleString()}, New: ₹${recheckResponse.data.totalAmount?.toLocaleString()}.`;
+                 toast.warning(message, { duration: 6000 }); // Longer duration for important info
+             }
+          }
+
+          setIsAllocated(true); // Mark allocation as successful
+
+      } catch (error) {
+          console.error('Error in passenger allocation/recheck process:', error);
+          toast.error(error.message || 'Failed to process passenger/ancillary information');
+          setIsAllocated(false); // Allocation failed
+          setAncillariesConfirmed(false); // Reset ancillary confirmation
+      } finally {
+          setIsLoading(false);
+      }
+  };
+  // ----------------------------------------
 
   const formatTime = (timeStr) => {
     if (!timeStr) return 'N/A';
@@ -109,9 +286,13 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
   const getFlight = (item) => item?.itemFlight || {};
   const getSegments = (itemFlight, legIndex = 0) => {
     if (flightType === 'INTERNATIONAL_ROUND_TRIP') {
-      return itemFlight?.segments?.[legIndex] || []; // 0 for outbound, 1 for inbound
+      // International SSR data might be structured differently, need to check API response
+      // For now, assume segments[legIndex] holds the main flight details
+      return itemFlight?.segments?.[legIndex] || [];
     }
-    // For ONE_WAY and DOMESTIC_ROUND_TRIP, segments are always in itemFlight.segments[0]
+    // For ONE_WAY and DOMESTIC_ROUND_TRIP, segments are often in itemFlight.segments[0]
+    // However, the SSR data (seat/meal/baggage) might be structured per leg (origin-destination)
+    // Let's keep returning the main segment info here, ancillary modal handles SSR structure.
     return itemFlight?.segments?.[0] || [];
   };
 
@@ -236,7 +417,7 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
                       </div>
                       <div>
                         <p className="font-medium">Cabin Class:</p>
-                        <p>{segment.al.fC}</p>
+                        <p>{segment.al.fC || 'N/A'}</p>
                       </div>
                       <div>
                         <p className="font-medium">Aircraft:</p>
@@ -258,6 +439,13 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
       </div>
     );
   };
+
+  // --- New Close Handler for Ancillary Modal ---
+  const closeAncillaryModal = () => {
+    setShowAncillaryModal(false);
+    setDataForAncillaryModal(null); // Clear the specific data when closing
+  };
+  // -------------------------------------------
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
@@ -412,11 +600,20 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
                     </div>
                   )}
                   
+                  {/* Display Ancillary Cost if selected */}
+                  {ancillaryCost > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Seats & Extras</span>
+                      <span className="font-medium">₹{ancillaryCost.toLocaleString()}</span>
+                    </div>
+                  )}
+                  
                   <div className="border-t pt-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-900 font-semibold">Total Amount</span>
+                      <span className="text-gray-900 font-semibold">Grand Total</span>
                       <span className="text-lg font-semibold text-blue-600">
-                        ₹{results?.totalAmount?.toLocaleString()}
+                        {/* Add ancillary cost to total */}
+                        ₹{(results?.totalAmount + ancillaryCost).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -542,7 +739,7 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
                 </svg>
                 Booking...
               </span>
-            ) : isAllocated ? 'Book Now' : 'Allocate Passenger'}
+            ) : !isAllocated ? 'Allocate Passenger' : (ancillariesConfirmed ? 'Book Now' : 'Confirm Seats & Extras')}
           </button>
         </div>
       </div>
@@ -551,15 +748,28 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
         isOpen={showPassengerInfo}
         onClose={() => setShowPassengerInfo(false)}
         itineraryDetails={{ 
+          // Pass necessary details for passenger form
           ...results,
-          paxCount: {
-            adults: results?.adultCount || 1,
-            children: results?.childCount || 0,
-            infants: results?.infantCount || 0
-          }
+          adultCount: results?.adultCount || 0,
+          childCount: results?.childCount || 0,
+          infantCount: results?.infantCount || 0,
+          // Ensure paxRules are passed correctly
+          paxRules: results?.paxRules
         }}
-        onSuccess={handlePassengerSuccess}
+        onSuccess={handlePassengerSuccess} // Opens Ancillary modal on success
       />
+
+      {/* --- Render Ancillary Modal --- */} 
+       <FlightAncillarySelectionModal
+        isOpen={showAncillaryModal}
+        onClose={closeAncillaryModal} // Use the new handler
+        itineraryDetails={itineraryDetails} // Pass the full itinerary details containing ssr
+        priceDetails={priceDetails} // Pass rechecked price details if needed
+        passengerFormData={dataForAncillaryModal} // Pass the specific data
+        onSuccess={handleAncillarySuccess} // Callback for when selections are confirmed
+      />
+      {/* ------------------------------ */}
+
     </div>
   );
 };

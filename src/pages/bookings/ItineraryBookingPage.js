@@ -1,5 +1,5 @@
     // src/pages/bookings/ItineraryBookingPage.js
-import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, PencilIcon, UserPlusIcon } from '@heroicons/react/24/outline';
 import { Button, Checkbox, ConfigProvider, DatePicker, Input } from 'antd';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import AirportSelector from '../../components/booking/AirportSelector';
 import CustomerAssignmentModal from '../../components/booking/CustomerAssignmentModal';
 import RoomArrangementModal from '../../components/booking/RoomArrangementModal';
+import CrmItineraryDisplay from '../../components/itinerary/display/CrmItineraryDisplay';
 import { AuthContext } from '../../context/AuthContext';
 import bookingService from '../../services/bookingService';
 
@@ -1130,112 +1131,200 @@ const ItineraryBookingPage = () => {
 
   // Render the main component structure
   return (
-    <ConfigProvider
-      theme={{
-        ...antTheme,
-        components: {
-          ...antTheme.components,
-          Select: {
-            ...antTheme.components.Select,
-            controlHeight: 40,
-            controlHeightLG: 40,
-            controlHeightSM: 40,
-          }
-        }
-      }}
-    >
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-5xl mx-auto">
-                   {/* Header, Progress, Form Structure */}
-          <div className="mb-10 border-b border-[${borderColor}] pb-5">
-            <h1 className={`text-2xl font-bold text-[${textColor}]`}>Create Itinerary Inquiry</h1>
-            <p className={`mt-1 text-sm text-[${textColorLight}]`}>Fill in the details to create a new itinerary inquiry.</p>
-      </div>
-      {/* Progress bar */}
-          <div className="mb-10">
-        <div className="flex items-center justify-between mb-2">
-          {steps.map((step, idx) => (
-            <div 
-              key={step.id}
-              className={`flex flex-col items-center ${idx < steps.length - 1 ? 'w-full' : ''}`}
-            >
-              <div 
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all duration-300
-                      ${idx < currentStep ? `bg-[${primaryColor}] text-white border-[${primaryColor}]` : // Completed: Dark Green
-                        idx === currentStep ? `bg-[${accentColor}] text-[${primaryColor}] border-[${primaryColor}]` : // Current: Light Green bg, Dark Green text/border
-                        `bg-gray-100 text-gray-400 border-gray-200`}`} // Upcoming: Gray
-              >
-                {idx + 1}
-              </div>
-              <span 
-                    className={`text-xs mt-1 text-center transition-colors duration-300
-                      ${idx <= currentStep ? `text-[${primaryColor}] font-medium` : 'text-gray-500'}`}
-              >
-                {step.title}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="relative pt-1">
-              <div className={`overflow-hidden h-2 text-xs flex rounded-full bg-[${borderColor}]`}>
-            <div 
-                  className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-[${primaryColor}] transition-all duration-500 ease-out rounded-full`}
-              style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
-            ></div>
-          </div>
-        </div>
-      </div>
-          <div className={`bg-white rounded-xl shadow-lg border border-[${borderColor}] p-6 sm:p-8 mb-8`}>
-            <form onSubmit={handleSubmit}>
-              <div className="mb-8 min-h-[350px]">
-            {renderStepContent()}
-          </div>
-              
-          {/* Navigation buttons */}
-              <div className={`mt-8 pt-6 border-t border-[${borderColor}] flex justify-between`}>
-                <Button
-              onClick={handleBack}
-                                    disabled={currentStep === 0 || isSubmittingInquiry || isCreatingItinerary}
-                  icon={<ChevronLeftIcon className="h-5 w-5 mr-2" />}
-            >
-              Back
-                </Button>
-                
-            {currentStep < steps.length - 1 ? (
-                  <Button
-                    type="primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleNext();
-                }}
-                                    disabled={isSubmittingInquiry || isCreatingItinerary}
-              >
-                Next
-                    <ChevronRightIcon className="ml-2 h-5 w-5" />
-                  </Button>
-            ) : (
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                                    disabled={isSubmittingInquiry || isCreatingItinerary}
-                    loading={isSubmittingInquiry}
-            >
-                                    {isSubmittingInquiry ? 'Submitting Inquiry...' : 'Submit Inquiry'}
-                  </Button>
-            )}
-          </div>
-        </form>
-      </div>
-
-          {/* Modals */}
-      <RoomArrangementModal 
-        isOpen={isRoomModalOpen}
-        onClose={() => setIsRoomModalOpen(false)}
-        initialRooms={formData.travelersDetails.rooms}
-        onSave={handleSaveRooms}
-      />
+    <>
+    {(() => {
+          // Check loading state first
+          if (isLoadingItinerary) {
+             return (
+                 <div className="flex justify-center items-center h-screen">
+                     <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-500"></div>
+                     <p className="ml-4 text-lg text-gray-600">Loading Itinerary Details...</p>
                  </div>
-      </div>
+             );
+          }
+          
+          // Check for loading error
+          if (loadItineraryError) {
+              return (
+                 <div className="max-w-3xl mx-auto px-4 py-12 text-center">
+                      <div className="bg-white shadow-lg rounded-lg p-8 border border-red-200">
+                         <svg className="mx-auto h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                         </svg>
+                         <h2 className="mt-4 text-2xl font-bold text-gray-900">Error Loading Itinerary</h2>
+                         <p className="mt-2 text-red-600">
+                            {loadItineraryError}
+                         </p>
+                         <p className="mt-3 text-sm text-gray-500">
+                            Please check the itinerary token or try again later.
+                         </p>
+                      </div>
+                 </div>
+              );
+          }
+          
+          // Render itinerary display if loaded
+          if (generatedItinerary) {
+            return (
+              <div className="max-w-7xl mx-auto p-6 bg-white shadow-lg rounded-lg">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-gray-800">GENERATED ITINERARY</h2>
+                  <button 
+                    onClick={handleCreateNewInquiry}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Create New Inquiry
+                  </button>
+                </div>
+                <CrmItineraryDisplay itinerary={generatedItinerary} />
+              </div>
+            );
+          } else if (submittedInquiryToken) {
+             return (
+                 <div className="max-w-3xl mx-auto px-4 py-12 text-center">
+                      <div className="bg-white shadow-lg rounded-lg p-8">
+                        <svg className="mx-auto h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h2 className="mt-4 text-2xl font-bold text-gray-900">Inquiry Submitted Successfully!</h2>
+                        <p className="mt-2 text-gray-600">
+                          Your itinerary inquiry has been created. You can now generate the detailed itinerary.
+                        </p>
+                        <p className="mt-4 text-sm font-mono bg-gray-100 p-2 rounded inline-block">
+                          Inquiry Token: <span className="font-semibold">{submittedInquiryToken}</span>
+                        </p>
+                        <div className="mt-8 space-y-4">
+                          <button
+                            type="button"
+                            onClick={handleGenerateItinerary}
+                            disabled={isCreatingItinerary}
+                            className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                          >
+                            {isCreatingItinerary ? 'Generating...' : 'Generate Detailed Itinerary'}
+                            {isCreatingItinerary && <ArrowPathIcon className="animate-spin ml-2 h-5 w-5" />}
+                          </button>
+                          <button
+                            onClick={handleCreateNewInquiry}
+                            className="w-full inline-flex items-center justify-center px-6 py-3 border border-gray-300 rounded-md shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            Create Another Inquiry
+                          </button>
+                        </div>
+                      </div>
+                 </div>
+            );
+          } else {
+            // Original inquiry form UI starts here
+            return (
+              <ConfigProvider
+                theme={{
+                  ...antTheme,
+                  components: {
+                    ...antTheme.components,
+                    Select: {
+                      ...antTheme.components.Select,
+                      controlHeight: 40,
+                      controlHeightLG: 40,
+                      controlHeightSM: 40,
+                    }
+                  }
+                }}
+              >
+                <div className="container mx-auto px-4 py-8">
+                  <div className="max-w-5xl mx-auto">
+                    {/* Header, Progress, Form Structure */}
+                    <div className="mb-10 border-b border-[${borderColor}] pb-5">
+                      <h1 className={`text-2xl font-bold text-[${textColor}]`}>Create Itinerary Inquiry</h1>
+                      <p className={`mt-1 text-sm text-[${textColorLight}]`}>Fill in the details to create a new itinerary inquiry.</p>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="mb-10">
+                      <div className="flex items-center justify-between mb-2">
+                        {steps.map((step, idx) => (
+                          <div 
+                            key={step.id}
+                            className={`flex flex-col items-center ${idx < steps.length - 1 ? 'w-full' : ''}`}
+                          >
+                            <div 
+                              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all duration-300
+                                ${idx < currentStep ? `bg-[${primaryColor}] text-white border-[${primaryColor}]` : 
+                                  idx === currentStep ? `bg-[${accentColor}] text-[${primaryColor}] border-[${primaryColor}]` : 
+                                  `bg-gray-100 text-gray-400 border-gray-200`}`}
+                            >
+                              {idx + 1}
+                            </div>
+                            <span 
+                              className={`text-xs mt-1 text-center transition-colors duration-300
+                                ${idx <= currentStep ? `text-[${primaryColor}] font-medium` : 'text-gray-500'}`}
+                            >
+                              {step.title}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="relative pt-1">
+                        <div className={`overflow-hidden h-2 text-xs flex rounded-full bg-[${borderColor}]`}>
+                          <div 
+                            className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-[${primaryColor}] transition-all duration-500 ease-out rounded-full`}
+                            style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`bg-white rounded-xl shadow-lg border border-[${borderColor}] p-6 sm:p-8 mb-8`}>
+                      <form onSubmit={handleSubmit}>
+                        <div className="mb-8 min-h-[350px]">
+                          {renderStepContent()}
+                        </div>
+                        {/* Navigation buttons */}
+                        <div className={`mt-8 pt-6 border-t border-[${borderColor}] flex justify-between`}>
+                          <Button
+                            onClick={handleBack}
+                            disabled={currentStep === 0 || isSubmittingInquiry || isCreatingItinerary}
+                            icon={<ChevronLeftIcon className="h-5 w-5 mr-2" />}
+                          >
+                            Back
+                          </Button>
+                          
+                          {currentStep < steps.length - 1 ? (
+                            <Button
+                              type="primary"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleNext();
+                              }}
+                              disabled={isSubmittingInquiry || isCreatingItinerary}
+                            >
+                              Next
+                              <ChevronRightIcon className="ml-2 h-5 w-5" />
+                            </Button>
+                          ) : (
+                            <Button
+                              type="primary"
+                              htmlType="submit"
+                              disabled={isSubmittingInquiry || isCreatingItinerary}
+                              loading={isSubmittingInquiry}
+                            >
+                              {isSubmittingInquiry ? 'Submitting Inquiry...' : 'Submit Inquiry'}
+                            </Button>
+                          )}
+                        </div>
+                      </form>
+                    </div>
+
+                    {/* Modals */}
+                    <RoomArrangementModal 
+                      isOpen={isRoomModalOpen}
+                      onClose={() => setIsRoomModalOpen(false)}
+                      initialRooms={formData.travelersDetails.rooms}
+                      onSave={handleSaveRooms}
+                    />
+                  </div>
+                </div>
+              </ConfigProvider>
+            );
+          }
+      })()}
 
       <CustomerAssignmentModal
         isOpen={isAssignModalOpen}
@@ -1243,7 +1332,7 @@ const ItineraryBookingPage = () => {
         onCustomerSelect={handleCustomerSelectionFromModal}
         onCustomerRegister={handleCustomerSelectionFromModal}
       />
-    </ConfigProvider>
+    </>
   );
 };
 

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import bookingService from '../../services/bookingService';
 
 const PassengerInfoModal = ({ isOpen, onClose, itineraryDetails, onSuccess }) => {
   const [activeTab, setActiveTab] = useState('adult');
@@ -221,80 +220,63 @@ const PassengerInfoModal = ({ isOpen, onClose, itineraryDetails, onSuccess }) =>
   };
 
   const onSubmit = async () => {
+    let isValid = true;
+    const validationErrors = [];
+
+    // Clear previous errors visually if needed (or rely on toast)
+
+    // --- Validation Logic --- 
+    passengers.forEach(passenger => {
+      const rules = getPaxRules(passenger.type);
+      const passengerData = formData[passenger.id] || {};
+
+      Object.entries(rules).forEach(([field, rule]) => {
+        // Special handling for passport issue date
+        if (field === 'isPassportIssueDateRequired' && rule.visible && rule.required) {
+          if (!passengerData.passportIssueDate) {
+            validationErrors.push(`Passport Issue Date is required for ${passenger.type} passenger ${passenger.id}`);
+            isValid = false;
+          }
+          return; // Skip regular check for this pseudo-field
+        }
+
+        // Skip the validation check for the pseudo-field itself
+        if (field === 'isPassportIssueDateRequired') return;
+
+        if (rule.required && rule.visible && !passengerData[field]) {
+          const fieldLabel = field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1');
+          validationErrors.push(`${fieldLabel} is required for ${passenger.type} passenger ${passenger.id}`);
+          isValid = false;
+        }
+      });
+    });
+
+    if (!isValid) {
+      validationErrors.forEach(error => toast.error(error));
+      return; // Stop submission if validation fails
+    }
+
+    // --- If valid, call onSuccess with the collected formData --- 
     try {
       setIsLoading(true);
+      // Pass the validated formData back to the parent (FlightItineraryModal)
+      onSuccess(formData);
+      // No need to call API here anymore
+      onClose(); // Close the modal after successful callback
+    } catch (error) {
+       // This catch block might be less relevant now, 
+       // but keep for potential errors during the onSuccess callback itself.
+      console.error("Error during passenger form submission callback:", error);
+      toast.error("An error occurred while processing passenger details.");
+    } finally {
+      setIsLoading(false);
+    }
 
-      // Validate required fields
-      const errors = [];
-      passengers.forEach(passenger => {
-        const rules = getPaxRules(passenger.type);
-        const passengerData = formData[passenger.id] || {};
-
-        Object.entries(rules).forEach(([field, rule]) => {
-          // Special handling for passport issue date
-          if (field === 'isPassportIssueDateRequired' && rule.visible && rule.required) {
-            if (!passengerData.passportIssueDate) {
-              errors.push(`Passport Issue Date is required for ${passenger.type} passenger ${passenger.id}`);
-            }
-            return;
-          }
-
-          // Skip the validation for isPassportIssueDateRequired since we handle it above
-          if (field === 'isPassportIssueDateRequired') return;
-
-          if (rule.required && rule.visible && !passengerData[field]) {
-            const fieldLabel = field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1');
-            errors.push(`${fieldLabel} is required for ${passenger.type} passenger ${passenger.id}`);
-          }
-        });
-      });
-
-      if (errors.length > 0) {
-        errors.forEach(error => toast.error(error));
-        return;
-      }
-
-      // Format data for API
-      const bookingArray = [{
-        traceId: itineraryDetails.traceId,
-        passengers: passengers.map(passenger => ({
-          ...formData[passenger.id],
-          isLeadPax: passenger.isLeadPax
-        }))
-      }];
-
-      // Call API to allocate passengers
-      const allocateResponse = await bookingService.allocatePassengers({
-        provider: 'TC',
-        bookingArray,
-        itineraryCode: itineraryDetails.itineraryCode
-      });
-
-      if (allocateResponse.success) {
-        // Call rate recheck API
-        const recheckResponse = await bookingService.recheckRate({
-          provider: 'TC',
-          traceId: allocateResponse.data.traceId,
-          itineraryCode: allocateResponse.data.itineraryCode
-        });
-
-        if (recheckResponse.success) {
-          // Pass both responses to parent component
-          onSuccess({
-            allocation: allocateResponse,
-            recheck: recheckResponse.data
-          });
-          onClose();
-
-          // Show price change alert if needed
-          if (recheckResponse.data.isPriceChanged || recheckResponse.data.isBaggageChanged) {
-            const priceDiff = recheckResponse.data.totalAmount - recheckResponse.data.previousTotalAmount;
-            const message = `Price has ${priceDiff > 0 ? 'increased' : 'decreased'} by ${Math.abs(priceDiff)}. Previous: ${recheckResponse.data.previousTotalAmount}, New: ${recheckResponse.data.totalAmount}`;
-            toast.warning(message);
-          }
-        } else {
-          throw new Error(recheckResponse.message || 'Failed to recheck rate');
-        }
+    /* 
+    // --- REMOVED API CALLS FROM HERE --- 
+    try {
+      setIsLoading(true);
+// ... existing code ...
       } else {
         throw new Error(allocateResponse.message || 'Failed to allocate passengers');
       }
@@ -303,7 +285,8 @@ const PassengerInfoModal = ({ isOpen, onClose, itineraryDetails, onSuccess }) =>
       toast.error(error.message || 'Failed to process passenger information');
     } finally {
       setIsLoading(false);
-    }
+    } 
+    */
   };
 
   if (!isOpen) return null;
