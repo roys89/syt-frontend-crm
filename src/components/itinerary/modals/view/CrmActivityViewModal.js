@@ -362,7 +362,7 @@ const CrmActivityViewModal = ({ isOpen, onClose, activityData }) => {
                           <SectionTitle icon={BuildingOfficeIcon} title="Supplier & Booking" />
                           <DetailItem icon={BuildingOfficeIcon} label="Supplier" value={supplierName} />
                           <DetailItem icon={TagIcon} label="Supp. Ref" value={supplierReference} />
-                          <DetailItem icon={TagIcon} label="Booking Ref" value={bookingReference} />
+                          <DetailItem icon={TagIcon} label="Booking Ref" value={typeof bookingReference === 'object' && bookingReference !== null ? bookingReference.bookingRef : bookingReference} />
                       </div>
                   </div>
 
