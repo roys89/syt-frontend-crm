@@ -82,7 +82,7 @@ const FlightBookingVoucherModal = ({ isOpen, onClose, voucherDetails }) => {
                       <p className="font-semibold text-gray-800">{voucherDetails.pnr}</p>
                     </div>
                   )}
-                   <div>
+                  <div>
                     <p className="text-sm font-medium text-gray-500">Total Amount</p>
                     <p className="font-semibold text-xl text-gray-800">
                       ₹{itineraryResults?.totalAmount?.toLocaleString('en-IN') || 'N/A'}
@@ -96,17 +96,17 @@ const FlightBookingVoucherModal = ({ isOpen, onClose, voucherDetails }) => {
                   </div>
                   <div className="col-span-2 md:col-span-1 flex items-center gap-2">
                      {getStatusIcon(voucherDetails.bookingStatus)}
-                     <div>
+                  <div>
                          <p className="text-sm font-medium text-gray-500">Status</p>
                          <p className={`font-semibold text-lg capitalize ${ 
-                          voucherDetails.bookingStatus === 'CONFIRMED' 
-                            ? 'text-green-600' 
+                      voucherDetails.bookingStatus === 'CONFIRMED' 
+                        ? 'text-green-600' 
                             : voucherDetails.bookingStatus === 'PENDING'
                             ? 'text-orange-600'
-                            : 'text-red-600'
-                        }`}>
+                        : 'text-red-600'
+                    }`}>
                           {voucherDetails.bookingStatus?.toLowerCase() || 'N/A'}
-                        </p>
+                    </p>
                     </div>
                   </div>
                 </div>
@@ -117,7 +117,7 @@ const FlightBookingVoucherModal = ({ isOpen, onClose, voucherDetails }) => {
                 <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-3 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}> <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /> </svg>
                     Flight Details
-                </h3>
+                  </h3>
                 {itineraryItems.length > 0 ? (
                   itineraryItems.map((item, itemIndex) => {
                     const flight = item.itemFlight;
@@ -161,25 +161,25 @@ const FlightBookingVoucherModal = ({ isOpen, onClose, voucherDetails }) => {
                                     {/* Departure Info */}
                                     <div className="flex items-start gap-2">
                                       <PlaneTakeoff className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                                      <div>
+                    <div>
                                         <p className="font-medium text-gray-700">{segment.or.aC} <span className="text-gray-500">({segment.or.cN})</span></p>
                                         <p className="text-xs text-gray-500">{segment.or.aN}, Terminal {segment.or.tr || 'N/A'}</p>
                                         <p className="text-xs text-gray-600 font-medium mt-0.5">{formatDateTime(segment.or.dT)}</p>
                                       </div>
-                                    </div>
+                    </div>
                                     {/* Arrival Info */}
                                     <div className="flex items-start gap-2">
                                       <PlaneLanding className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                                      <div>
+                    <div>
                                         <p className="font-medium text-gray-700">{segment.ds.aC} <span className="text-gray-500">({segment.ds.cN})</span></p>
                                         <p className="text-xs text-gray-500">{segment.ds.aN}, Terminal {segment.ds.tr || 'N/A'}</p>
                                         <p className="text-xs text-gray-600 font-medium mt-0.5">{formatDateTime(segment.ds.aT)}</p>
                                       </div>
-                                    </div>
+                    </div>
                                      {/* Baggage Info */}
                                      <div className="flex items-start gap-2 col-span-1 md:col-span-2 border-t border-gray-100 pt-2 mt-1">
                                         <Luggage className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                                        <div>
+                    <div>
                                             <p className="text-xs text-gray-500">
                                                 Check-in: <span className="font-medium text-gray-700">{segment.bg || 'N/A'}</span> |
                                                 Cabin: <span className="font-medium text-gray-700">{segment.cBg || 'N/A'}</span> |
@@ -187,10 +187,10 @@ const FlightBookingVoucherModal = ({ isOpen, onClose, voucherDetails }) => {
                                             </p>
                                         </div>
                                      </div>
-                                 </div>
-                              </div>
-                            </div>
-                          ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
                         </div>
                       </div>
                     );

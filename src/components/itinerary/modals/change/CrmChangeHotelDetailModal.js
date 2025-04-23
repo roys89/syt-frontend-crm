@@ -586,7 +586,7 @@ const CrmChangeHotelDetailModal = ({
 
             const hotelIdForSelect = detailedHotelData?.id || selectedHotel?.id || selectedHotel?.hotel_code; // Prefer ID from details
 
-            if (!hotelIdForSelect) {
+             if (!hotelIdForSelect) {
                  console.error("Missing hotel ID from fetched details and prop", detailedHotelData, selectedHotel);
                  throw new Error("Cannot select room: hotel ID is missing.");
             }

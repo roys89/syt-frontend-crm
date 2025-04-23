@@ -918,7 +918,7 @@ const FlightBookingPage = () => {
   const handleBookingSuccess = (response) => {
     console.log("!!! FlightBookingPage: handleBookingSuccess called !!!", response);
     if (response && response.results) { 
-        setBookingDetails(response.results);
+    setBookingDetails(response.results);
     } else {
         console.error("!!! handleBookingSuccess called with invalid/missing response.results:", response);
         toast.error("Booking completed but response data is unexpected. Cannot display details.");
