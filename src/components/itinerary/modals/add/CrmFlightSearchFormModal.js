@@ -125,77 +125,76 @@ const CrmFlightSearchFormModal = ({ isOpen, onClose, onSearch, initialData }) =>
                         </div>
                     </div>
 
-                    {/* Departure Date (Return date can be added similarly) */}
-                    <div>
-                        <label htmlFor="departure-date" className="block text-sm font-medium text-gray-700 mb-1">
-                            Departure Date
-                        </label>
-                        <input
-                            id="departure-date"
-                            type="date"
-                            value={departureDate}
-                            onChange={(e) => setDepartureDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            required
-                        />
-                    </div>
+                    {/* --- NEW: Date & Time Row --- */}
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Departure Date */}
+                        <div>
+                            <label htmlFor="departure-date" className="block text-sm font-medium text-gray-700 mb-1">Departure Date</label>
+                            <input
+                                id="departure-date"
+                                type="date"
+                                value={departureDate}
+                                onChange={(e) => setDepartureDate(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#13804e] focus:border-[#13804e] sm:text-sm"
+                                required
+                            />
+                        </div>
 
-                    {/* Departure Time */}
-                    <div>
-                        <label htmlFor="departure-time" className="block text-sm font-medium text-gray-700 mb-1">
-                            Departure Time (Optional)
-                        </label>
-                        <input
-                            id="departure-time"
-                            type="time" // Input type for time
-                            value={departureTime}
-                            onChange={(e) => setDepartureTime(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        />
+                        {/* Departure Time */}
+                        <div>
+                            <label htmlFor="departure-time" className="block text-sm font-medium text-gray-700 mb-1">Departure Time (Optional)</label>
+                            <input
+                                id="departure-time"
+                                type="time"
+                                value={departureTime}
+                                onChange={(e) => setDepartureTime(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#13804e] focus:border-[#13804e] sm:text-sm"
+                            />
+                        </div>
                     </div>
-
-                    {/* TODO: Add fields for passenger counts (Adults, Children, Infants) */}
+                    {/* --- END: Date & Time Row --- */}
                     
-                    <div>
-                        <label htmlFor="flight-adults" className="block text-sm font-medium text-gray-700 mb-1">
-                            Adults (12+)
-                        </label>
-                        <input
-                            id="flight-adults"
-                            type="number"
-                            min="1"
-                            value={adults}
-                            onChange={(e) => setAdults(parseInt(e.target.value, 10) || 1)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            required
-                        />
+                    {/* --- NEW: Passenger Counts Row --- */}
+                    <div className="grid grid-cols-3 gap-4">
+                        {/* Adults */}
+                        <div>
+                            <label htmlFor="flight-adults" className="block text-sm font-medium text-gray-700 mb-1">Adults (12+)</label>
+                            <input
+                                id="flight-adults"
+                                type="number"
+                                min="1"
+                                value={adults}
+                                onChange={(e) => setAdults(parseInt(e.target.value, 10) || 1)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#13804e] focus:border-[#13804e] sm:text-sm"
+                                required
+                            />
+                        </div>
+                        {/* Children */}
+                        <div>
+                            <label htmlFor="flight-children" className="block text-sm font-medium text-gray-700 mb-1">Children (2-11)</label>
+                            <input
+                                id="flight-children"
+                                type="number"
+                                min="0"
+                                value={children}
+                                onChange={(e) => setChildren(parseInt(e.target.value, 10) || 0)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#13804e] focus:border-[#13804e] sm:text-sm"
+                            />
+                        </div>
+                        {/* Infants */}
+                        <div>
+                            <label htmlFor="flight-infants" className="block text-sm font-medium text-gray-700 mb-1">Infants (0-1)</label>
+                            <input
+                                id="flight-infants"
+                                type="number"
+                                min="0"
+                                value={infants}
+                                onChange={(e) => setInfants(parseInt(e.target.value, 10) || 0)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#13804e] focus:border-[#13804e] sm:text-sm"
+                            />
+                        </div>
                     </div>
-                    <div>
-                        <label htmlFor="flight-children" className="block text-sm font-medium text-gray-700 mb-1">
-                            Children (2-11)
-                        </label>
-                        <input
-                            id="flight-children"
-                            type="number"
-                            min="0"
-                            value={children}
-                            onChange={(e) => setChildren(parseInt(e.target.value, 10) || 0)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="flight-infants" className="block text-sm font-medium text-gray-700 mb-1">
-                            Infants (0-1)
-                        </label>
-                        <input
-                            id="flight-infants"
-                            type="number"
-                            min="0"
-                            value={infants}
-                            onChange={(e) => setInfants(parseInt(e.target.value, 10) || 0)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        />
-                    </div>
+                    {/* --- END: Passenger Counts Row --- */}
 
                 </form>
 
@@ -211,7 +210,7 @@ const CrmFlightSearchFormModal = ({ isOpen, onClose, onSearch, initialData }) =>
                     <button
                         type="submit"
                         onClick={handleSearchClick}
-                        className="px-5 py-2 rounded-md text-white text-sm font-medium bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                        className="px-5 py-2 rounded-md text-white text-sm font-medium bg-[#093923] hover:bg-[#13804e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#13804e]"
                     >
                         Search Flights
                     </button>

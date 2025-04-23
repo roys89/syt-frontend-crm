@@ -1,156 +1,432 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 // Import the new modal
 import CrmAddFlightDetailsModal from '../../../components/itinerary/modals/add/CrmAddFlightDetailsModal';
-// --- NEW: Import Heroicon ---
+// --- NEW: Import Icons ---
 import { ArrowLeftIcon } from '@heroicons/react/24/solid';
-// --- NEW: Import Hourglass loader ---
-import { Hourglass } from 'ldrs/react';
-import 'ldrs/react/Hourglass.css'; // <-- Add CSS import
+// --- REMOVED Hourglass Imports ---
+// import { Hourglass } from 'ldrs/react';
+// import 'ldrs/react/Hourglass.css';
+// --- Import Filter Modal ---
+// import CrmFlightFilterModal from '../../../components/itinerary/modals/change/CrmFlightFilterModal';
 
-// Renamed from PlaceholderFlightCard to CrmFlightResultCard
+// --- NEW: Cabin Class Mapping ---
+const cabinClassMap = {
+    1: "All",
+    2: "Economy",
+    3: "Premium Economy",
+    4: "Business",
+    5: "Premium Business",
+    6: "First"
+};
+const getCabinClassName = (code) => cabinClassMap[code] || 'Unknown';
+// --- END NEW ---
+
+
+// --- REPLACED: Enhanced Flight Result Card ---
 const CrmFlightResultCard = ({ flight, onSelect, isLoading }) => {
     const segments = flight.sg || [];
+    if (segments.length === 0) return null; // Don't render if no segments
+
     const firstSegment = segments[0];
     const lastSegment = segments[segments.length - 1];
-    
-    // Basic Info
-    const airlineName = firstSegment?.al?.alN || 'Airline N/A';
-    const flightNumber = firstSegment?.al?.fN || '';
-    const price = flight.pF ? flight.pF.toLocaleString('en-IN', { style: 'currency', currency: flight.cr || 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A';
     const stops = segments.length - 1;
-    
-    // Origin & Destination
-    const originAirportCode = firstSegment?.or?.aC || 'N/A';
-    const originTerminal = firstSegment?.or?.tr ? `T${firstSegment.or.tr}` : '';
-    const departureTime = firstSegment?.or?.dT ? new Date(firstSegment.or.dT).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : 'N/A';
-    const destinationAirportCode = lastSegment?.ds?.aC || 'N/A';
-    const destinationTerminal = lastSegment?.ds?.tr ? `T${lastSegment.ds.tr}` : '';
-    const arrivalTime = lastSegment?.ds?.aT ? new Date(lastSegment.ds.aT).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : 'N/A';
 
-    // Details
+    // --- Data Extraction ---
+    const airlineName = firstSegment.al?.alN || 'Airline N/A';
+    const airlineCode = firstSegment.al?.alC || '';
+    const flightNumber = firstSegment.al?.fN || '';
+    const fullFlightCode = `${airlineCode} ${flightNumber}`.trim();
+
+    const price = flight.pF ? flight.pF.toLocaleString('en-IN', { style: 'currency', currency: flight.cr || 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A';
+
+    const departureTime = firstSegment.or?.dT ? new Date(firstSegment.or.dT).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
+    const departureAirport = `${firstSegment.or?.aC || 'N/A'}${firstSegment.or?.tr ? ` (T${firstSegment.or.tr})` : ''}`;
+    const departureCity = firstSegment.or?.cN || '';
+
+    const arrivalTime = lastSegment.ds?.aT ? new Date(lastSegment.ds.aT).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
+    const arrivalAirport = `${lastSegment.ds?.aC || 'N/A'}${lastSegment.ds?.tr ? ` (T${lastSegment.ds.tr})` : ''}`;
+    const arrivalCity = lastSegment.ds?.cN || '';
+
     const isRefundable = flight.iR === true;
     const isLCC = flight.iL === true;
-    const checkInBaggage = firstSegment?.bg || 'N/A';
-    const cabinBaggage = firstSegment?.cBg || 'N/A';
-    const accumulatedDurationMinutes = lastSegment?.aD;
+    const checkInBaggage = firstSegment.bg || 'N/A';
+    const cabinBaggage = firstSegment.cBg || 'N/A';
+    const cabinClassStr = getCabinClassName(firstSegment.cC);
+    const fareIdentifier = flight.fareIdentifier?.name;
+
+    // Calculate total duration
     let totalDurationStr = 'N/A';
-    if (typeof accumulatedDurationMinutes === 'number') {
-        const hours = Math.floor(accumulatedDurationMinutes / 60);
-        const minutes = accumulatedDurationMinutes % 60;
+    if (stops > 0 && lastSegment.aD) { // Use accumulated duration if available for multi-segment
+         const hours = Math.floor(lastSegment.aD / 60);
+         const minutes = lastSegment.aD % 60;
+         totalDurationStr = `${hours}h ${minutes}m`;
+    } else if (firstSegment.dr) { // Use first segment duration for direct or if aD is missing
+        const hours = Math.floor(firstSegment.dr / 60);
+        const minutes = firstSegment.dr % 60;
         totalDurationStr = `${hours}h ${minutes}m`;
     }
-    const fareType = flight.fareIdentifier?.name || '';
-    const cabinClassCode = firstSegment?.cC;
-    let cabinClassStr = 'N/A';
-    switch (cabinClassCode) {
-        case 1: cabinClassStr = 'All'; break; // Assuming 1 is 'All' based on previous code
-        case 2: cabinClassStr = 'Economy'; break;
-        case 3: cabinClassStr = 'Premium Economy'; break;
-        case 4: cabinClassStr = 'Business'; break;
-        case 5: cabinClassStr = 'Premium Business'; break;
-        case 6: cabinClassStr = 'First'; break;
-        default: cabinClassStr = 'Unknown';
+
+    // --- Layover Info ---
+    let layoverInfo = null;
+    if (stops > 0) {
+        const layoverSegment = segments[0]; // Layover is *after* the first segment
+        const layoverAirport = layoverSegment.ds?.aC || 'N/A';
+        const layoverDurationMinutes = layoverSegment.gT; // Layover time *before* next segment departs
+        if (typeof layoverDurationMinutes === 'number') {
+            const hours = Math.floor(layoverDurationMinutes / 60);
+            const minutes = layoverDurationMinutes % 60;
+            layoverInfo = `${hours}h ${minutes}m layover at ${layoverAirport}`;
+        }
     }
 
     return (
-        <div className="border rounded-lg p-4 mb-4 shadow-sm bg-white transition-shadow hover:shadow-md">
-            {/* Top Row: Airline, Stops, Duration, Fare Type */}
-            <div className="flex justify-between items-center text-sm mb-3 pb-2 border-b border-gray-100">
-                <div className="flex items-center gap-2">
-                     {/* <img src={`URL_TO_AIRLINE_LOGO/${firstSegment?.al?.alC}.png`} alt={airlineName} className="h-5 w-auto mr-1" /> Placeholder for logo */}
-                    <span className="font-semibold text-gray-700">{airlineName} {flightNumber.trim()}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${isLCC ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>{isLCC ? 'LCC' : 'Full Service'}</span>
-                </div>
-                <div className="flex items-center gap-3 text-gray-600">
-                    <span>{stops === 0 ? 'Direct' : `${stops} Stop${stops > 1 ? 's' : ''}`}</span>
-                    <span>{totalDurationStr}</span>
-                    {fareType && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">{fareType}</span>}
-                </div>
-            </div>
+        <div className="bg-white shadow rounded-lg overflow-hidden hover:shadow-lg transition-shadow mb-4 border border-gray-100">
+            <div className="flex flex-col sm:flex-row">
+                {/* Left Section: Airline Logo, Name & Flight Code */}
+                <div className="sm:w-1/5 p-3 flex flex-col items-center justify-center border-b sm:border-b-0 sm:border-r border-gray-100 bg-gray-50/50">
+                     <img
+                        src={`https://pics.avs.io/80/40/${airlineCode}.png`}
+                        alt={`${airlineName} logo`}
+                        className="h-8 w-auto object-contain mb-1"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <p className="text-sm font-semibold text-gray-800 text-center mt-1">{airlineName}</p>
+                    <p className="text-xs text-gray-500">{fullFlightCode}</p>
+                 </div>
 
-            {/* Middle Row: Origin/Destination Times & Codes */}
-            <div className="grid grid-cols-3 gap-4 items-center mb-3">
-                {/* Origin */}
-                <div className="text-left">
-                    <p className="font-medium text-xl text-gray-800">{departureTime}</p>
-                    <p className="text-gray-600">{originAirportCode} {originTerminal}</p>
-                </div>
-                {/* Arrow/Separator - simplified */}
-                <div className="text-center text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                </div>
-                {/* Destination */}
-                <div className="text-right">
-                    <p className="font-medium text-xl text-gray-800">{arrivalTime}</p>
-                    <p className="text-gray-600">{destinationAirportCode} {destinationTerminal}</p>
-                </div>
-            </div>
+                {/* Middle Section: Journey Details */}
+                <div className="sm:w-3/5 p-3 flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                         {/* Departure */}
+                         <div className="text-left">
+                             <p className="text-lg font-bold text-gray-900">{departureTime}</p>
+                             <p className="text-xs text-gray-600">{departureAirport}</p>
+                             <p className="text-xs text-gray-500">{departureCity}</p>
+                         </div>
+                         {/* Duration & Stops */}
+                         <div className="text-center px-2 flex-shrink-0">
+                             <p className="text-sm font-medium text-gray-700">{totalDurationStr}</p>
+                             <div className="w-full h-px bg-gray-300 my-0.5"></div>
+                             <p className="text-xs text-gray-500">
+                                {stops === 0 ? 'Direct' : `${stops} Stop${stops > 1 ? 's' : ''}`}
+                             </p>
+                             {layoverInfo && (
+                                 <p className="text-[11px] text-orange-600 mt-0.5">{layoverInfo}</p>
+                             )}
+                         </div>
+                         {/* Arrival */}
+                         <div className="text-right">
+                             <p className="text-lg font-bold text-gray-900">{arrivalTime}</p>
+                             <p className="text-xs text-gray-600">{arrivalAirport}</p>
+                             <p className="text-xs text-gray-500">{arrivalCity}</p>
+                         </div>
+                     </div>
+                     {/* Tags: Fare Type, LCC, Refundable */}
+                     <div className="flex flex-wrap items-center gap-1.5 text-xs mt-1">
+                         {fareIdentifier && (
+                             <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                                 {fareIdentifier}
+                             </span>
+                         )}
+                         <span className={`px-2 py-0.5 rounded-full font-medium ${isLCC ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
+                             {isLCC ? 'LCC' : 'Full Service'}
+                         </span>
+                         <span className={`px-2 py-0.5 rounded-full font-medium ${isRefundable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                             {isRefundable ? 'Refundable' : 'Non-Refundable'}
+                         </span>
+                     </div>
+                 </div>
 
-            {/* Bottom Row: Baggage, Class, Refundable, Price, Select */}
-            <div className="flex justify-between items-end text-sm text-gray-600">
-                <div className="flex flex-col gap-1">
-                     <span title="Cabin Class">Class: {cabinClassStr}</span>
-                     <span title="Check-in Baggage">Baggage: {checkInBaggage}</span>
-                     <span title="Cabin Baggage">Cabin: {cabinBaggage}</span>
-                     <span className={`${isRefundable ? 'text-green-600' : 'text-red-600'} font-medium`}>
-                        {isRefundable ? 'Refundable' : 'Non-Refundable'}
-                    </span>
-                </div>
-                 <div className="text-right">
-                    <p className="font-semibold text-blue-600 text-xl mb-1">
-                        {price}
-                    </p>
-                     <button 
-                        className={`px-4 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded hover:bg-indigo-700 disabled:opacity-50 ${isLoading ? 'animate-pulse' : ''}`}
-                        onClick={onSelect} 
+                {/* Right Section: Price, Baggage & Action */}
+                 <div className="sm:w-1/5 p-3 flex flex-col justify-between items-center sm:items-end border-t sm:border-t-0 sm:border-l border-gray-100 bg-gray-50/50">
+                    <div className="text-center sm:text-right w-full">
+                         <p className="text-xl font-bold text-[#093923] mb-0.5">{price}</p>
+                         {/* Baggage Info */}
+                         <div className="text-[11px] text-gray-500 space-y-0.5">
+                             <p>Check-in: {checkInBaggage}</p>
+                             <p>Cabin: {cabinBaggage}</p>
+                             <p>Class: {cabinClassStr}</p>
+                         </div>
+                    </div>
+                    <button
+                        onClick={onSelect}
                         disabled={isLoading}
-                    >
-                        {isLoading ? 'Selecting...' : 'Select Flight'}
+                        className={`mt-2 w-full sm:w-auto relative group overflow-hidden inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white ${isLoading ? 'bg-[#093923]/50 cursor-not-allowed' : 'bg-[#093923] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]'} transition-colors`}
+                     >
+                         {isLoading ? (
+                             <>
+                                 <svg className="animate-spin -ml-1 mr-1.5 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                 </svg>
+                                 <span>Loading...</span>
+                             </>
+                         ) : (
+                             <>
+                                 <span className="relative z-10">Select Flight</span>
+                                 <div className="absolute inset-0 bg-[#13804e] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
+                            </>
+                        )}
                     </button>
                  </div>
             </div>
         </div>
     );
 };
+// --- END REPLACED CARD ---
+
+// --- NEW: Skeleton Loader Component ---
+const FlightCardSkeleton = () => (
+    <div className="bg-white shadow rounded-lg overflow-hidden mb-4 border border-gray-100 animate-pulse w-full max-w-4xl mx-auto"> {/* Added max-width and centering */}
+        <div className="flex flex-col sm:flex-row">
+            {/* Left Section Skeleton */}
+            <div className="sm:w-1/5 p-3 flex flex-col items-center justify-center border-b sm:border-b-0 sm:border-r border-gray-100 bg-gray-50/50">
+                <div className="h-8 w-16 bg-gray-200 rounded mb-2"></div>
+                <div className="h-4 w-24 bg-gray-200 rounded mb-1"></div>
+                <div className="h-3 w-16 bg-gray-200 rounded"></div>
+            </div>
+
+            {/* Middle Section Skeleton */}
+            <div className="sm:w-3/5 p-3 flex flex-col justify-between">
+                <div className="flex justify-between items-start mb-2">
+                    <div className="text-left w-1/3 pr-2">
+                        <div className="h-5 w-12 bg-gray-200 rounded mb-1"></div>
+                        <div className="h-3 w-16 bg-gray-200 rounded mb-1"></div>
+                        <div className="h-3 w-12 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="text-center px-2 flex-shrink-0 w-1/3 flex flex-col items-center">
+                        <div className="h-4 w-10 bg-gray-200 rounded mb-1"></div>
+                        <div className="w-full h-px bg-gray-300 my-1"></div>
+                        <div className="h-3 w-12 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="text-right w-1/3 pl-2">
+                        <div className="h-5 w-12 bg-gray-200 rounded mb-1 ml-auto"></div>
+                        <div className="h-3 w-16 bg-gray-200 rounded mb-1 ml-auto"></div>
+                        <div className="h-3 w-12 bg-gray-200 rounded ml-auto"></div>
+                    </div>
+                </div>
+                 <div className="flex flex-wrap items-center gap-1.5 text-xs mt-1">
+                    <div className="h-4 w-16 bg-gray-200 rounded-full"></div>
+                    <div className="h-4 w-20 bg-gray-200 rounded-full"></div>
+                    <div className="h-4 w-24 bg-gray-200 rounded-full"></div>
+                 </div>
+            </div>
+
+            {/* Right Section Skeleton */}
+            <div className="sm:w-1/5 p-3 flex flex-col justify-between items-center sm:items-end border-t sm:border-t-0 sm:border-l border-gray-100 bg-gray-50/50">
+                <div className="text-center sm:text-right w-full">
+                    <div className="h-6 w-20 bg-gray-200 rounded mb-2 ml-auto"></div>
+                    <div className="space-y-1">
+                        <div className="h-3 w-full bg-gray-200 rounded"></div>
+                        <div className="h-3 w-full bg-gray-200 rounded"></div>
+                        <div className="h-3 w-3/4 bg-gray-200 rounded ml-auto"></div>
+                    </div>
+                </div>
+                <div className="h-7 w-24 bg-gray-200 rounded-md mt-2"></div>
+            </div>
+        </div>
+    </div>
+);
+// --- END Skeleton Loader Component ---
+
+// --- NEW: Embedded Filter Component (Copied from Change Page) ---
+const EmbeddedFlightFilter = ({
+    activeFilters,
+    onFiltersChange,
+    // priceRange, // Not needed for display or reset in this version
+    availableAirlines = [],
+    stopCounts = {},
+    availableCabinClasses = []
+}) => {
+    const handleStopChange = (stopValue) => {
+        onFiltersChange({
+            ...activeFilters,
+            stops: activeFilters.stops === stopValue ? null : stopValue
+        });
+    };
+
+    const handleAirlineChange = (airlineName) => {
+        const currentAirlines = activeFilters.airlines || [];
+        const newAirlines = currentAirlines.includes(airlineName)
+            ? currentAirlines.filter(a => a !== airlineName)
+            : [...currentAirlines, airlineName];
+        onFiltersChange({ ...activeFilters, airlines: newAirlines });
+    };
+
+    const handleCabinClassChange = (cabinClassName) => {
+        const currentClasses = activeFilters.cabinClasses || [];
+        const newClasses = currentClasses.includes(cabinClassName)
+            ? currentClasses.filter(c => c !== cabinClassName)
+            : [...currentClasses, cabinClassName];
+        onFiltersChange({ ...activeFilters, cabinClasses: newClasses });
+    };
+
+    const handleReset = () => {
+        onFiltersChange({ // Update parent directly
+            // priceRange: activeFilters.priceRange, // Keep existing price range
+            airlines: [],
+            stops: null,
+            cabinClasses: [],
+        });
+    };
+
+    return (
+        <div className="w-full bg-white p-4 rounded-lg shadow-md border border-gray-200 flex-shrink-0">
+            <div className="flex justify-between items-center pb-3 border-b mb-4">
+                <h3 className="text-md font-semibold text-gray-800">Filter By</h3>
+                <button
+                    onClick={handleReset}
+                    className="text-xs font-medium text-[#13804e] hover:text-[#093923]"
+                >
+                    Reset All
+                </button>
+            </div>
+            <div className="space-y-5">
+                {/* Stops Filter */}
+                <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Stops</h4>
+                    <div className="space-y-1">
+                        {[0, 1, 2].map((stopValue) => {
+                            const label = stopValue === 0 ? 'Non-Stop' : `${stopValue} Stop${stopValue > 1 ? 's' : ''}`;
+                            const count = stopCounts[stopValue] || 0;
+                            const isChecked = activeFilters.stops === stopValue;
+                            return (
+                                <label key={stopValue} className="flex items-center justify-between text-sm text-gray-600 cursor-pointer">
+                                    <span className="flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => handleStopChange(stopValue)}
+                                            className="h-4 w-4 rounded border-gray-300 text-[#093923] focus:ring-[#13804e] mr-2"
+                                        />
+                                        {label}
+                                    </span>
+                                    <span className="text-gray-400 text-xs">({count})</span>
+                                </label>
+                            );
+                        })}
+                    </div>
+                </div>
+                {/* Price Range Filter Removed from UI */}
+                {/* Cabin Class Filter */}
+                {availableCabinClasses.length > 0 && (
+                    <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Cabin Class</h4>
+                        <div className="space-y-1">
+                            {availableCabinClasses.map((cabinClass) => (
+                                <label key={cabinClass} className="flex items-center text-sm text-gray-600 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={activeFilters.cabinClasses?.includes(cabinClass)}
+                                        onChange={() => handleCabinClassChange(cabinClass)}
+                                        className="h-4 w-4 rounded border-gray-300 text-[#093923] focus:ring-[#13804e] mr-2"
+                                    />
+                                    {cabinClass}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                {/* Airlines Filter */}
+                {availableAirlines.length > 0 && (
+                    <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Airlines</h4>
+                         <div className="space-y-1 max-h-40 overflow-y-auto pr-2 border rounded-md p-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                            {availableAirlines.map((airline) => (
+                                <label key={airline} className="flex items-center text-sm text-gray-600 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={activeFilters.airlines?.includes(airline)}
+                                        onChange={() => handleAirlineChange(airline)}
+                                        className="h-4 w-4 rounded border-gray-300 text-[#093923] focus:ring-[#13804e] mr-2"
+                                    />
+                                    {airline}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+// --- END Embedded Filter Component ---
+
+// --- NEW: Filter Sidebar Skeleton Loader Component (Copied from Change Page) ---
+const FilterSidebarSkeleton = () => (
+    <div className="w-full bg-white p-4 rounded-lg shadow-md border border-gray-200 animate-pulse">
+        <div className="flex justify-between items-center pb-3 border-b mb-4">
+            <div className="h-5 w-20 bg-gray-200 rounded"></div>
+            <div className="h-4 w-16 bg-gray-200 rounded"></div>
+        </div>
+        <div className="space-y-5">
+            <div>
+                <div className="h-4 w-12 bg-gray-200 rounded mb-3"></div>
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between"><div className="h-4 w-2/3 bg-gray-200 rounded"></div><div className="h-3 w-6 bg-gray-200 rounded"></div></div>
+                    <div className="flex items-center justify-between"><div className="h-4 w-3/4 bg-gray-200 rounded"></div><div className="h-3 w-6 bg-gray-200 rounded"></div></div>
+                    <div className="flex items-center justify-between"><div className="h-4 w-2/3 bg-gray-200 rounded"></div><div className="h-3 w-6 bg-gray-200 rounded"></div></div>
+                </div>
+            </div>
+             <div>
+                <div className="h-4 w-24 bg-gray-200 rounded mb-3"></div>
+                 <div className="space-y-2"><div className="h-4 w-3/4 bg-gray-200 rounded"></div><div className="h-4 w-2/3 bg-gray-200 rounded"></div></div>
+            </div>
+            <div>
+                <div className="h-4 w-16 bg-gray-200 rounded mb-3"></div>
+                <div className="space-y-2 border rounded-md p-2 h-32 overflow-hidden">
+                     <div className="h-4 w-5/6 bg-gray-200 rounded"></div><div className="h-4 w-full bg-gray-200 rounded"></div><div className="h-4 w-3/4 bg-gray-200 rounded"></div><div className="h-4 w-5/6 bg-gray-200 rounded"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+// --- END Filter Sidebar Skeleton Loader Component ---
 
 const CrmAddFlightResultsPage = () => {
-    const { itineraryToken: itineraryTokenFromParams } = useParams(); // Get itinerary token from URL params
+    const { itineraryToken: itineraryTokenFromParams } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
 
-    const [flights, setFlights] = useState([]);
+    // --- State ---
+    const [allFlights, setAllFlights] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [searchParams, setSearchParams] = useState(null); // From modal
-    const [inquiryToken, setInquiryToken] = useState(null); // From state
-    const [itineraryToken, setItineraryToken] = useState(itineraryTokenFromParams); // Store itinerary token (prefer state, fallback to params)
-    const [cityName, setCityName] = useState(null); // Store city name from state
-    const [date, setDate] = useState(null); // Store date for this day from state
-    
-    // State for selection process
-    const [selectingFlight, setSelectingFlight] = useState(false);
-    const [traceId, setTraceId] = useState(null); // Store traceId from search response
-
-    // State for the new details modal
+    const [searchParams, setSearchParams] = useState(null);
+    const [inquiryToken, setInquiryToken] = useState(null);
+    const [itineraryToken, setItineraryToken] = useState(itineraryTokenFromParams);
+    const [cityName, setCityName] = useState(null);
+    const [date, setDate] = useState(null);
+    const [loadingFlightIndex, setLoadingFlightIndex] = useState(null);
+    const [traceId, setTraceId] = useState(null);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [selectedFlightDetails, setSelectedFlightDetails] = useState(null);
-    const [isAddingFlight, setIsAddingFlight] = useState(false); // Loading state for the final add API call
+    const [isAddingFlight, setIsAddingFlight] = useState(false);
+    
+    // --- Filter State (No Modal State Needed) ---
+    // const [isFilterModalOpen, setIsFilterModalOpen] = useState(false); 
+    const [activeFilters, setActiveFilters] = useState({
+        airlines: [],
+        stops: null,
+        cabinClasses: [],
+    });
+    const [filterOptions, setFilterOptions] = useState({
+        priceRange: { min: 0, max: 100000 }, 
+        availableAirlines: [],
+        stopCounts: {},
+        availableCabinClasses: [],
+    });
 
     useEffect(() => {
         // Extract state passed from navigation
         if (location.state) {
             setSearchParams(location.state.searchParams);
             setInquiryToken(location.state.inquiryToken);
-            // Set the itinerary token, city name, and date from state
-            setItineraryToken(location.state.itineraryToken || itineraryTokenFromParams); // Prioritize state
+            setItineraryToken(location.state.itineraryToken || itineraryTokenFromParams);
             setCityName(location.state.cityName);
             setDate(location.state.date);
-            
-            // Log the received context
             console.log("Received context:", {
                 searchParams: location.state.searchParams,
                 inquiryToken: location.state.inquiryToken,
@@ -158,30 +434,22 @@ const CrmAddFlightResultsPage = () => {
                 cityName: location.state.cityName,
                 date: location.state.date
             });
-
         } else {
             setError("Search parameters not found. Please initiate search again.");
             setLoading(false);
-            // Optionally navigate back or show a persistent error
-            // navigate(-1); 
         }
     }, [location.state, itineraryTokenFromParams]);
 
     useEffect(() => {
         // Fetch flights only when searchParams and inquiryToken are available
-        if (!searchParams || !inquiryToken) {
-            return; // Wait until parameters are set
-        }
+        if (!searchParams || !inquiryToken) return;
 
         const fetchFlights = async () => {
             setLoading(true);
             setError(null);
+            setAllFlights([]); // Clear previous results
             console.log("Fetching flights with params:", searchParams);
-
             try {
-            
-                // Construct the body for the specific search API (/api/itinerary/flights/:inquiryToken)
-                // This API expects origin/destination objects with code, and travelersDetails
                 const apiRequestBody = {
                     origin: {
                         code: searchParams.departureCity?.iata,
@@ -196,21 +464,15 @@ const CrmAddFlightResultsPage = () => {
                     departureDate: searchParams.date,
                     departureTime: searchParams.departureTime,
                     travelersDetails: {
-                        // Transform back to adults/children counts if needed by this specific API
-                        // Assuming the API expects counts directly based on flightChangeController expectation
                         adults: searchParams.travelers?.rooms?.[0]?.adults || 1,
                         children: searchParams.travelers?.rooms?.[0]?.children || 0,
                         infants: searchParams.travelers?.rooms?.[0]?.infants || 0
                     },
                     type: 'ONE_WAY' // Hardcoded for add flow
-                    // Add chunking params if needed: chunkIndex: 0
                 };
-
-                console.log("arrivalCity:", searchParams.arrivalCity);
-                console.log("departureCity:", searchParams.departureCity);
-
+                console.log("Sending API Request Body:", apiRequestBody);
                 const response = await fetch(
-                    `http://localhost:5000/api/itinerary/flights/${inquiryToken}`, // Use the search route
+                    `http://localhost:5000/api/itinerary/flights/${inquiryToken}`,
                     {
                         method: 'POST',
                         headers: {
@@ -218,60 +480,97 @@ const CrmAddFlightResultsPage = () => {
                             Authorization: `Bearer ${localStorage.getItem('crmToken')}`,
                             'X-Inquiry-Token': inquiryToken
                         },
-                        body: JSON.stringify(apiRequestBody) // Send the transformed body
+                        body: JSON.stringify(apiRequestBody)
                     }
                 );
-
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({ message: response.statusText }));
                     throw new Error(errorData.message || `Flight search failed (${response.status})`);
                 }
-
                 const data = await response.json();
                 console.log("Flight search response:", data);
+                if (data.success && data.data) {
+                    const fetchedFlights = data.data.flights || [];
+                    setAllFlights(fetchedFlights);
+                    setTraceId(data.data.traceId);
 
-                if (data.success && data.data?.flights) {
-                    setFlights(data.data.flights);
-                    setTraceId(data.data.traceId); // Store the traceId
-                    // TODO: Handle pagination data if implemented (data.data.pagination)
+                    // --- NEW: Extract Filter Options ---
+                    const priceData = data.data.priceRange || { min: 0, max: 100000 };
+                    const airlinesData = data.data.availableFilters?.airlines || [];
+                    const stopsData = data.data.availableFilters?.stopCounts || {};
+                    const uniqueCabinClassCodes = [...new Set(fetchedFlights.map(f => f.sg?.[0]?.cC).filter(Boolean))];
+                    const uniqueCabinClassNames = uniqueCabinClassCodes
+                        .map(getCabinClassName)
+                        .filter(name => name !== 'Unknown' && name !== 'All');
+
+                    setFilterOptions({
+                        priceRange: priceData,
+                        availableAirlines: airlinesData.sort(),
+                        stopCounts: stopsData,
+                        availableCabinClasses: [...new Set(uniqueCabinClassNames)].sort()
+                    });
+                    // --- END NEW ---
+
                 } else {
-                    setFlights([]); // Ensure empty array if no flights found
+                    setAllFlights([]);
                     toast.info(data.message || "No flights found matching your criteria.");
+                    // Reset filter options if no flights found
+                    setFilterOptions({ priceRange: { min: 0, max: 100000 }, availableAirlines: [], stopCounts: {}, availableCabinClasses: [] });
                 }
-
             } catch (err) {
                 console.error("Error fetching flights:", err);
                 setError(err.message);
                 toast.error(`Error fetching flights: ${err.message}`);
-                setFlights([]); // Clear flights on error
+                setAllFlights([]);
             } finally {
                 setLoading(false);
             }
         };
-
         fetchFlights();
+    }, [searchParams, inquiryToken]);
 
-    }, [searchParams, inquiryToken]); // Re-run fetch if params change
+    // --- NEW: Filtering Logic --- 
+    const filteredFlights = useMemo(() => {
+        if (!activeFilters || !allFlights) return allFlights || [];
 
-    // --- Handle Selecting a Flight (Opens Details Modal) ---
+        return allFlights.filter(flight => {
+            const firstSegment = flight.sg?.[0];
+            if (!firstSegment) return false;
+
+            // Stops Filter
+            const stops = flight.sg.length - 1;
+            if (activeFilters.stops !== null && stops !== activeFilters.stops) {
+                return false;
+            }
+
+            // Airlines Filter
+            const airlineName = firstSegment.al?.alN;
+            if (activeFilters.airlines?.length > 0 && !activeFilters.airlines.includes(airlineName)) {
+                return false;
+            }
+
+            // Cabin Class Filter
+            const cabinClassName = getCabinClassName(firstSegment.cC);
+            if (activeFilters.cabinClasses?.length > 0 && !activeFilters.cabinClasses.includes(cabinClassName)) {
+                return false;
+            }
+
+            return true;
+        });
+    }, [allFlights, activeFilters]);
+
     const handleSelectFlight = async (resultIndex) => {
-        // Basic validation (ensure traceId etc. are available)
         if (!traceId || !itineraryToken || !inquiryToken || resultIndex === undefined) {
             toast.error("Missing necessary information to select flight details.");
             console.error("Selection error: Missing context", { traceId, itineraryToken, inquiryToken, resultIndex });
             return;
         }
-
-        setSelectingFlight(true); // Indicate loading for this specific selection
+        setLoadingFlightIndex(resultIndex);
         setError(null);
         console.log(`Fetching details for flight resultIndex: ${resultIndex}, traceId: ${traceId}`);
-
         try {
-          
-            
-            // 1. Call the selectFlight endpoint to get FULL details
             const selectResponse = await fetch(
-                `http://localhost:5000/api/itinerary/flights/${inquiryToken}/select`, 
+                `http://localhost:5000/api/itinerary/flights/${inquiryToken}/select`,
                 {
                     method: 'POST',
                     headers: {
@@ -286,44 +585,32 @@ const CrmAddFlightResultsPage = () => {
                     })
                 }
             );
-
             if (!selectResponse.ok) {
                 const errorData = await selectResponse.json().catch(() => ({ message: selectResponse.statusText }));
                 throw new Error(errorData.details?.error || errorData.message || `Failed to fetch flight details (${selectResponse.status})`);
             }
-
             const selectedFlightData = await selectResponse.json();
             console.log("Detailed Flight Data received:", selectedFlightData);
-
             if (!selectedFlightData.success || !selectedFlightData.data) {
-                 throw new Error(selectedFlightData.message || "Failed to parse detailed flight data after selection.");
+                throw new Error(selectedFlightData.message || "Failed to parse detailed flight data after selection.");
             }
-            
-            // Store the detailed data and open the modal
             setSelectedFlightDetails(selectedFlightData.data);
             setIsDetailsModalOpen(true);
-
         } catch (err) {
             console.error("Error fetching flight details:", err);
             setError(err.message);
             toast.error(`Error fetching details: ${err.message}`);
-            setSelectedFlightDetails(null); // Clear details on error
+            setSelectedFlightDetails(null);
         } finally {
-            setSelectingFlight(false); // Stop loading indicator for this selection
+            setLoadingFlightIndex(null);
         }
     };
 
-    // --- Handle Confirming and Adding the Flight (From Modal) ---
     const handleConfirmAddFlight = async () => {
         if (!selectedFlightDetails) return;
-
-        setIsAddingFlight(true); // Use a general adding indicator
+        setIsAddingFlight(true);
         try {
-            // Use itineraryToken from component state instead of useParams
-            if (!itineraryToken) {
-                throw new Error('Missing itinerary token');
-            }
-            
+            if (!itineraryToken) { throw new Error('Missing itinerary token'); }
             const response = await fetch(`http://localhost:5000/api/itinerary/${itineraryToken}/add-flight`, {
                 method: 'POST',
                 headers: {
@@ -332,39 +619,26 @@ const CrmAddFlightResultsPage = () => {
                     'X-Inquiry-Token': inquiryToken
                 },
                 body: JSON.stringify({
-                    cityName: cityName,     // Use cityName from component state
-                    date: date,             // Use date from component state
-                    newFlightDetails: selectedFlightDetails, // The full response from the select API
-                    type: 'departure_flight' // Hardcoded for now as it's always a departure flight in add flow
+                    cityName: cityName,
+                    date: date,
+                    newFlightDetails: selectedFlightDetails,
+                    type: 'departure_flight'
                 }),
             });
-
             const result = await response.json();
-
             if (!response.ok || !result.success) {
                 throw new Error(result.message || 'Failed to add flight to itinerary');
             }
-
             console.log('Flight added successfully:', result);
             toast.success("Flight added to itinerary successfully!");
-            handleCloseDetailsModal(); // Close the details modal
-            
-            // *** DEBUGGING: Log before navigating ***
-            // console.log(`Navigating to: /bookings/itinerary/${itineraryToken} with token:`, itineraryToken); // Keep or remove log
-            // *** END DEBUGGING ***
-
-            // --- CORRECTED NAVIGATION: Match Hotel Flow --- 
+            handleCloseDetailsModal();
             if (itineraryToken && inquiryToken) {
                 console.log(`Navigating to /bookings/itinerary with state:`, { itineraryToken, inquiryToken });
                 navigate('/bookings/itinerary', { state: { itineraryToken, inquiryToken } });
             } else {
                 console.error("Cannot navigate back: Missing itineraryToken or inquiryToken");
                 toast.error("Could not determine itinerary to return to.");
-                // Optionally navigate to a default page
-                // navigate('/bookings'); 
             }
-            // navigate(`/bookings/itinerary/${itineraryToken}`); // OLD INCORRECT NAVIGATION
-
         } catch (error) {
             console.error('Error adding flight:', error);
             toast.error(`Error: ${error.message}`);
@@ -375,87 +649,119 @@ const CrmAddFlightResultsPage = () => {
 
     const handleCloseDetailsModal = () => {
         setIsDetailsModalOpen(false);
-        // Delay clearing details slightly for smoother transition
-        setTimeout(() => setSelectedFlightDetails(null), 300); 
+        setTimeout(() => setSelectedFlightDetails(null), 300);
+    };
+
+    // --- Filter Handlers (Simplified for Embedded Filter) ---
+    const handleFiltersChange = (newFilters) => {
+        console.log("Updating filters:", newFilters);
+        setActiveFilters(newFilters); // Directly update active filters
+    };
+    const handleResetFilters = () => {
+        handleFiltersChange({ // Call the main change handler to reset
+            airlines: [],
+            stops: null,
+            cabinClasses: [],
+        });
     };
 
     return (
-        <div className="px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-1 md:pt-2 lg:pt-3 bg-gray-100 min-h-screen flex flex-col">
+        <div className="flex flex-col md:flex-row bg-gray-100 min-h-screen">
+            <div className="flex-grow px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-1 md:pt-2 lg:pt-3">
+                <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-200 bg-white p-4 py-3 rounded-lg shadow-lg sticky top-0 z-10">
+                    <div className="flex items-center gap-3 flex-grow min-w-0">
+                        <button
+                            onClick={() => navigate('/bookings/itinerary', { state: { itineraryToken, inquiryToken } })}
+                            className="p-2 text-gray-500 hover:text-gray-800 rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
+                            title="Back to Itinerary"
+                        >
+                            <ArrowLeftIcon className="h-5 w-5" />
+                        </button>
+                        <div className="flex-grow min-w-0">
+                            <h1 className="text-xl font-bold text-gray-800 truncate">
+                                Add Flight {cityName ? `in ${cityName}` : ''}
+                            </h1>
+                            {searchParams && (
+                                <p className="text-xs text-gray-500 truncate">
+                                    {searchParams.departureCity?.iata || 'N/A'} &rarr; {searchParams.arrivalCity?.iata || 'N/A'} on {searchParams.date ? new Date(searchParams.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'N/A'}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
 
-            {/* --- NEW: Sticky Header (similar to CrmAddHotelResultsPage) --- */}
-            <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-200 bg-white p-4 py-3 rounded-lg shadow-lg sticky top-0 z-10">
-                <div className="flex items-center gap-3 flex-grow min-w-0">
-                    <button
-                        onClick={() => navigate('/bookings/itinerary', { state: { itineraryToken, inquiryToken } })} // Use state for navigation
-                        className="p-2 text-gray-500 hover:text-gray-800 rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
-                        title="Back to Itinerary"
-                    >
-                        <ArrowLeftIcon className="h-5 w-5" />
-                    </button>
+                <div className="flex flex-col lg:flex-row gap-6">
+                    <div className="w-full lg:w-64 xl:w-72 flex-shrink-0">
+                        {loading ? (
+                             <FilterSidebarSkeleton />
+                         ) : filterOptions.availableAirlines.length > 0 || filterOptions.availableCabinClasses.length > 0 ? (
+                             <EmbeddedFlightFilter
+                                activeFilters={activeFilters}
+                                onFiltersChange={handleFiltersChange}
+                                availableAirlines={filterOptions.availableAirlines}
+                                stopCounts={filterOptions.stopCounts}
+                                availableCabinClasses={filterOptions.availableCabinClasses}
+                            />
+                         ) : (
+                             <div className="w-full h-64 bg-white p-4 rounded-lg shadow-md border border-gray-200 flex items-center justify-center">
+                                <p className="text-sm text-gray-500">No filters available.</p>
+                            </div>
+                         )}
+                    </div>
+
                     <div className="flex-grow min-w-0">
-                        <h1 className="text-xl font-bold text-gray-800 truncate">
-                            Add Flight {cityName ? `in ${cityName}` : ''}
-                        </h1>
-                        {/* Subtitle with search details */}
-                        {searchParams && (
-                            <p className="text-xs text-gray-500 truncate">
-                                {searchParams.departureCity?.iata || 'N/A'} &rarr; {searchParams.arrivalCity?.iata || 'N/A'} on {searchParams.date ? new Date(searchParams.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'N/A'}
-                            </p>
+                        {loading && (
+                             <div>
+                                {[...Array(3)].map((_, index) => <FlightCardSkeleton key={index} />)}
+                            </div>
+                        )}
+
+                        {error && !loading && (
+                            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mx-auto" role="alert">
+                                <strong className="font-bold">Error: </strong>
+                                <span className="block sm:inline"> {error}</span>
+                            </div>
+                        )}
+
+                        {!loading && !error && allFlights.length > 0 && (
+                            <div>
+                                {filteredFlights.length > 0 ? (
+                                    filteredFlights.map((flight) => (
+                                        <CrmFlightResultCard
+                                            key={flight.rI}
+                                            flight={flight}
+                                            onSelect={() => handleSelectFlight(flight.rI)}
+                                            isLoading={loadingFlightIndex === flight.rI}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="text-center py-10 text-gray-500 bg-white rounded-lg shadow p-6">
+                                        <p className="mb-2 font-semibold">No flights match the current filters.</p>
+                                        <button
+                                            onClick={handleResetFilters}
+                                            className="text-sm text-[#13804e] hover:text-[#093923] font-medium underline"
+                                        >
+                                            Reset Filters
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {!loading && !error && allFlights.length === 0 && (
+                            <div className="text-center py-10 text-gray-500 bg-white rounded-lg shadow p-6 mx-auto">
+                                 <p>No flights found matching the criteria.</p>
+                             </div>
                         )}
                     </div>
                 </div>
-                {/* Optional: Add Modify Search button here if flight search modification is implemented */}
-                {/* <div className="flex-shrink-0 ml-4">
-                    <button ... > Modify Search </button>
-                </div> */}
-            </div>
-            {/* --- END NEW Header --- */}
-
-            {/* --- UPDATED: Main Content Area for Centering --- */}
-            <div className="flex-grow flex items-center justify-center overflow-auto">
-
-                {/* Loading State */} 
-                {loading && ( 
-                    <div className="text-center flex flex-row items-center justify-center">
-                        <Hourglass size="40" color="#6366F1" /> 
-                        <p className="text-gray-600 ml-3">Loading flight results...</p>
-                    </div>
-                )}
-
-                {/* Error State */} 
-                {error && (
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative max-w-2xl text-center" role="alert">
-                        <strong className="font-bold">Error: </strong>
-                        <span className="block sm:inline"> {error}</span>
-                    </div>
-                )}
-
-                {/* Results Container */} 
-                {!loading && !error && flights.length > 0 && (
-                    <div className="w-full">
-                        {flights.map((flight) => (
-                            <CrmFlightResultCard 
-                                key={flight.rI} 
-                                flight={flight} 
-                                onSelect={() => handleSelectFlight(flight.rI)} 
-                                isLoading={selectingFlight && selectedFlightDetails?.resultIndex === flight.rI} 
-                            />
-                        ))}
-                    </div>
-                )}
-
-                {/* No Results State */} 
-                {!loading && !error && flights.length === 0 && (
-                    <p className="text-center text-gray-500">No flights found matching the criteria.</p>
-                )}
-
             </div>
 
             <CrmAddFlightDetailsModal
                 isOpen={isDetailsModalOpen}
                 onClose={handleCloseDetailsModal}
-                onConfirm={handleConfirmAddFlight}
                 flightDetails={selectedFlightDetails}
+                onConfirm={handleConfirmAddFlight}
                 isLoading={isAddingFlight}
             />
         </div>

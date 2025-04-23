@@ -29,33 +29,29 @@ const SeatButton = ({ seat, onClick, isSelected, disabled, maxSeatsReached, pass
         borderColor = 'border-gray-400';
         cursor = 'cursor-not-allowed';
     } else if (isSelected) {
-        bgColor = 'bg-indigo-600 hover:bg-indigo-700';
+        bgColor = 'bg-[#093923] hover:bg-[#13804e]';
         textColor = 'text-white';
-        borderColor = 'border-indigo-700';
+        borderColor = 'border-[#093923]';
     } else if (maxSeatsReached) {
-        // Optional: Style differently if max seats reached but this seat is not selected
-        // bgColor = 'bg-yellow-100';
-        // textColor = 'text-yellow-700';
-        cursor = 'cursor-not-allowed'; // Prevent selection
+        cursor = 'cursor-not-allowed';
     }
 
     return (
         <button
             type="button"
             onClick={handleClick}
-            disabled={seat.isBooked || disabled || (maxSeatsReached && !isSelected)} // Disable if booked, loading, or max reached & not selected
+            disabled={seat.isBooked || disabled || (maxSeatsReached && !isSelected)}
             className={`relative w-10 h-10 md:w-12 md:h-12 rounded border flex flex-col items-center justify-center text-xs font-medium transition-colors ${bgColor} ${textColor} ${borderColor} ${cursor} ${seat.type?.isAisle ? 'ml-4 md:ml-6' : ''}`}
         >
             <span>{seat.code}</span>
             {!seat.isBooked && seat.price > 0 && (
-                <span className={`text-[0.6rem] ${isSelected ? 'text-indigo-100' : 'text-gray-500'}`}>₹{seat.price}</span>
+                <span className={`text-[0.6rem] ${isSelected ? 'text-green-100' : 'text-gray-500'}`}>₹{seat.price}</span>
             )}
             {seat.isBooked && (
                 <XMarkIcon className="w-4 h-4 text-gray-600 absolute" />
             )}
-            {/* Show passenger name for selected seats */}
             {isSelected && passengerName && (
-                <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-indigo-500 text-white text-[0.6rem] px-1 py-0.5 rounded whitespace-nowrap">
+                <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-[#093923] text-white text-[0.6rem] px-1 py-0.5 rounded whitespace-nowrap">
                     {passengerName}
                 </div>
             )}
@@ -69,17 +65,17 @@ const OptionCard = ({ option, isSelected, onClick, disabled, descriptionKey = 'd
         onClick={onClick}
         disabled={disabled}
         className={`w-full p-3 border rounded-md text-left transition-colors flex justify-between items-center ${isSelected
-            ? 'bg-indigo-50 border-indigo-300 ring-1 ring-indigo-400'
+            ? 'bg-[#e6f2ed] border-[#13804e]/50 ring-1 ring-[#13804e]'
             : 'bg-white hover:bg-gray-50 border-gray-200'
             } ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
     >
         <div>
-            <p className={`font-medium text-sm ${isSelected ? 'text-indigo-800' : 'text-gray-800'}`}>
+            <p className={`font-medium text-sm ${isSelected ? 'text-[#093923]' : 'text-gray-800'}`}>
                 {option[descriptionKey]}
             </p>
             {option.weight && <p className="text-xs text-gray-500">Weight: {option.weight}kg</p>} 
         </div>
-        <p className={`font-semibold text-sm ${isSelected ? 'text-indigo-800' : 'text-gray-900'}`}>
+        <p className={`font-semibold text-sm ${isSelected ? 'text-[#093923]' : 'text-gray-900'}`}>
             ₹{option[priceKey]?.toLocaleString('en-IN') || '0'}
         </p>
     </button>
@@ -666,7 +662,7 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                                         onClick={() => setActivePassengerIndex(index)}
                                                         className={`px-3 py-1.5 text-sm font-medium rounded-lg whitespace-nowrap shadow-sm transition-all focus:outline-none ${
                                                             activePassengerIndex === index
-                                                                ? 'bg-indigo-600 text-white border border-indigo-300'
+                                                                ? 'bg-[#093923] text-white border border-[#13804e]'
                                                                 : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
                                                         }`}
                                                     >
@@ -784,17 +780,17 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                     <Tab.List className="flex border-b border-gray-200 bg-white flex-shrink-0 sticky top-0 z-10">
                                         <Tab as={Fragment}>
                                             {({ selected }) => (
-                                                <button className={`flex-1 py-3 px-1 text-sm font-medium flex items-center justify-center gap-2 focus:outline-none ${selected ? 'border-b-2 border-indigo-500 text-indigo-600' : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}> <PaperAirplaneIcon className='w-5 h-5' /> Seats </button>)
+                                                <button className={`flex-1 py-3 px-1 text-sm font-medium flex items-center justify-center gap-2 focus:outline-none ${selected ? 'border-b-2 border-[#093923] text-[#093923]' : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}> <PaperAirplaneIcon className='w-5 h-5' /> Seats </button>)
                                             }
                                         </Tab>
                                         {selectedBaggage.length > 0 && (
                                             <Tab as={Fragment}>
-                                                {({ selected }) => (<button className={`flex-1 py-3 px-1 text-sm font-medium flex items-center justify-center gap-2 focus:outline-none ${selected ? 'border-b-2 border-indigo-500 text-indigo-600' : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}> <ShoppingCartIcon className='w-5 h-5' /> Baggage </button>)}
+                                                {({ selected }) => (<button className={`flex-1 py-3 px-1 text-sm font-medium flex items-center justify-center gap-2 focus:outline-none ${selected ? 'border-b-2 border-[#093923] text-[#093923]' : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}> <ShoppingCartIcon className='w-5 h-5' /> Baggage </button>)}
                                             </Tab>
                                         )}
                                         {selectedMeal.length > 0 && (
                                             <Tab as={Fragment}>
-                                                {({ selected }) => (<button className={`flex-1 py-3 px-1 text-sm font-medium flex items-center justify-center gap-2 focus:outline-none ${selected ? 'border-b-2 border-indigo-500 text-indigo-600' : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}> <UserGroupIcon className='w-5 h-5' /> Meals </button>)}
+                                                {({ selected }) => (<button className={`flex-1 py-3 px-1 text-sm font-medium flex items-center justify-center gap-2 focus:outline-none ${selected ? 'border-b-2 border-[#093923] text-[#093923]' : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}> <UserGroupIcon className='w-5 h-5' /> Meals </button>)}
                                             </Tab>
                                         )}
                                     </Tab.List>
@@ -804,9 +800,9 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                         {/* Segment Tabs (Common for all panels) */}
                                         {flightData.segments && flightData.segments.length > 1 && (
                                             <Tab.Group selectedIndex={activeFlightSegment} onChange={setActiveFlightSegment}>
-                                                <Tab.List className="flex space-x-1 rounded-xl bg-indigo-900/20 p-1 mb-4">
+                                                <Tab.List className="flex space-x-1 rounded-xl bg-[#e6f2ed] p-1 mb-4">
                                                     {flightData.segments.map((segment, index) => (
-                                                        <Tab key={`${segment.origin}-${segment.destination}`} className={({ selected }) =>`w-full rounded-lg py-2 text-sm font-medium leading-5 text-indigo-700 ring-white ring-opacity-60 ring-offset-2 ring-offset-indigo-400 focus:outline-none focus:ring-2 ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`}>
+                                                        <Tab key={`${segment.origin}-${segment.destination}`} className={({ selected }) =>`w-full rounded-lg py-2 text-sm font-medium leading-5 text-[#093923] ring-white ring-opacity-60 ring-offset-2 ring-offset-[#13804e]/50 focus:outline-none focus:ring-2 ${selected ? 'bg-white shadow' : 'text-[#13804e] hover:bg-white/[0.3] hover:text-[#093923]'}`}>
                                                             {segment.origin} → {segment.destination}
                                                         </Tab>
                                                     ))}
@@ -895,7 +891,7 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                     <div className="flex justify-between items-center">
                                         <div>
                                             <p className="text-sm font-medium text-gray-700">Additional Cost:</p>
-                                            <p className="text-lg font-semibold text-indigo-600">₹{additionalCost.toLocaleString('en-IN')}</p>
+                                            <p className="text-lg font-semibold text-[#093923]">₹{additionalCost.toLocaleString('en-IN')}</p>
                                         </div>
                                         <div className="flex gap-3">
                                             <button
@@ -908,7 +904,7 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                             </button>
                                             <button
                                                 type="button"
-                                                className={`inline-flex justify-center items-center rounded-lg border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                className={`inline-flex justify-center items-center rounded-lg border border-transparent bg-[#093923] px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-[#13804e] focus:outline-none focus:ring-2 focus:ring-[#13804e] focus:ring-offset-2 transition-all duration-200 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 onClick={handleSubmit}
                                                 disabled={isLoading}
                                             >
