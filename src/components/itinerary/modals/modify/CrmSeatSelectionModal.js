@@ -11,7 +11,7 @@ import { toast } from 'react-toastify'; // For error/loading feedback
 import bookingService from '../../../../services/bookingService'; // Import the service
 
 // --- Helper Components ---
-const SeatButton = ({ seat, onClick, isSelected, disabled, maxSeatsReached }) => {
+const SeatButton = ({ seat, onClick, isSelected, disabled, maxSeatsReached, passengerName }) => {
     const handleClick = () => {
         if (!seat.isBooked && !disabled) {
             onClick();
@@ -44,7 +44,7 @@ const SeatButton = ({ seat, onClick, isSelected, disabled, maxSeatsReached }) =>
             type="button"
             onClick={handleClick}
             disabled={seat.isBooked || disabled || (maxSeatsReached && !isSelected)} // Disable if booked, loading, or max reached & not selected
-            className={`w-10 h-10 md:w-12 md:h-12 rounded border flex flex-col items-center justify-center text-xs font-medium transition-colors ${bgColor} ${textColor} ${borderColor} ${cursor} ${seat.type?.isAisle ? 'ml-4 md:ml-6' : ''}`}
+            className={`relative w-10 h-10 md:w-12 md:h-12 rounded border flex flex-col items-center justify-center text-xs font-medium transition-colors ${bgColor} ${textColor} ${borderColor} ${cursor} ${seat.type?.isAisle ? 'ml-4 md:ml-6' : ''}`}
         >
             <span>{seat.code}</span>
             {!seat.isBooked && seat.price > 0 && (
@@ -52,6 +52,12 @@ const SeatButton = ({ seat, onClick, isSelected, disabled, maxSeatsReached }) =>
             )}
             {seat.isBooked && (
                 <XMarkIcon className="w-4 h-4 text-gray-600 absolute" />
+            )}
+            {/* Show passenger name for selected seats */}
+            {isSelected && passengerName && (
+                <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-indigo-500 text-white text-[0.6rem] px-1 py-0.5 rounded whitespace-nowrap">
+                    {passengerName}
+                </div>
             )}
         </button>
     );
@@ -83,6 +89,7 @@ const OptionCard = ({ option, isSelected, onClick, disabled, descriptionKey = 'd
 const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquiryToken, travelersDetails }) => {
     const [activeView, setActiveView] = useState("seats");
     const [activeFlightSegment, setActiveFlightSegment] = useState(0);
+    const [activePassengerIndex, setActivePassengerIndex] = useState(0); // Track active passenger
     const [selectedSeats, setSelectedSeats] = useState([]);
     const [selectedBaggage, setSelectedBaggage] = useState([]);
     const [selectedMeal, setSelectedMeal] = useState([]);
@@ -91,73 +98,186 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
 
     const flightData = flight?.flightData; // Use optional chaining
 
-    // --- CORRECTED maxSeats Calculation --- 
-    const maxSeats = useMemo(() => {
-        let count = 0;
+    // --- Extract passengers from travelersDetails --- 
+    const passengers = useMemo(() => {
+        let passengerList = [];
         if (travelersDetails && Array.isArray(travelersDetails.rooms)) {
-            travelersDetails.rooms.forEach(room => {
+            travelersDetails.rooms.forEach((room, roomIndex) => {
+                // Add adults
                 if (room && Array.isArray(room.adults)) {
-                    count += room.adults.length;
+                    room.adults.forEach((adult, adultIndex) => {
+                        passengerList.push({
+                            id: `r${roomIndex}a${adultIndex}`,
+                            type: 'Adult',
+                            age: adult,
+                            name: room.adultNames?.[adultIndex] || `Adult ${passengerList.length + 1}`,
+                            roomIndex,
+                            personIndex: adultIndex
+                        });
+                    });
                 }
+                // Add children
                 if (room && Array.isArray(room.children)) {
-                    count += room.children.length;
+                    room.children.forEach((childAge, childIndex) => {
+                        passengerList.push({
+                            id: `r${roomIndex}c${childIndex}`,
+                            type: 'Child',
+                            age: childAge,
+                            name: room.childNames?.[childIndex] || `Child ${passengerList.length + 1}`,
+                            roomIndex,
+                            personIndex: childIndex
+                        });
+                    });
                 }
-                // Add infants here if they need seats 
-                // if (room && Array.isArray(room.infants)) { 
-                //     count += room.infants.length; 
-                // } 
             });
         }
-        // Return calculated count or default to 1 if calculation yields 0 or less
-        return count > 0 ? count : 1; 
-    }, [travelersDetails]); // Recalculate only if travelersDetails changes
+        // If no passengers found, add a default one
+        if (passengerList.length === 0) {
+            passengerList.push({
+                id: 'default',
+                type: 'Adult',
+                age: 30,
+                name: 'Passenger 1',
+                roomIndex: 0,
+                personIndex: 0
+            });
+        }
+        return passengerList;
+    }, [travelersDetails]);
+    // --- END Passenger Extraction ---
+
+    // --- CORRECTED maxSeats Calculation --- 
+    const maxSeats = useMemo(() => passengers.length, [passengers]);
     // --- END CORRECTED maxSeats Calculation ---
+
+    // Recalculate selected seat count - function referenced but missing
+    const recalculateSelectedSeatCount = () => {
+        // This is a no-op function since the count is calculated via useMemo
+        // We keep it to maintain the API called in the clear button
+        console.log("Recalculating seat count");
+    };
 
     // Initialize state when flightData changes
     useEffect(() => {
         if (flightData) {
-            // Initialize Seats
+            // Initialize Seats with enhanced structure to track passenger assignments
             const initialSeatMap = flightData.seatMap?.map(segment => ({
                 origin: segment.origin,
                 destination: segment.destination,
                 resultIdentifier: segment.resultIdentifier,
                 rows: segment.rows.map(row => ({
-                    seats: (row.seats || []).filter(seat => seat && seat.code !== null).map(seat => ({
+                    seats: (row.seats || []).filter(seat => seat && seat.code !== null).map(seat => {
+                        // Check if this seat is already selected in existing data and by which passenger
+                        let isSelected = false;
+                        let passengerId = null;
+                        let passengerIndex = null;
+                        let passengerName = null;
+                        
+                        if (flightData.selectedSeats) {
+                            for (const selSeg of flightData.selectedSeats) {
+                                if (selSeg.origin === segment.origin && selSeg.destination === segment.destination) {
+                                    for (const selRow of selSeg.rows || []) {
+                                        for (const selSeat of selRow.seats || []) {
+                                            if (selSeat.code === seat.code) {
+                                                isSelected = true;
+                                                // Use saved passenger info if available, otherwise default to first passenger
+                                                passengerId = selSeat.passengerId || passengers[0]?.id;
+                                                passengerIndex = selSeat.passengerIndex !== undefined ? selSeat.passengerIndex : 0;
+                                                passengerName = selSeat.passengerName || passengers[passengerIndex]?.name;
+                                                break;
+                                            }
+                                        }
+                                        if (isSelected) break;
+                                    }
+                                }
+                                if (isSelected) break;
+                            }
+                        }
+
+                        return {
                         ...seat,
-                        isSelected: flightData.selectedSeats?.some(selSeg =>
-                            selSeg.origin === segment.origin && selSeg.destination === segment.destination &&
-                            selSeg.rows?.some(selRow => selRow.seats?.some(selSeat => selSeat.code === seat.code))
-                        ) || false
-                    }))
+                            isSelected,
+                            passengerId,
+                            passengerIndex,
+                            passengerName
+                        };
+                    })
                 }))
             })) || [];
             setSelectedSeats(initialSeatMap);
 
-            // Initialize Baggage
+            // Initialize Baggage - per passenger
             const initialBaggage = flightData.baggageOptions?.map(segment => ({
                 origin: segment.origin,
                 destination: segment.destination,
                 resultIdentifier: segment.resultIdentifier,
                 options: segment.options || [],
-                selectedOption: flightData.selectedBaggage?.find(selSeg =>
-                    selSeg.origin === segment.origin && selSeg.destination === segment.destination
-                )?.options?.[0] || null
+                // Initialize selection for each passenger
+                passengerSelections: passengers.map(passenger => ({
+                    passengerId: passenger.id,
+                    selectedOption: null // Will be populated from existing selections if available
+                }))
             })) || [];
+            
+            // Populate existing baggage selections if any
+            if (flightData.selectedBaggage && flightData.selectedBaggage.length > 0) {
+                flightData.selectedBaggage.forEach(selBag => {
+                    const segmentIndex = initialBaggage.findIndex(
+                        seg => seg.origin === selBag.origin && seg.destination === selBag.destination
+                    );
+                    if (segmentIndex >= 0 && selBag.options && selBag.options.length > 0) {
+                        // Map each option to the correct passenger using passengerIndex
+                        selBag.options.forEach(option => {
+                            const passengerIdx = option.passengerIndex !== undefined 
+                                ? option.passengerIndex 
+                                : 0; // Default to first passenger if not specified
+                            
+                            if (passengerIdx < initialBaggage[segmentIndex].passengerSelections.length) {
+                                initialBaggage[segmentIndex].passengerSelections[passengerIdx].selectedOption = option;
+                            }
+                        });
+                    }
+                });
+            }
             setSelectedBaggage(initialBaggage);
 
-            // Initialize Meals
+            // Initialize Meals - per passenger
             const initialMeals = flightData.mealOptions?.map(segment => ({
                 origin: segment.origin,
                 destination: segment.destination,
                 resultIdentifier: segment.resultIdentifier,
                 options: segment.options || [],
-                selectedOption: flightData.selectedMeal?.find(selSeg =>
-                    selSeg.origin === segment.origin && selSeg.destination === segment.destination
-                )?.options?.[0] || null
+                // Initialize selection for each passenger
+                passengerSelections: passengers.map(passenger => ({
+                    passengerId: passenger.id,
+                    selectedOption: null // Will be populated from existing selections if available
+                }))
             })) || [];
+            
+            // Populate existing meal selections if any
+            if (flightData.selectedMeal && flightData.selectedMeal.length > 0) {
+                flightData.selectedMeal.forEach(selMeal => {
+                    const segmentIndex = initialMeals.findIndex(
+                        seg => seg.origin === selMeal.origin && seg.destination === selMeal.destination
+                    );
+                    if (segmentIndex >= 0 && selMeal.options && selMeal.options.length > 0) {
+                        // Map each option to the correct passenger using passengerIndex
+                        selMeal.options.forEach(option => {
+                            const passengerIdx = option.passengerIndex !== undefined 
+                                ? option.passengerIndex 
+                                : 0; // Default to first passenger if not specified
+                            
+                            if (passengerIdx < initialMeals[segmentIndex].passengerSelections.length) {
+                                initialMeals[segmentIndex].passengerSelections[passengerIdx].selectedOption = option;
+                            }
+                        });
+                    }
+                });
+            }
             setSelectedMeal(initialMeals);
 
             setActiveFlightSegment(0); // Reset to first segment tab
+            setActivePassengerIndex(0); // Reset to first passenger
             setError(''); // Clear previous errors
         } else {
             // Reset if no flight data
@@ -165,11 +285,12 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
             setSelectedBaggage([]);
             setSelectedMeal([]);
         }
-    }, [flightData]); // Rerun only when flightData changes
+    }, [flightData, passengers]); // Rerun when flightData or passengers changes
 
-    // Calculate total additional cost
+    // Calculate total additional cost for all passengers
     const additionalCost = useMemo(() => {
         let total = 0;
+        // Sum all seat prices
         selectedSeats.forEach(segment => {
             segment.rows.forEach(row => {
                 row.seats.forEach(seat => {
@@ -179,20 +300,29 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                 });
             });
         });
+        
+        // Sum all baggage prices for all passengers
         selectedBaggage.forEach(segment => {
-            if (segment.selectedOption && typeof segment.selectedOption.price === 'number') {
-                total += segment.selectedOption.price;
+            segment.passengerSelections.forEach(passengerSelection => {
+                if (passengerSelection.selectedOption && typeof passengerSelection.selectedOption.price === 'number') {
+                    total += passengerSelection.selectedOption.price;
             }
+            });
         });
+        
+        // Sum all meal prices for all passengers
         selectedMeal.forEach(segment => {
-            if (segment.selectedOption && typeof segment.selectedOption.price === 'number') {
-                total += segment.selectedOption.price;
+            segment.passengerSelections.forEach(passengerSelection => {
+                if (passengerSelection.selectedOption && typeof passengerSelection.selectedOption.price === 'number') {
+                    total += passengerSelection.selectedOption.price;
             }
+            });
         });
+        
         return total;
     }, [selectedSeats, selectedBaggage, selectedMeal]);
 
-    // --- Handlers ---
+    // --- Updated Handlers ---
     const handleSeatClick = (segmentIndex, rowIndex, seatIndex) => {
         setError(""); // Clear error on interaction
         setSelectedSeats(prev => {
@@ -200,16 +330,77 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
             const segment = newSeats[segmentIndex];
             const seatToToggle = segment.rows[rowIndex].seats[seatIndex];
 
-            // Calculate current selections for this segment
+            // If the seat is already selected
+            if (seatToToggle.isSelected) {
+                // If the seat is assigned to current passenger, deselect it
+                if (seatToToggle.passengerIndex === activePassengerIndex) {
+                    // Create updated segment data - deselect the seat
+                    newSeats[segmentIndex] = {
+                        ...segment,
+                        rows: segment.rows.map((row, rIdx) => {
+                            if (rIdx !== rowIndex) return row;
+                            return {
+                                ...row,
+                                seats: row.seats.map((seat, sIdx) => {
+                                    if (sIdx !== seatIndex) return seat;
+                                    return { 
+                                        ...seat, 
+                                        isSelected: false,
+                                        passengerId: null,
+                                        passengerIndex: null
+                                    };
+                                }),
+                            };
+                        }),
+                    };
+                } else {
+                    // Seat belongs to another passenger, show error
+                    setError(`This seat is already assigned to ${passengers[seatToToggle.passengerIndex]?.name}`);
+                    return prev; // No change
+                }
+            } else {
+                // Seat is not selected, check if current passenger already has a seat
+                const hasExistingSeat = segment.rows.some(row => 
+                    row.seats.some(seat => 
+                        seat.isSelected && seat.passengerIndex === activePassengerIndex
+                    )
+                );
+                
+                if (hasExistingSeat) {
+                    // Replace the existing seat for this passenger
+                    newSeats[segmentIndex] = {
+                        ...segment,
+                        rows: segment.rows.map(row => ({
+                            ...row,
+                            seats: row.seats.map(seat => {
+                                // Deselect the old seat for this passenger
+                                if (seat.isSelected && seat.passengerIndex === activePassengerIndex) {
+                                    return { ...seat, isSelected: false, passengerId: null, passengerIndex: null };
+                                }
+                                // Select the new seat if it's the one we clicked
+                                if (seat === seatToToggle) {
+                                    return { 
+                                        ...seat, 
+                                        isSelected: true, 
+                                        passengerId: passengers[activePassengerIndex]?.id, 
+                                        passengerIndex: activePassengerIndex 
+                                    };
+                                }
+                                return seat;
+                            })
+                        }))
+                    };
+                } else {
+                    // Calculate current selections for this segment (across all passengers)
             const currentSelectedCount = segment.rows.reduce((count, row) =>
                 count + row.seats.filter(s => s.isSelected).length, 0);
 
-            if (!seatToToggle.isSelected && currentSelectedCount >= maxSeats) {
+                    if (currentSelectedCount >= maxSeats) {
                 setError(`You can only select ${maxSeats} seat${maxSeats > 1 ? 's' : ''} per flight segment.`);
                 return prev; // Prevent exceeding max seats
             }
 
-            // Create updated segment data
+                    // Create updated segment data - select the new seat for this passenger
             newSeats[segmentIndex] = {
                 ...segment,
                 rows: segment.rows.map((row, rIdx) => {
@@ -218,36 +409,67 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                         ...row,
                         seats: row.seats.map((seat, sIdx) => {
                             if (sIdx !== seatIndex) return seat;
-                            return { ...seat, isSelected: !seat.isSelected }; // Toggle selection
+                                    return { 
+                                        ...seat, 
+                                        isSelected: true,
+                                        passengerId: passengers[activePassengerIndex]?.id,
+                                        passengerIndex: activePassengerIndex
+                                    };
                         }),
                     };
                 }),
             };
+                }
+            }
+            
             return newSeats;
         });
     };
 
+    // Updated handler for baggage selection per passenger
     const handleBaggageSelect = (segmentIndex, option) => {
         setSelectedBaggage(prev => {
             const newBaggage = [...prev];
-            const currentSelection = newBaggage[segmentIndex].selectedOption;
+            const currentPassengerSelection = newBaggage[segmentIndex].passengerSelections[activePassengerIndex];
+            const currentOption = currentPassengerSelection.selectedOption;
+            
+            // Create updated passenger selections
+            const updatedPassengerSelections = [...newBaggage[segmentIndex].passengerSelections];
+            updatedPassengerSelections[activePassengerIndex] = {
+                ...currentPassengerSelection,
+                // Toggle: if same option clicked, deselect; otherwise select new option
+                selectedOption: currentOption?.code === option.code ? null : option,
+            };
+            
             newBaggage[segmentIndex] = {
                 ...newBaggage[segmentIndex],
-                // Toggle: if same option clicked, deselect; otherwise select new option
-                selectedOption: currentSelection?.code === option.code ? null : option,
+                passengerSelections: updatedPassengerSelections
             };
+            
             return newBaggage;
         });
     };
 
+    // Updated handler for meal selection per passenger
     const handleMealSelect = (segmentIndex, option) => {
         setSelectedMeal(prev => {
             const newMeal = [...prev];
-            const currentSelection = newMeal[segmentIndex].selectedOption;
+            const currentPassengerSelection = newMeal[segmentIndex].passengerSelections[activePassengerIndex];
+            const currentOption = currentPassengerSelection.selectedOption;
+            
+            // Create updated passenger selections
+            const updatedPassengerSelections = [...newMeal[segmentIndex].passengerSelections];
+            updatedPassengerSelections[activePassengerIndex] = {
+                ...currentPassengerSelection,
+                // Toggle: if same option clicked, deselect; otherwise select new option
+                selectedOption: currentOption?.code === option.code ? null : option,
+            };
+            
             newMeal[segmentIndex] = {
                 ...newMeal[segmentIndex],
-                selectedOption: currentSelection?.code === option.code ? null : option,
+                passengerSelections: updatedPassengerSelections
             };
+            
             return newMeal;
         });
     };
@@ -275,26 +497,59 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                 seatNo: seat.seatNo,
                                 price: seat.price,
                                 type: seat.type,
-                                priceBracket: seat.priceBracket
+                                priceBracket: seat.priceBracket,
+                                // Include passenger information for proper mapping
+                                passengerId: seat.passengerId,
+                                passengerIndex: seat.passengerIndex,
+                                passengerName: passengers[seat.passengerIndex]?.name || `Traveler ${seat.passengerIndex + 1}`,
+                                passengerType: passengers[seat.passengerIndex]?.type || 'Adult'
                             }))
                         })).filter(row => row.seats.length > 0)
                     })),
+                // Convert baggage selections for API format
                 baggageOptions: selectedBaggage
-                    .filter(segment => segment.selectedOption)
-                    .map(segment => ({
+                    .filter(segment => segment.passengerSelections.some(ps => ps.selectedOption))
+                    .map(segment => {
+                        // Collect all selected options across passengers with passenger information
+                        const allOptions = segment.passengerSelections
+                            .filter(ps => ps.selectedOption)
+                            .map((ps, idx) => ({
+                                ...ps.selectedOption,
+                                passengerId: ps.passengerId,
+                                passengerIndex: idx,
+                                passengerName: passengers[idx]?.name || `Traveler ${idx + 1}`,
+                                passengerType: passengers[idx]?.type || 'Adult'
+                            }));
+                            
+                        return {
                         origin: segment.origin,
                         destination: segment.destination,
                         resultIdentifier: segment.resultIdentifier,
-                        options: [segment.selectedOption]
-                    })),
+                            options: allOptions
+                        };
+                    }),
+                // Convert meal selections for API format
                 mealOptions: selectedMeal
-                    .filter(segment => segment.selectedOption)
-                    .map(segment => ({
+                    .filter(segment => segment.passengerSelections.some(ps => ps.selectedOption))
+                    .map(segment => {
+                        // Collect all selected options across passengers with passenger information
+                        const allOptions = segment.passengerSelections
+                            .filter(ps => ps.selectedOption)
+                            .map((ps, idx) => ({
+                                ...ps.selectedOption,
+                                passengerId: ps.passengerId,
+                                passengerIndex: idx,
+                                passengerName: passengers[idx]?.name || `Traveler ${idx + 1}`,
+                                passengerType: passengers[idx]?.type || 'Adult'
+                            }));
+                            
+                        return {
                         origin: segment.origin,
                         destination: segment.destination,
                         resultIdentifier: segment.resultIdentifier,
-                        options: [segment.selectedOption]
-                    }))
+                            options: allOptions
+                        };
+                    })
             };
 
             console.log("Submitting selections:", transformedSelections);
@@ -307,11 +562,7 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
 
             console.log("Update successful:", result);
             toast.success("Flight selections updated successfully!");
-            onClose(); // Close modal on success
-
-            // TODO: Potentially update the itinerary state in the parent component
-            // You might need to pass a callback function like `onSelectionUpdate` from the parent
-            // and call it here with the `result` data.
+            onClose(true); // Close modal on success with update flag
 
         } catch (err) {
             console.error("Error updating selections:", err);
@@ -343,6 +594,10 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
         (count, row) => count + row.seats.filter(s => s.isSelected).length, 0
     ) || 0;
     const maxSeatsReachedForCurrentSegment = currentSegmentSelectedSeatCount >= maxSeats;
+
+    // Current passenger selections for active segment
+    const currentPassengerBaggageSelection = currentSegmentBaggage?.passengerSelections?.[activePassengerIndex]?.selectedOption;
+    const currentPassengerMealSelection = currentSegmentMeal?.passengerSelections?.[activePassengerIndex]?.selectedOption;
 
     return (
         <Transition appear show={isOpen} as={Fragment}>
@@ -400,6 +655,126 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                     </div>
                                 )}
 
+                                {/* Passenger Tabs - New Addition */}
+                                {passengers.length > 1 && (
+                                    <div className="px-4 pt-3 pb-2 bg-white sticky top-0 z-10 border-b border-gray-200 flex flex-wrap justify-between items-start">
+                                        <div className="w-1/2">
+                                            <div className="flex overflow-x-auto no-scrollbar space-x-2">
+                                                {passengers.map((passenger, index) => (
+                                                    <button
+                                                        key={passenger.id}
+                                                        onClick={() => setActivePassengerIndex(index)}
+                                                        className={`px-3 py-1.5 text-sm font-medium rounded-lg whitespace-nowrap shadow-sm transition-all focus:outline-none ${
+                                                            activePassengerIndex === index
+                                                                ? 'bg-indigo-600 text-white border border-indigo-300'
+                                                                : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
+                                                        }`}
+                                                    >
+                                                        {passenger.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-2">
+                                                Selecting for: <span className="font-medium text-gray-700">{passengers[activePassengerIndex]?.name}</span>
+                                            </p>
+                                        </div>
+                                        
+                                        {/* Current seat assignments in top right */}
+                                        {activeView === 'seats' && selectedSeats?.length > 0 && (
+                                            <div className="flex-1 flex flex-wrap gap-1 justify-end items-start pl-2 max-w-[50%]">
+                                                <h4 className="w-full text-xs font-medium text-gray-700 text-right mb-1">Current seat assignments:</h4>
+                                                {passengers.map((passenger, idx) => {
+                                                    // Find seat assigned to this passenger in current segment
+                                                    let assignedSeat = null;
+                                                    selectedSeats[activeFlightSegment]?.rows?.forEach(row => {
+                                                        row.seats.forEach(seat => {
+                                                            if (seat.isSelected && seat.passengerIndex === idx) {
+                                                                assignedSeat = seat;
+                                                            }
+                                                        });
+                                                    });
+                                                    
+                                                    // Only show if they have an assigned seat
+                                                    if (!assignedSeat) return null;
+                                                    
+                                                    return (
+                                                        <div 
+                                                            key={passenger.id}
+                                                            className={`text-xs rounded-lg px-2 py-1 border border-indigo-200 ${
+                                                                idx === activePassengerIndex ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'bg-indigo-50 text-indigo-700'
+                                                            }`}
+                                                        >
+                                                            <span className="font-medium">{passenger.name.split(' ')[0]}</span>
+                                                            <span className="ml-1 font-bold">
+                                                                • {assignedSeat.code}
+                                                                {assignedSeat.price > 0 && <span className="text-[0.6rem] ml-0.5">₹{assignedSeat.price}</span>}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {/* Current baggage selections in top right */}
+                                        {activeView === 'baggage' && selectedBaggage?.length > 0 && (
+                                            <div className="flex-1 flex flex-wrap gap-1 justify-end items-start pl-2 max-w-[50%]">
+                                                <h4 className="w-full text-xs font-medium text-gray-700 text-right mb-1">Current baggage selections:</h4>
+                                                {passengers.map((passenger, idx) => {
+                                                    // Find baggage selected by this passenger
+                                                    const selection = selectedBaggage[activeFlightSegment]?.passengerSelections[idx]?.selectedOption;
+                                                    
+                                                    // Only show if they have a selection
+                                                    if (!selection) return null;
+                                                    
+                                                    return (
+                                                        <div 
+                                                            key={passenger.id}
+                                                            className={`text-xs rounded-lg px-2 py-1 border border-indigo-200 ${
+                                                                idx === activePassengerIndex ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'bg-indigo-50 text-indigo-700'
+                                                            }`}
+                                                        >
+                                                            <span className="font-medium">{passenger.name.split(' ')[0]}</span>
+                                                            <span className="ml-1">
+                                                                • {selection.description.split(' ')[0]}
+                                                                {selection.price > 0 && <span className="text-[0.6rem] ml-0.5">₹{selection.price}</span>}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                        
+                                        {/* Current meal selections in top right */}
+                                        {activeView === 'meal' && selectedMeal?.length > 0 && (
+                                            <div className="flex-1 flex flex-wrap gap-1 justify-end items-start pl-2 max-w-[50%]">
+                                                <h4 className="w-full text-xs font-medium text-gray-700 text-right mb-1">Current meal selections:</h4>
+                                                {passengers.map((passenger, idx) => {
+                                                    // Find meal selected by this passenger
+                                                    const selection = selectedMeal[activeFlightSegment]?.passengerSelections[idx]?.selectedOption;
+                                                    
+                                                    // Only show if they have a selection
+                                                    if (!selection) return null;
+                                                    
+                                                    return (
+                                                        <div 
+                                                            key={passenger.id}
+                                                            className={`text-xs rounded-lg px-2 py-1 border border-indigo-200 ${
+                                                                idx === activePassengerIndex ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'bg-indigo-50 text-indigo-700'
+                                                            }`}
+                                                        >
+                                                            <span className="font-medium">{passenger.name.split(' ')[0]}</span>
+                                                            <span className="ml-1">
+                                                                • {selection.description.split(' ')[0]}
+                                                                {selection.price > 0 && <span className="text-[0.6rem] ml-0.5">₹{selection.price}</span>}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Main Tabs */}
                                 <Tab.Group 
                                     selectedIndex={['seats', 'baggage', 'meal'].indexOf(activeView)} 
@@ -445,9 +820,10 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                             <Tab.Panel className="focus:outline-none">
                                                 {currentSegmentSeats ? (
                                                     <div className="space-y-4">
-                                                        <p className="text-sm text-gray-600 text-center">Select up to {maxSeats} seat{maxSeats > 1 ? 's' : ''}. Selected: {currentSegmentSelectedSeatCount}/{maxSeats}</p>
+                                                        {/* Seat Grid */}
+                                                        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
                                                         {currentSegmentSeats.rows.map((row, rowIndex) => (
-                                                            <div key={rowIndex} className="flex justify-center items-center space-x-1 md:space-x-1.5">
+                                                                <div key={rowIndex} className="flex justify-center items-center space-x-1 md:space-x-1.5 mb-1.5">
                                                                 {row.seats.map((seat, seatIndex) => (
                                                                     <SeatButton
                                                                         key={seat.code}
@@ -456,15 +832,20 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                                                         isSelected={seat.isSelected}
                                                                         disabled={isLoading}
                                                                         maxSeatsReached={maxSeatsReachedForCurrentSegment}
+                                                                            passengerName={seat.isSelected ? 
+                                                                                (seat.passengerName || passengers[seat.passengerIndex]?.name || `Traveler ${seat.passengerIndex + 1}`) 
+                                                                                : null}
                                                                     />
                                                                 ))}
                                                             </div>
                                                         ))}
+                                                            
                                                          {/* Legend */}
-                                                         <div className="flex justify-center gap-4 text-xs pt-4 text-gray-600">
+                                                            <div className="flex justify-center gap-4 text-xs pt-4 mt-2 text-gray-600 border-t border-gray-100">
                                                             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border border-gray-300 bg-white"></span>Available</span>
                                                             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border border-indigo-600 bg-indigo-600"></span>Selected</span>
                                                             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border border-gray-400 bg-gray-300"></span>Booked</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ) : <p className="text-center text-gray-500">Seat map not available for this segment.</p>}
@@ -474,12 +855,12 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                             <Tab.Panel className="focus:outline-none">
                                                 {currentSegmentBaggage && currentSegmentBaggage.options.length > 0 ? (
                                                     <div className="space-y-3">
-                                                        <p className="text-sm text-gray-600">Select additional checked baggage for this segment.</p>
+                                                        <p className="text-sm text-gray-600">Select additional checked baggage for {passengers[activePassengerIndex]?.name} on this segment.</p>
                                                         {currentSegmentBaggage.options.map(option => (
                                                             <OptionCard
                                                                 key={option.code}
                                                                 option={option}
-                                                                isSelected={currentSegmentBaggage.selectedOption?.code === option.code}
+                                                                isSelected={currentPassengerBaggageSelection?.code === option.code}
                                                                 onClick={() => handleBaggageSelect(activeFlightSegment, option)}
                                                                 disabled={isLoading}
                                                             />
@@ -492,12 +873,12 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                             <Tab.Panel className="focus:outline-none">
                                                 {currentSegmentMeal && currentSegmentMeal.options.length > 0 ? (
                                                     <div className="space-y-3">
-                                                        <p className="text-sm text-gray-600">Select a meal preference for this segment.</p>
+                                                        <p className="text-sm text-gray-600">Select a meal preference for {passengers[activePassengerIndex]?.name} on this segment.</p>
                                                         {currentSegmentMeal.options.map(option => (
                                                             <OptionCard
                                                                 key={option.code}
                                                                 option={option}
-                                                                isSelected={currentSegmentMeal.selectedOption?.code === option.code}
+                                                                isSelected={currentPassengerMealSelection?.code === option.code}
                                                                 onClick={() => handleMealSelect(activeFlightSegment, option)}
                                                                 disabled={isLoading}
                                                             />
@@ -519,7 +900,7 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                         <div className="flex gap-3">
                                             <button
                                                 type="button"
-                                                className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                                className="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
                                                 onClick={handleClose}
                                                 disabled={isLoading}
                                             >
@@ -527,7 +908,7 @@ const CrmSeatSelectionModal = ({ isOpen, onClose, flight, itineraryToken, inquir
                                             </button>
                                             <button
                                                 type="button"
-                                                className={`inline-flex justify-center items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                className={`inline-flex justify-center items-center rounded-lg border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 onClick={handleSubmit}
                                                 disabled={isLoading}
                                             >
