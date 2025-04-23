@@ -220,7 +220,7 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
                  const priceDiff = (recheckResponse.data.totalAmount || 0) - (recheckResponse.data.previousTotalAmount || 0);
                  const message = `Price/Baggage updated. ${priceDiff >= 0 ? 'Increase' : 'Decrease'} of ₹${Math.abs(priceDiff).toLocaleString()}. Previous: ₹${recheckResponse.data.previousTotalAmount?.toLocaleString()}, New: ₹${recheckResponse.data.totalAmount?.toLocaleString()}.`;
                  toast.warning(message, { duration: 6000 }); // Longer duration for important info
-             }
+    }
           }
 
           setIsAllocated(true); // Mark allocation as successful

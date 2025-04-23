@@ -199,18 +199,15 @@ const CrmHotelModifyModal = ({
             // <<< Step 1: Search Hotels using POST with occupancies in body >>>
             console.log(`Step 1: Searching availability for hotel ${hotelId} from ${checkInDate} to ${checkOutDate} with occupancies:`, occupancies);
             // Use the same endpoint URL but with POST method
-            const searchApiUrl = `http://localhost:5000/api/itinerary/hotels/${inquiryToken}/${encodeURIComponent(originalCityName)}/${checkInDate}/${checkOutDate}?page=1`; 
+            const searchApiUrl = `http://localhost:5000/api/itinerary/hotels/${inquiryToken}/${encodeURIComponent(originalCityName)}/${checkInDate}/${checkOutDate}`; 
             
             const searchRequestBody = {
                 hotelId: hotelId,
                 occupancies: occupancies,
-                // Include checkIn/checkOut in body? Backend likely still uses URL params here based on modification.
-                // Let's assume backend uses URL dates but body occupancies for now.
-                // If backend expects dates in body too, add them here:
-                // checkIn: checkInDate, 
-                // checkOut: checkOutDate,
                 page: 1, // Default page
-                limit: 1 // Only need 1 result as we target a specific hotel
+                nationality: "IN",
+                sortBy: {label: "Relevance"}
+
             };
 
             const searchResponse = await fetch(searchApiUrl, {
@@ -234,7 +231,8 @@ const CrmHotelModifyModal = ({
                 throw new Error(searchData.message || "No availability found for the selected criteria.");
             }
             
-            const newTraceId = searchData?.data?.traceId;
+            // Update traceId extraction to match the actual structure in the response
+            const newTraceId = searchData?.data?.results?.[0]?.traceId;
             if (!newTraceId) {
                 throw new Error("Could not retrieve traceId from availability search.");
             }

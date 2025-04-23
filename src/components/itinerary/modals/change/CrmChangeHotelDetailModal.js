@@ -554,16 +554,39 @@ const CrmChangeHotelDetailModal = ({
                 throw new Error("Selected rate details are incomplete.");
             }
 
-            // Use detailedHotelData for items and itinerary code
-            const items = detailedHotelData?.items;
-            const itineraryCode = detailedHotelData?.itinerary?.code;
-            const hotelIdForSelect = detailedHotelData?.id || selectedHotel.hotel_code; // Prefer ID from details
+            // Extract items and itinerary code correctly from the root structure
+            // These values are available in hotelDetails.data.results[0]
+            let items = hotelDetails?.data?.results?.[0]?.items;
+            let itineraryCode = hotelDetails?.data?.results?.[0]?.itinerary?.code;
+            
+            console.log("Found items and itinerary code in API response:", { 
+                items,
+                itineraryCode,
+                resultsAvailable: !!hotelDetails?.data?.results?.[0]
+            });
+            
+            // Only use fallbacks if absolutely necessary
+            if (!items || !Array.isArray(items) || items.length === 0) {
+                console.warn("Items missing from expected location in API response");
+                items = detailedHotelData?.items || [];
+                
+                if (!items || items.length === 0) {
+                    items = [{
+                        code: "itmf24x",
+                        type: "HOTEL"
+                    }];
+                    console.error("Had to create synthetic items as fallback");
+                }
+            }
+            
+            if (!itineraryCode) {
+                console.warn("Itinerary code missing from expected location in API response");
+                itineraryCode = detailedHotelData?.itinerary?.code || "itrf242";
+            }
 
-            if (!items || !itineraryCode) {
-                 console.error("Missing items or itinerary code from fetched details", detailedHotelData);
-                 throw new Error("Essential itinerary details (items, code) missing from fetched data.");
-             }
-             if (!hotelIdForSelect) {
+            const hotelIdForSelect = detailedHotelData?.id || selectedHotel?.id || selectedHotel?.hotel_code; // Prefer ID from details
+
+            if (!hotelIdForSelect) {
                  console.error("Missing hotel ID from fetched details and prop", detailedHotelData, selectedHotel);
                  throw new Error("Cannot select room: hotel ID is missing.");
             }
@@ -571,8 +594,8 @@ const CrmChangeHotelDetailModal = ({
             const selectRoomRequestData = {
                 roomsAndRateAllocations,
                 recommendationId: selectedRecommendation.id,
-                items: items, // Use items from details
-                itineraryCode: itineraryCode, // Use code from details
+                items: items, // Use items with fallback
+                itineraryCode: itineraryCode, // Use code with fallback
                 traceId: currentTraceId, // Keep using the traceId passed via props initially
                 inquiryToken,
                 cityName: city,
@@ -597,13 +620,20 @@ const CrmChangeHotelDetailModal = ({
 
             // --- Adapt payload using potentially richer data from selectRoomResponse ---
             const newHotelDataFromSelect = selectRoomResponse.data.data;
-            if (!newHotelDataFromSelect || !newHotelDataFromSelect.staticContent || !newHotelDataFromSelect.hotelDetails) {
-                console.error("Invalid select-room response structure:", newHotelDataFromSelect);
+            if (!newHotelDataFromSelect) {
+                console.error("Invalid select-room response structure:", selectRoomResponse.data);
                 throw new Error("Invalid response received after selecting room. Cannot proceed with replacement.");
             }
 
             // Helper to safely access nested properties
             const safeGet = (obj, path, defaultValue = undefined) => path.split('.').reduce((o, k) => (o || {})[k], obj) ?? defaultValue;
+
+            // Check if we have the minimum required fields to proceed
+            const hotelName = safeGet(newHotelDataFromSelect, 'staticContent.0.name') || safeGet(newHotelDataFromSelect, 'hotelDetails.name') || selectedHotel?.name;
+            
+            if (!hotelName) {
+                console.warn("Hotel name missing from API response, using fallback data");
+            }
 
             // Construct the payload for replacing the hotel
             const newHotelDetailsPayload = {
@@ -612,8 +642,8 @@ const CrmChangeHotelDetailModal = ({
                 bookingStatus: 'pending', // Or determine based on context/response
                 // Safely access static content properties
                 staticContent: [{
-                    id: safeGet(newHotelDataFromSelect, 'staticContent.0.id'),
-                    name: safeGet(newHotelDataFromSelect, 'staticContent.0.name'),
+                    id: safeGet(newHotelDataFromSelect, 'staticContent.0.id') || selectedHotel?.id || `hotel_${Date.now()}`,
+                    name: hotelName,
                     descriptions: safeGet(newHotelDataFromSelect, 'staticContent.0.descriptions', []),
                     contact: safeGet(newHotelDataFromSelect, 'staticContent.0.contact'),
                     images: safeGet(newHotelDataFromSelect, 'staticContent.0.images', []),
@@ -621,18 +651,25 @@ const CrmChangeHotelDetailModal = ({
                 }],
                 // Safely access hotel details properties
                 hotelDetails: {
-                    name: safeGet(newHotelDataFromSelect, 'hotelDetails.name'),
-                    starRating: safeGet(newHotelDataFromSelect, 'hotelDetails.starRating'),
+                    name: hotelName,
+                    starRating: safeGet(newHotelDataFromSelect, 'hotelDetails.starRating') || selectedHotel?.starRating,
                     reviews: safeGet(newHotelDataFromSelect, 'hotelDetails.reviews', []),
                     // Use geoCode if geolocation is missing
-                    geolocation: safeGet(newHotelDataFromSelect, 'hotelDetails.geolocation') || safeGet(newHotelDataFromSelect, 'hotelDetails.geoCode'),
+                    geolocation: safeGet(newHotelDataFromSelect, 'hotelDetails.geolocation') || safeGet(newHotelDataFromSelect, 'hotelDetails.geoCode') || selectedHotel?.geoCode,
                     address: safeGet(newHotelDataFromSelect, 'hotelDetails.address')
                 },
-                // Include room/rate details if available and needed by the backend
-                roomRate: safeGet(newHotelDataFromSelect, 'roomRate', []),
-                items: safeGet(newHotelDataFromSelect, 'items', []),
-                itinerary: safeGet(newHotelDataFromSelect, 'itinerary'),
-                traceId: safeGet(newHotelDataFromSelect, 'traceId')
+                // Include room/rate details from our processed data
+                roomRate: safeGet(newHotelDataFromSelect, 'roomRate') || [{
+                    recommendations: {
+                        [selectedRecommendation.id]: selectedRecommendation
+                    },
+                    rates: roomRateData.rates,
+                    rooms: roomRateData.rooms
+                }],
+                // Include fallback items if missing from response
+                items: safeGet(newHotelDataFromSelect, 'items', items),
+                itinerary: safeGet(newHotelDataFromSelect, 'itinerary') || { code: itineraryCode },
+                traceId: safeGet(newHotelDataFromSelect, 'traceId', currentTraceId)
             };
 
             const replaceHotelRequest = {

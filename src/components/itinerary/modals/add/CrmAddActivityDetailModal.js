@@ -50,9 +50,18 @@ const parseDurationToMinutes = (durationString) => {
     if (!durationString || typeof durationString !== 'string') {
         return null; // Or 0 if preferred
     }
+    
+    // Handle range format like "4-5 Hrs" - extract the maximum value
+    const rangeMatch = durationString.match(/(\d+)\s*-\s*(\d+)\s*(hour|hr|hrs?)/i);
+    if (rangeMatch && rangeMatch[2]) {
+        // Use the maximum value from the range (second number)
+        const maxHours = parseInt(rangeMatch[2], 10);
+        return maxHours * 60; // Convert hours to minutes
+    }
+    
     let totalMinutes = 0;
-    const hoursMatch = durationString.match(/(\d+)\s*hour/i);
-    const minutesMatch = durationString.match(/(\d+)\s*minute/i);
+    const hoursMatch = durationString.match(/(\d+)\s*(hour|hr|hrs?)/i);
+    const minutesMatch = durationString.match(/(\d+)\s*(minute|min|mins?)/i);
 
     if (hoursMatch && hoursMatch[1]) {
         totalMinutes += parseInt(hoursMatch[1], 10) * 60; // Convert hours to minutes
