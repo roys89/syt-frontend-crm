@@ -1843,13 +1843,14 @@ const FlightBookingPage = () => {
     }
   };
 
-  // Render flight search results based on structure type
+  // Render flight results with the correct component
   const renderFlightResults = () => {
-    if (isLoading) {
+    // Only show the "No flights found" message when there are no flights and we're not loading
+    if (!filteredFlights.length && !isLoading && step === 2) {
       return (
         <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#093923] mx-auto mb-4"></div>
-          <p className="text-gray-500">Loading flights...</p>
+          <p className="text-gray-500 text-lg font-medium mb-4">No flights found matching your search criteria.</p>
+          <p className="text-gray-500">Try adjusting your search parameters or try again later.</p>
         </div>
       );
     }
@@ -1898,7 +1899,7 @@ const FlightBookingPage = () => {
             isOutbound={activeTab === 'outbound'}
             onSelectFlight={handleSelectFlight}
             selectedFlight={activeTab === 'outbound' ? selectedOutboundFlight : selectedInboundFlight}
-            loading={isLoading}
+            loading={false}
             // Props for summary panel
             selectedOutboundFlight={selectedOutboundFlight}
             selectedInboundFlight={selectedInboundFlight}
@@ -1982,7 +1983,7 @@ const FlightBookingPage = () => {
                 setActiveTab('inbound'); // Auto-switch to inbound tab on selection
               }}
               selectedFlight={selectedOutboundFlight}
-              loading={isLoading}
+              loading={false}
               // Props for summary panel
               selectedOutboundFlight={selectedOutboundFlight}
               flightStructureType={flightStructureType}
@@ -2196,39 +2197,25 @@ const FlightBookingPage = () => {
                 </div>
               ) : (
                 <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-                  <p className="text-gray-600">
-                    {selectedOutboundFlight 
-                      ? 'No return flight options available for the selected outbound flight.' 
-                      : 'Please select an outbound flight first to view return options.'}
-                  </p>
+                  <p className="text-gray-500">No return options available for this outbound flight.</p>
                 </div>
               )}
-            </div>
-          )}
-          
-          {/* Load more button for outbound tab */}
-          {activeTab === 'outbound' && filteredFlights.length > visibleCount && (
-            <div className="flex justify-center mt-4">
-              <button
-                onClick={loadMoreItems}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                Load More Flights ({visibleCount} of {filteredFlights.length})
-              </button>
             </div>
           )}
         </div>
       );
     }
     
-    // For one-way flights
+    // Default (one-way) flights
     return (
       <div className="space-y-6">
         <FlightSearchResults
           flights={filteredFlights}
+          isRoundTrip={false}
+          isDomestic={false}
           onSelectFlight={handleSelectFlight}
-          selectedFlight={selectedOutboundFlight}
-          loading={isLoading}
+          selectedFlight={selectedFlight}
+          loading={false}
           // Props for summary panel
           selectedOutboundFlight={selectedOutboundFlight}
           flightStructureType={flightStructureType}

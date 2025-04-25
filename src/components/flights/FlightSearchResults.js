@@ -1145,6 +1145,9 @@ const FlightSummaryPanel = ({
   selectedInboundOptionIndex = null, // Default to null to clearly indicate no selection
   onCreateItinerary 
 }) => {
+  // Add isCreatingItinerary state
+  const [isCreatingItinerary, setIsCreatingItinerary] = useState(false);
+  
   // Debug log for component inputs
   useEffect(() => {
     console.log('FlightSummaryPanel received props:', {
@@ -1583,6 +1586,19 @@ const FlightSummaryPanel = ({
   // Determine if the price shown is the final round trip price (for Intl RT)
   const isFinalIntlPrice = flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && selectedInboundOptionIndex !== null;
 
+  // Function to handle the create itinerary button click with loading state
+  const handleCreateItinerary = async () => {
+    if (isCreatingItinerary) return;
+    
+    setIsCreatingItinerary(true);
+    try {
+      await onCreateItinerary();
+    } finally {
+      // In case onCreateItinerary doesn't have error handling
+      setIsCreatingItinerary(false);
+    }
+  };
+
   if (!selectedOutboundFlight) {
     return (
       <div className="bg-gray-50 p-8 rounded-lg shadow-md border border-gray-200 h-full flex flex-col justify-center">
@@ -1791,13 +1807,22 @@ const FlightSummaryPanel = ({
           (flightStructureType === 'INTERNATIONAL_ROUND_TRIP' && selectedInboundOptionIndex !== null)
         ) && (
           <button
-            onClick={onCreateItinerary}
-            className="relative group w-full py-3.5 bg-[#13804e] text-white text-lg font-semibold rounded-lg shadow-lg overflow-hidden transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#a7e0ba] focus:ring-opacity-75"
+            onClick={handleCreateItinerary}
+            disabled={isCreatingItinerary}
+            className={`relative group w-full py-3.5 ${isCreatingItinerary ? 'bg-[#13804e]/70' : 'bg-[#13804e]'} text-white text-lg font-semibold rounded-lg shadow-lg overflow-hidden transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#a7e0ba] focus:ring-opacity-75`}
           >
             {/* Background fill element */}
-            <span className="absolute inset-0 bg-[#062918] w-0 group-hover:w-full transition-all duration-300 ease-in-out z-0"></span>
+            <span className={`absolute inset-0 bg-[#062918] w-0 ${!isCreatingItinerary && 'group-hover:w-full'} transition-all duration-300 ease-in-out z-0`}></span>
             {/* Text element */}
-            <span className="relative z-10">Create Itinerary</span>
+            <span className="relative z-10 flex items-center justify-center">
+              {isCreatingItinerary && (
+                <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              {isCreatingItinerary ? 'Creating Itinerary...' : 'Create Itinerary'}
+            </span>
           </button>
         )}
         
@@ -2136,42 +2161,33 @@ const FlightSearchResults = ({
 
       {/* Flight results */}
       <div className="space-y-4">
-        {loading ? (
-          <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#093923] mx-auto mb-3"></div>
-            <p className="text-gray-600 font-medium">Loading flights...</p>
+        {visibleFlights.map((flight, index) => (
+          <FlightCard
+            key={flight.resultIndex || index}
+            flight={flight}
+            onSelect={onSelectFlight}
+            isSelected={
+              // For DOMESTIC_ROUND_TRIP, we need to check the correct flight structure
+              flightStructureType === 'DOMESTIC_ROUND_TRIP'
+                ? isOutbound
+                  ? selectedOutboundFlight?.resultIndex === flight.resultIndex && 
+                    selectedOutboundFlight?.outbound?.segments?.length > 0
+                  : selectedInboundFlight?.resultIndex === flight.resultIndex && 
+                    selectedInboundFlight?.inbound?.segments?.length > 0
+                : selectedFlight?.resultIndex === flight.resultIndex
+            }
+            isOutbound={isOutbound}
+            flightStructureType={flightStructureType}
+            selectedOutboundFlight={selectedOutboundFlight}
+            selectedInboundFlight={selectedInboundFlight}
+          />
+        ))}
+        
+        {/* Loading indicator for infinite scroll */}
+        {visibleFlights.length < sortedFlights.length && (
+          <div ref={loadingRef} className="flex justify-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#093923]"></div>
           </div>
-        ) : (
-          <>
-            {visibleFlights.map((flight, index) => (
-              <FlightCard
-                key={flight.resultIndex || index}
-                flight={flight}
-                onSelect={onSelectFlight}
-                isSelected={
-                  // For DOMESTIC_ROUND_TRIP, we need to check the correct flight structure
-                  flightStructureType === 'DOMESTIC_ROUND_TRIP'
-                    ? isOutbound
-                      ? selectedOutboundFlight?.resultIndex === flight.resultIndex && 
-                        selectedOutboundFlight?.outbound?.segments?.length > 0
-                      : selectedInboundFlight?.resultIndex === flight.resultIndex && 
-                        selectedInboundFlight?.inbound?.segments?.length > 0
-                    : selectedFlight?.resultIndex === flight.resultIndex
-                }
-                isOutbound={isOutbound}
-                flightStructureType={flightStructureType}
-                selectedOutboundFlight={selectedOutboundFlight}
-                selectedInboundFlight={selectedInboundFlight}
-              />
-            ))}
-            
-            {/* Loading indicator for infinite scroll */}
-            {visibleFlights.length < sortedFlights.length && (
-              <div ref={loadingRef} className="flex justify-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#093923]"></div>
-              </div>
-            )}
-          </>
         )}
       </div>
     </div>
