@@ -337,6 +337,19 @@ const HotelBookingPage = () => {
   const [isLoadingVoucher, setIsLoadingVoucher] = useState(false);
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+  const [savedBookingId, setSavedBookingId] = useState(null);
+  const [isSavingBooking, setIsSavingBooking] = useState(false);
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+  const [finalTotalAmount, setFinalTotalAmount] = useState(null);
+  
+  // Payment form state
+  const [paymentForm, setPaymentForm] = useState({
+    paymentMethod: '',
+    transactionId: '',
+    paymentStatus: 'Paid',
+    paymentType: 'full',
+    amountPaid: ''
+  });
 
   // Form state - Add initial filters
   const [formData, setFormData] = useState({
@@ -887,75 +900,48 @@ const HotelBookingPage = () => {
   const handleBookingSubmit = async (bookingData) => {
     try {
       // Set booking details from the confirmation response
-      setBookingDetails(bookingData);
+      setBookingDetails(bookingData); 
+      
+      // --- Extract guestDetails AND confirmedFinalRate --- 
+      const { guestDetails, confirmedFinalRate, ...bookingResponseData } = bookingData;
+      console.log("Received confirmedFinalRate in handleBookingSubmit:", confirmedFinalRate);
+      // ---
       
       // Prepare data for CRM database
-      const booking = bookingData.results?.[0];
+      const booking = bookingResponseData.results?.[0];
       const bookingRefId = booking?.data?.[0]?.bookingRefId;
       const providerConfirmationNumber = booking?.data?.[0]?.providerConfirmationNumber;
       const status = booking?.data?.[0]?.status || 'Confirmed';
-      const roomConfirmation = booking?.data?.[0]?.roomConfirmation || [];
+      const roomConfirmation = booking?.data?.[0]?.roomConfirmation || []; // Keep for reference, but don't use for price
       
       if (bookingRefId) {
-        // Get hotel details from selected hotel
-        const hotelDetails = {
-          hotelId: selectedHotel.id,
-          name: selectedHotel.name,
-          starRating: selectedHotel.starRating,
-          address: {
-            line1: selectedHotel.contact?.address?.line1 || '',
-            line2: selectedHotel.contact?.address?.line2 || '',
-            city: selectedHotel.contact?.address?.city?.name || '',
-            state: selectedHotel.contact?.address?.state?.name || '',
-            country: selectedHotel.contact?.address?.country?.name || '',
-            postalCode: selectedHotel.contact?.address?.postalCode || ''
-          },
-          images: selectedHotel.images?.map(img => img.links?.find(link => link.size === 'Xxl')?.url || '') || [],
-          facilities: selectedHotel.facilities?.map(facility => facility.name) || []
-        };
+        // --- REMOVED: Old finalRate calculation ---
+        // const finalRate = roomConfirmation.reduce((total, room) => { ... }, 0);
+        // ---
+
+        // --- Use the confirmedFinalRate passed from GuestInfoModal --- 
+        const finalRate = confirmedFinalRate;
+        if (finalRate === null || finalRate === undefined) {
+            console.error("Error: confirmedFinalRate is missing in data submitted from GuestInfoModal.");
+            toast.error('Booking completed but failed to save final price to CRM.');
+            // Decide if you want to proceed without price or stop
+            // For now, let's proceed but maybe log an error or set a default
+        }
+        // ---
         
-        // Get booking details
-        const bookingDetails = {
-          checkIn: new Date(formData.checkIn),
-          checkOut: new Date(formData.checkOut),
-          rooms: roomConfirmation.map((room, index) => {
-            // Map room data from formData and booking response
-            const formRoom = formData.rooms[index] || { adults: [], children: [] };
-            return {
-              roomType: room.roomType || 'Standard',
-              occupancy: {
-                adults: formRoom.adults.length,
-                children: formRoom.children.length,
-                childAges: formRoom.children
-              },
-              mealPlan: room.mealPlan || '',
-              cancellationPolicy: room.cancellationPolicy || '',
-              price: {
-                amount: room.price?.amount || 0,
-                currency: room.price?.currency || 'INR'
-              },
-              bookingStatus: room.bookingStatus || 'Confirmed',
-              providerConfirmationNumber: room.providerConfirmationNumber || ''
-            };
-          })
-        };
+        // Set the finalTotalAmount in state for the payment form (using the confirmed rate)
+        setFinalTotalAmount(finalRate); 
         
-        // Calculate total amount
-        const totalAmount = roomConfirmation.reduce((total, room) => {
-          return total + (room.price?.amount || 0);
-        }, 0);
-        
-        // Get payment details
+        // Get payment details with new structure, using confirmedFinalRate
         const paymentDetails = {
-          totalAmount,
-          currency: roomConfirmation[0]?.price?.currency || 'INR',
-          paymentMethod: 'Card', // Default value
-          paymentStatus: 'Paid', // Default value
-          transactionId: booking?.transactionId || ''
+          finalRate: finalRate ?? 0, // Use confirmed rate, default to 0 if missing
+          // Try to get currency from booking response, fallback to INR
+          currency: booking?.data?.[0]?.rateDetails?.currency || roomConfirmation[0]?.price?.currency || 'INR', 
+          paymentMethod: 'Pending', 
+          paymentStatus: 'Pending', 
+          transactionId: 'N/A', 
+          amountPaid: 0 
         };
-        
-        // Get guest details from booking data if available
-        const guestDetails = booking?.guestDetails || [];
         
         // Prepare complete data for CRM
         const crmBookingData = {
@@ -964,19 +950,27 @@ const HotelBookingPage = () => {
           itineraryCode: booking?.itineraryCode || '',
           traceId: booking?.traceId || '',
           status,
-          provider: selectedProvider,
-          hotelDetails,
-          bookingDetails,
-          paymentDetails,
-          guestDetails,
+          provider: selectedProvider, // Make sure selectedProvider state is correctly set
+          providerBookingResponse: bookingResponseData, 
+          paymentDetails, // Use updated paymentDetails
+          guestDetails, 
           notes: ''
         };
         
+        console.log('CRM booking data payload:', crmBookingData);
+        
         // Save to CRM database
+        setIsSavingBooking(true);
         const crmResponse = await bookingService.saveHotelBookingToCRM(crmBookingData);
+        setIsSavingBooking(false);
+        
         console.log('Hotel booking saved to CRM:', crmResponse);
         
-        // Show success message
+        // Store the saved booking ID for payment updates
+        if (crmResponse.success && crmResponse.data && crmResponse.data._id) {
+          setSavedBookingId(crmResponse.data._id);
+        }
+        
         toast.success('Booking saved to CRM database');
       } else {
         console.warn('Missing booking reference ID, not saving to CRM');
@@ -984,15 +978,17 @@ const HotelBookingPage = () => {
       
       // Update step to booking complete
       setStep(4);
-      // Close itinerary modal
-      setShowItineraryModal(false);
+      // Close itinerary modal (already handled in the parent component? Ensure this doesn't cause issues)
+      // Might need adjustment depending on where setShowItineraryModal(false) is called
+      // For safety, let's remove it here if GuestInfoModal's onClose handles modal closing
+      // setShowItineraryModal(false); 
     } catch (error) {
       console.error('Error saving booking to CRM:', error);
       toast.error('Booking completed but failed to save to CRM database');
       
       // Still update UI to show booking is complete
       setStep(4);
-      setShowItineraryModal(false);
+      // setShowItineraryModal(false); // Also remove here
     }
   };
 
@@ -1050,6 +1046,72 @@ const HotelBookingPage = () => {
   const handleItineraryModalClose = () => {
     setShowItineraryModal(false);
     setItineraryData(null);
+  };
+
+  // Handle payment form change
+  const handlePaymentFormChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    
+    setPaymentForm(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+  
+  // Update payment details in CRM database
+  const handleUpdatePayment = async (e) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!paymentForm.paymentMethod) {
+      toast.error('Payment method is required');
+      return;
+    }
+    if (!paymentForm.transactionId) {
+      toast.error('Transaction ID is required');
+      return;
+    }
+    
+    // Validate partial payment amount if partial payment is selected
+    if (paymentForm.paymentType === 'partial' && (!paymentForm.amountPaid || parseFloat(paymentForm.amountPaid) <= 0)) {
+      toast.error('Please enter a valid amount for partial payment');
+      return;
+    }
+    
+    try {
+      setIsUpdatingPayment(true);
+      
+      // Get the total amount from booking details
+      const totalAmount = finalTotalAmount || 0;
+      
+      // Determine the amount paid based on payment type
+      const amountPaid = paymentForm.paymentType === 'full' ? 
+        totalAmount : parseFloat(paymentForm.amountPaid);
+      
+      // Create payload for update that matches the HotelBooking model structure
+      const payload = {
+        paymentDetails: {
+          paymentMethod: paymentForm.paymentMethod,
+          transactionId: paymentForm.transactionId,
+          paymentStatus: paymentForm.paymentStatus,
+          amountPaid: amountPaid
+        }
+      };
+      
+      // Call the API to update the booking
+      const response = await bookingService.updateHotelBookingToCRM(savedBookingId, payload);
+      
+      if (response.success) {
+        toast.success('Payment details updated successfully');
+      } else {
+        throw new Error(response.message || 'Failed to update payment details');
+      }
+    } catch (error) {
+      console.error('Error updating payment details:', error);
+      toast.error(error.message || 'Failed to update payment details');
+    } finally {
+      setIsUpdatingPayment(false);
+    }
   };
 
   // Render booking details section

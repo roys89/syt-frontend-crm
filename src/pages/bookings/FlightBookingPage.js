@@ -979,8 +979,6 @@ const FlightBookingPage = () => {
       // Extract necessary data from booking response
       const { providerResponse, passengerData, bookingPriceDetails, flightType } = bookingResponse || {};
       
-      // Generate a unique booking reference ID if not provided
-      const bookingRefId = `SYT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;      
       
       // Calculate ancillary costs from passenger data (safely)
       const totalAncillariesAmount = calculateTotalAncillaryAmount(passengerData);
@@ -1008,23 +1006,11 @@ const FlightBookingPage = () => {
       // Get the primary booking code (first one)
       const primaryBookingCode = bookingCodes.length > 0 ? bookingCodes[0] : '';
       
-      console.log('Flight booking details:', {
-        bookingRefId,
-        flightType,
-        bookingCodes,
-        primaryBookingCode,
-        traceId,
-        baseFare,
-        taxesAndFees,
-        totalFare,
-        totalAncillariesAmount,
-        finalTotalAmount
-      });
       
       // Create payload for CRM database
       const payload = {
         // Essential booking details
-        bookingRefId,
+        bookingRefId : primaryBookingCode,
         flightType,
         pnr: providerResponse?.data?.results?.details?.[0]?.pnr || '',
         traceId, // Use the component's traceId state variable

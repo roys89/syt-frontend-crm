@@ -11,6 +11,9 @@ const containerStyle = {
   borderRadius: '8px'
 };
 
+// Define libraries array as a static constant
+const GOOGLE_MAPS_LIBRARIES = ['marker']; // Explicitly load marker library if needed
+
 const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
   const [selectedRooms, setSelectedRooms] = useState([]);
   const [showGuestInfoModal, setShowGuestInfoModal] = useState(false);
@@ -37,6 +40,16 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxImageUrl, setLightboxImageUrl] = useState('');
 
+  // --- NEW STATE for flags ---
+  const [isPanMandatory, setIsPanMandatory] = useState(false); 
+  const [isPassportMandatory, setIsPassportMandatory] = useState(false);
+  // ---
+
+  // --- NEW STATE for initial price check ---
+  const [initialPriceCheckStatus, setInitialPriceCheckStatus] = useState('idle'); // 'idle', 'checking', 'price-changed', 'confirmed'
+  const [initialPriceData, setInitialPriceData] = useState(null); 
+  // --- END NEW STATE ---
+
   const detailedHotelData = itineraryData?.data?.results?.[0]?.data?.[0];
   const roomRateData = detailedHotelData?.roomRate?.[0];
   const images = detailedHotelData?.images || [];
@@ -46,7 +59,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "",
-    libraries: ['marker'] // Explicitly load marker library if needed
+    libraries: GOOGLE_MAPS_LIBRARIES
   });
 
   // Define mapCenter and memoize it using useMemo
@@ -153,12 +166,38 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
     setSelectedRooms(selectedRoomsData);
   }, [getRateDetails, getRoomDetailsFromOccupancy]);
 
+  // Function to proceed to Guest Info Modal
+  const proceedToGuestInfo = (bookingFlags = {}) => { // Accept flags as argument
+    // --- Set flags before opening modal ---
+    
+    // Hard set state values directly and ensure they're converted to boolean
+    const panMandatory = Boolean(bookingFlags.isPanMandatory);
+    const passportMandatory = Boolean(bookingFlags.isPassportMandatory);
+    
+    setIsPanMandatory(panMandatory);
+    setIsPassportMandatory(passportMandatory);
+    
+    // ---
+    
+    // This is async, so do this after setting states
+    setShowGuestInfoModal(true);
+    setInitialPriceCheckStatus('confirmed'); // Mark price as confirmed
+  };
+
   const handleConfirmSelection = useCallback(async () => {
       try {
-        setIsLoading(true);
+        // --- Start initial price check ---
+        setIsLoading(true); 
+        setInitialPriceCheckStatus('checking');
+        setInitialPriceData(null); 
+        // ---
+
         if (selectedRooms.length === 0) {
           toast.error('No room selected');
+          // --- Reset loading states ---
           setIsLoading(false);
+          setInitialPriceCheckStatus('idle');
+          // ---
           return;
         }
 
@@ -166,6 +205,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
         if (!recommendationId) {
           toast.error('Invalid room selection');
           setIsLoading(false);
+          setInitialPriceCheckStatus('idle');
           return;
         }
 
@@ -173,6 +213,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
         if (!recommendation?.rates) {
           toast.error('No rates available for selected room');
           setIsLoading(false);
+          setInitialPriceCheckStatus('idle');
           return;
         }
 
@@ -183,6 +224,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
         if (!traceId || !items || !itinerary) {
             toast.error('Missing required itinerary data for selection.');
             setIsLoading(false);
+            setInitialPriceCheckStatus('idle');
             return;
         }
         
@@ -204,21 +246,47 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
         console.log('Room rates request payload:', requestPayload);
         const response = await bookingService.selectRoomRates(requestPayload);
         console.log('Room rates API response:', response);
-
+        
         if (response.success) {
           setRoomRatesResponse(response);
-          toast.success('Room rates selected successfully');
-          setShowGuestInfoModal(true);
+
+          // --- Extract flags from response --- 
+          const bookingFlags = {
+              isPanMandatory: Boolean(response.data?.data?.results?.[0]?.isPanMandatoryForBooking),
+              isPassportMandatory: Boolean(response.data?.data?.results?.[0]?.isPassportMandatoryForBooking)
+          };
+          
+          // --- Check for price change ---
+          const priceChangeData = response.data?.data?.priceChangeData || 
+                                 response.data?.data?.results?.[0]?.items?.[0]?.priceChangeData; 
+          if (priceChangeData && priceChangeData.isPriceChanged) {
+            setInitialPriceData(priceChangeData);
+            setInitialPriceCheckStatus('price-changed'); 
+            toast.warning('The price has changed. Please review and confirm.');
+             // Set flags here too, as proceedToGuestInfo might be called later on accept
+             setIsPanMandatory(bookingFlags.isPanMandatory);
+             setIsPassportMandatory(bookingFlags.isPassportMandatory);
+          } else {
+            toast.success('Room rates confirmed successfully.');
+            // Pass flags when proceeding directly
+            proceedToGuestInfo(bookingFlags); 
+          }
+          // --- End price change check ---
         } else {
           toast.error(response.message || 'Failed to select room rates');
+          setInitialPriceCheckStatus('idle'); // Reset on failure
         }
       } catch (error) {
         console.error('Error selecting room rates:', error);
         toast.error('Failed to select room rates');
+        setInitialPriceCheckStatus('idle'); // Reset on error
       } finally {
-        setIsLoading(false);
+        // Only stop main loading if not waiting for user confirmation
+        if (initialPriceCheckStatus !== 'price-changed') {
+           setIsLoading(false);
+        }
       }
-  }, [selectedRooms, itineraryData, roomRateData]);
+  }, [selectedRooms, itineraryData, roomRateData, initialPriceCheckStatus]);
 
   const handleGuestInfoSubmit = useCallback(async (bookingData) => {
     try {
@@ -884,66 +952,125 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
 
           <div className="bg-white p-6 rounded-lg shadow-sm mt-6">
             <h3 className="text-lg font-semibold mb-4">Confirm Selection</h3>
-            <p className="text-gray-600 mb-4">Select a room type to continue with your booking.</p>
             
-            {selectedRooms.length > 0 ? (
-              <div className="bg-[#22c35e]/10 p-4 rounded-lg mb-4">
-                <div className="flex items-center text-[#22c35e] mb-2">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="font-medium">Room Selected</span>
+            {/* --- Display Initial Price Change Info --- */}
+            {initialPriceCheckStatus === 'price-changed' && initialPriceData && (
+              <div className="mb-4 p-4 rounded-lg bg-yellow-50 border border-yellow-200 animate-fadeIn">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-yellow-800">Price has changed</span>
+                  <span className="font-bold text-red-600">
+                     {initialPriceData.priceChangeAmount > 0 ? '+' : ''}
+                     {initialPriceData.currency || 'INR'} {initialPriceData.priceChangeAmount?.toLocaleString()}
+                  </span>
                 </div>
-                <p className="text-sm text-[#22c35e]">
-                  You've selected {selectedRooms.map(room => room.roomDetails.name).join(', ')}. Click "Confirm Selection" to proceed.
-                </p>
-              </div>
-            ) : (
-              <div className="bg-[#093923]/5 p-4 rounded-lg mb-4">
-                <div className="flex items-center text-[#093923]/80 mb-2">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span className="font-medium">Room Not Selected</span>
+                <div className="text-sm text-yellow-700 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Previous price:</span>
+                    <span>{initialPriceData.currency || 'INR'} {initialPriceData.previousTotalAmount?.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold">
+                    <span>New price:</span>
+                    <span>{initialPriceData.currency || 'INR'} {initialPriceData.currentTotalAmount?.toLocaleString()}</span>
+                  </div>
+                  <p className="pt-2">Do you want to accept the new price and proceed?</p>
                 </div>
-                <p className="text-sm text-[#093923]/80">
-                  Please select a room from the available options.
-                </p>
               </div>
+            )}
+            {/* --- END Display Initial Price Change Info --- */}
+
+            {initialPriceCheckStatus !== 'price-changed' && ( // Hide selection status when price changed
+              selectedRooms.length > 0 ? (
+                <div className="bg-[#22c35e]/10 p-4 rounded-lg mb-4">
+                  <div className="flex items-center text-[#22c35e] mb-2">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="font-medium">Room Selected</span>
+                  </div>
+                  <p className="text-sm text-[#22c35e]">
+                    You've selected {selectedRooms.map(room => room.roomDetails.name).join(', ')}. Click "Confirm Selection" to proceed.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-[#093923]/5 p-4 rounded-lg mb-4">
+                  <div className="flex items-center text-[#093923]/80 mb-2">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span className="font-medium">Room Not Selected</span>
+                  </div>
+                  <p className="text-sm text-[#093923]/80">
+                    Please select a room from the available options.
+                  </p>
+                </div>
+              )
             )}
             
             <div className="flex justify-between gap-4">
               <button
                 onClick={onClose}
-                className="relative group overflow-hidden w-60 py-2 border border-[#093923] rounded-lg text-[#093923] font-medium"
+                // Disable Back button if price changed and needs confirmation
+                disabled={initialPriceCheckStatus === 'price-changed'} 
+                className={`relative group overflow-hidden w-full sm:w-60 py-2 border border-[#093923] rounded-lg text-[#093923] font-medium transition-opacity ${initialPriceCheckStatus === 'price-changed' ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <span className="relative z-10 group-hover:text-white">Back</span>
                 <div className="absolute inset-0 bg-[#093923] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
               </button>
-              <button
-                onClick={handleConfirmSelection}
-                disabled={selectedRooms.length === 0 || isLoading}
-                className={`relative group overflow-hidden w-60 py-2 rounded-lg text-white font-medium ${
-                  selectedRooms.length === 0 || isLoading ? 'bg-[#093923]/40 cursor-not-allowed' : 'bg-[#093923]'
-                }`}
-              >
-                {!isLoading && selectedRooms.length > 0 && (
-                  <div className="absolute inset-0 bg-[#13804e] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
-                )}
-                <span className="relative z-10">
-                  {isLoading ? (
-                    <div className="flex items-center justify-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Processing...
-                    </div>
-                  ) : (
-                    "Confirm Selection"
+
+              {/* --- Conditional Button Logic --- */}
+              {initialPriceCheckStatus === 'price-changed' ? (
+                // Show Accept/Decline buttons if price changed
+                <>
+                   <button
+                     onClick={() => { // Decline handler
+                       setInitialPriceCheckStatus('idle');
+                       setInitialPriceData(null);
+                       setIsLoading(false); // Stop loading on decline
+                     }}
+                     className="relative group overflow-hidden w-full sm:w-60 py-2 border border-red-600 rounded-lg text-red-600 font-medium"
+                   >
+                     <span className="relative z-10 group-hover:text-white">Decline</span>
+                     <div className="absolute inset-0 bg-red-600 w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
+                   </button>
+                   <button
+                     onClick={() => { // Accept handler
+                       proceedToGuestInfo(); 
+                       setIsLoading(false); // Stop loading on accept
+                     }}
+                     className="relative group overflow-hidden w-full sm:w-60 py-2 rounded-lg text-white font-medium bg-[#22c35e]"
+                   >
+                     <div className="absolute inset-0 bg-green-700 w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
+                     <span className="relative z-10">Accept & Add Guests</span>
+                   </button>
+                </>
+              ) : (
+                // Show original Confirm Selection button otherwise
+                <button
+                  onClick={handleConfirmSelection}
+                  disabled={selectedRooms.length === 0 || isLoading || initialPriceCheckStatus === 'checking'}
+                  className={`relative group overflow-hidden w-full sm:w-60 py-2 rounded-lg text-white font-medium transition-colors ${
+                    selectedRooms.length === 0 || isLoading || initialPriceCheckStatus === 'checking' ? 'bg-[#093923]/40 cursor-not-allowed' : 'bg-[#093923]'
+                  }`}
+                >
+                  {(isLoading || initialPriceCheckStatus === 'checking') && ( // Keep spinner logic
+                    <div className="absolute inset-0 bg-[#13804e] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
                   )}
-                </span>
-              </button>
+                  <span className="relative z-10 flex items-center justify-center">
+                    {(isLoading || initialPriceCheckStatus === 'checking') ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing...
+                      </>
+                    ) : (
+                      "Confirm Selection"
+                    )}
+                  </span>
+                </button>
+              )}
+              {/* --- END Conditional Button Logic --- */}
             </div>
           </div>
         </div>
@@ -956,6 +1083,8 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
         onSubmit={handleGuestInfoSubmit}
         itineraryCode={itineraryData?.data?.results?.[0]?.itinerary?.code}
         traceId={itineraryData?.data?.results?.[0]?.traceId}
+        isPanMandatory={isPanMandatory}
+        isPassportMandatory={isPassportMandatory}
       />
 
       {isLightboxOpen && (

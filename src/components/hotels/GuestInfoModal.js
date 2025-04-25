@@ -1,5 +1,6 @@
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import React, { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import bookingService from '../../services/bookingService';
 
 // Helper functions to replace toast
@@ -7,27 +8,19 @@ const showError = (message) => {
   alert(`Error: ${message}`);
 };
 
-const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit, itineraryCode, traceId }) => {
+const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit, itineraryCode, traceId, isPanMandatory, isPassportMandatory }) => {
   const [guestInfo, setGuestInfo] = useState({});
   const [errors, setErrors] = useState({});
   const [leadGuest, setLeadGuest] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRecheckingPrice, setIsRecheckingPrice] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState('idle'); // 'idle', 'submitting', 'rechecking', 'completed'
+  const [submitStatus, setSubmitStatus] = useState('idle'); // 'idle', 'submitting', 'rechecking', 'price-changed', 'ready-to-book', 'booking', 'completed'
   const [priceChangeData, setPriceChangeData] = useState(null);
   const [allocationResponse, setAllocationResponse] = useState(null);
   const [bookingDetails, setBookingDetails] = useState(null);
-
-  // Debug log for initial props
-  useEffect(() => {
-    console.log('GuestInfoModal props:', {
-      isOpen,
-      selectedRoomsAndRates,
-      itineraryCode,
-      traceId,
-      guestInfo
-    });
-  }, [isOpen, selectedRoomsAndRates, itineraryCode, traceId, guestInfo]);
+  
+  // --- NEW STATE for confirmed final rate ---
+  const [confirmedFinalRate, setConfirmedFinalRate] = useState(null);
+  // --- END NEW STATE ---
 
   // Initialize state when modal opens
   useEffect(() => {
@@ -198,11 +191,39 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
           isValid = false;
         }
 
-        // PAN Card validation (only if provided)
-        if (guest.panCardNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(guest.panCardNumber)) {
+        // --- Updated PAN Card Validation --- 
+        if (isPanMandatory && !guest.panCardNumber) {
+            newErrors[`${roomKey}-adults-${index}-panCardNumber`] = 'PAN Card Number is required';
+            isValid = false;
+        } else if (guest.panCardNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(guest.panCardNumber)) {
+          // Validate format only if present (and not mandatory but entered, or mandatory)
           newErrors[`${roomKey}-adults-${index}-panCardNumber`] = 'Invalid PAN card number format';
           isValid = false;
         }
+        // ---
+
+        // --- Updated Passport Validation --- 
+        if (isPassportMandatory) {
+            if (!guest.passportNumber) {
+                newErrors[`${roomKey}-adults-${index}-passportNumber`] = 'Passport Number is required';
+                isValid = false;
+            }
+            if (!guest.passportExpiry) {
+                 newErrors[`${roomKey}-adults-${index}-passportExpiry`] = 'Passport Expiry Date is required';
+                 isValid = false;
+            }
+        } else {
+             // Only validate format if fields are present and not mandatory
+             if (guest.passportNumber && !/^[A-Z0-9]+$/.test(guest.passportNumber)) { // Basic format check, adjust regex as needed
+                newErrors[`${roomKey}-adults-${index}-passportNumber`] = 'Invalid Passport Number format';
+                isValid = false;
+            }
+             // Add expiry date format validation if needed when optional
+            if (guest.passportExpiry /* && !isValidDateFormat(guest.passportExpiry) */) {
+                // Example: Add date format validation if needed
+            }
+        }
+        // ---
       });
 
       // Validate children (if any)
@@ -231,11 +252,34 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
             isValid = false;
           }
 
-          // PAN Card validation for children (only if provided)
-          if (child.panCardNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(child.panCardNumber)) {
+          // --- Child PAN Validation ---
+           if (isPanMandatory && !child.panCardNumber) {
+             newErrors[`${roomKey}-children-${index}-panCardNumber`] = 'PAN Card Number is required';
+             isValid = false;
+          } else if (child.panCardNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(child.panCardNumber)) {
             newErrors[`${roomKey}-children-${index}-panCardNumber`] = 'Invalid PAN card number format';
             isValid = false;
           }
+          // ---
+
+          // --- Child Passport Validation ---
+           if (isPassportMandatory) {
+              if (!child.passportNumber) {
+                  newErrors[`${roomKey}-children-${index}-passportNumber`] = 'Passport Number is required';
+                  isValid = false;
+              }
+              if (!child.passportExpiry) {
+                   newErrors[`${roomKey}-children-${index}-passportExpiry`] = 'Passport Expiry Date is required';
+                   isValid = false;
+              }
+          } else {
+             // Optional: Add format validation if entered when not mandatory
+             if (child.passportNumber && !/^[A-Z0-9]+$/.test(child.passportNumber)) {
+                 newErrors[`${roomKey}-children-${index}-passportNumber`] = 'Invalid Passport Number format';
+                 isValid = false;
+              }
+          }
+          // ---
 
           // Age validation for children (1-17)
           if (child.age && (parseInt(child.age) < 1 || parseInt(child.age) > 17)) {
@@ -387,24 +431,40 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
           
           console.log("Price recheck response:", recheckResponse);
 
-          if (recheckResponse.success) {
+          if (recheckResponse.success && recheckResponse.data?.details?.[0]) {
             const priceDetails = recheckResponse.data.details[0];
-            if (priceDetails.priceChangeData.isPriceChanged) {
-              // Show price change modal
-              setSubmitStatus('price-changed');
-              setPriceChangeData(priceDetails.priceChangeData);
+            const currentPriceData = priceDetails.priceChangeData;
+            const rateDetails = priceDetails.rateDetails;
+            
+            // --- Store confirmed rate regardless of change ---
+            if (rateDetails?.finalRate) {
+              setConfirmedFinalRate(rateDetails.finalRate);
+              console.log("Stored confirmedFinalRate:", rateDetails.finalRate);
             } else {
-              // Show book button
+                // Fallback if finalRate is not in rateDetails (use currentTotalAmount)
+                setConfirmedFinalRate(currentPriceData?.currentTotalAmount);
+                console.warn("finalRate missing in recheck response rateDetails, using currentTotalAmount from priceChangeData:", currentPriceData?.currentTotalAmount);
+            }
+            // --- End store confirmed rate ---
+
+            if (currentPriceData?.isPriceChanged) {
+              console.log("Price recheck: Price HAS changed.");
+              setSubmitStatus('price-changed');
+              setPriceChangeData(currentPriceData); // Store the whole priceChangeData
+              toast.warning('The price changed during allocation. Please review and confirm.');
+            } else {
+              console.log("Price recheck: Price confirmed (no change).");
               setSubmitStatus('ready-to-book');
-              setPriceChangeData(null);
+              setPriceChangeData(null); // Clear previous price change data if any
             }
           } else {
-            throw new Error('Price verification failed');
+            throw new Error(recheckResponse.message || 'Price verification failed');
           }
         } catch (recheckError) {
           console.error('Error rechecking price:', recheckError);
           showError('Price verification failed. Please try again.');
-          setSubmitStatus('idle');
+          setSubmitStatus('idle'); // Reset status on recheck error
+          setConfirmedFinalRate(null); // Reset confirmed rate
         }
       } else {
         throw new Error(response.message || 'Failed to submit guest information');
@@ -413,28 +473,66 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
     } catch (error) {
       console.error('Error submitting guest information:', error);
       showError(error.message || error.response?.data?.message || 'Failed to submit guest information');
-      setSubmitStatus('idle');
+      setSubmitStatus('idle'); // Reset status on main submission error
+      setConfirmedFinalRate(null); // Reset confirmed rate
     } finally {
-      setIsSubmitting(false);
+      // Only stop main loading indicator after recheck is complete or failed
+      if (submitStatus !== 'submitting' && submitStatus !== 'rechecking') {
+         setIsSubmitting(false);
+      }
     }
   };
 
   // Function to handle booking
   const handleBook = async () => {
+    // --- Ensure we have a confirmed rate before booking --- 
+    if (!confirmedFinalRate && !priceChangeData?.currentTotalAmount) {
+        showError('Cannot proceed with booking. Confirmed price is missing.');
+        setSubmitStatus('idle'); // Reset state
+        return;
+    }
+    // If price had changed, the confirmed rate is the currentTotalAmount from priceChangeData
+    // Otherwise, it's the value stored in confirmedFinalRate state
+    const finalRateToUse = priceChangeData?.isPriceChanged ? priceChangeData.currentTotalAmount : confirmedFinalRate;
+    console.log("Proceeding to book with finalRate:", finalRateToUse);
+    // --- End check --- 
+
     try {
       setSubmitStatus('booking');
       const bookingResponse = await bookingService.bookHotel({
-        traceId,
-        itineraryCode
+        traceId, // Use original traceId passed as prop
+        itineraryCode // Use original itineraryCode passed as prop
       });
 
       if (bookingResponse.success) {
         setSubmitStatus('completed');
-        // Store booking details for voucher
-        setBookingDetails(bookingResponse.data);
-        // Pass booking response to parent component
-        onSubmit(bookingResponse.data);
-        // Close the modal
+        setBookingDetails(bookingResponse.data); // Store raw booking details 
+        
+        // --- Pass booking response, guest details, AND confirmed rate ---
+        onSubmit({
+          ...bookingResponse.data,
+          guestDetails: Object.values(guestInfo).reduce((allGuests, room) => {
+            // Collect all adults
+            const adultGuests = (room.adults || []).map((adult, index) => ({
+              ...adult,
+              type: 'adult',
+              isLeadGuest: isLeadGuest(adult.roomKey, index)
+            }));
+            
+            // Collect all children
+            const childGuests = (room.children || []).map((child) => ({
+              ...child,
+              type: 'child',
+              isLeadGuest: false
+            }));
+            
+            // Combine and return
+            return [...allGuests, ...adultGuests, ...childGuests];
+          }, []),
+          confirmedFinalRate: finalRateToUse // Pass the confirmed rate
+        });
+        // --- End pass confirmed rate ---
+        
         onClose();
       } else {
         throw new Error(bookingResponse.message || 'Failed to book hotel');
@@ -442,27 +540,21 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
     } catch (error) {
       console.error('Error booking hotel:', error);
       showError(error.message || 'Failed to book hotel');
-      setSubmitStatus('ready-to-book');
+      // If booking fails, revert status based on whether price had changed
+      setSubmitStatus(priceChangeData?.isPriceChanged ? 'price-changed' : 'ready-to-book');
     }
   };
 
   // Get button text based on status
   const getSubmitButtonText = () => {
     switch (submitStatus) {
-      case 'submitting':
-        return 'Submitting Guest Information...';
-      case 'rechecking':
-        return 'Verifying Price...';
-      case 'price-changed':
-        return 'Price Has Changed';
-      case 'ready-to-book':
-        return 'Book Now';
-      case 'booking':
-        return 'Booking...';
-      case 'completed':
-        return 'Booking Completed';
-      default:
-        return 'Submit Information';
+      case 'submitting': return 'Submitting Guests...';
+      case 'rechecking': return 'Verifying Price...';
+      case 'price-changed': return 'Accept New Price & Book';
+      case 'ready-to-book': return 'Book Now';
+      case 'booking': return 'Booking...';
+      case 'completed': return 'Booking Completed';
+      default: return 'Submit Information';
     }
   };
 
@@ -669,10 +761,10 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
                         </div>
                       </div>
 
-                      {/* PAN Card Number - Always visible for all adults */}
+                      {/* --- PAN Card (Always Rendered) --- */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          PAN Card Number
+                          PAN Card Number {isPanMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
                         </label>
                         <input
                           type="text"
@@ -688,42 +780,44 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
                         )}
                       </div>
 
-                      {/* Passport Number - Always visible for all adults */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Passport Number
-                        </label>
-                        <input
-                          type="text"
-                          value={guestInfo[roomKey]?.adults[adultIndex]?.passportNumber || ''}
-                          onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'passportNumber', e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            errors[`${roomKey}-adults-${adultIndex}-passportNumber`] ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          placeholder="Enter passport number"
-                        />
-                        {errors[`${roomKey}-adults-${adultIndex}-passportNumber`] && (
-                          <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-passportNumber`]}</p>
-                        )}
-                      </div>
+                      {/* --- Passport Fields (Always Rendered) --- */}
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Passport Number {isPassportMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={guestInfo[roomKey]?.adults[adultIndex]?.passportNumber || ''}
+                            onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'passportNumber', e.target.value)}
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                              errors[`${roomKey}-adults-${adultIndex}-passportNumber`] ? 'border-red-500' : 'border-gray-300'
+                            }`}
+                            placeholder="Enter passport number"
+                          />
+                          {errors[`${roomKey}-adults-${adultIndex}-passportNumber`] && (
+                            <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-passportNumber`]}</p>
+                          )}
+                        </div>
 
-                      {/* Passport Expiry Date - Always visible for all adults */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Passport Expiry Date
-                        </label>
-                        <input
-                          type="date"
-                          value={guestInfo[roomKey]?.adults[adultIndex]?.passportExpiry || ''}
-                          onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'passportExpiry', e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            errors[`${roomKey}-adults-${adultIndex}-passportExpiry`] ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                        />
-                        {errors[`${roomKey}-adults-${adultIndex}-passportExpiry`] && (
-                          <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-passportExpiry`]}</p>
-                        )}
-                      </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Passport Expiry Date {isPassportMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
+                          </label>
+                          <input
+                            type="date"
+                            value={guestInfo[roomKey]?.adults[adultIndex]?.passportExpiry || ''}
+                            onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'passportExpiry', e.target.value)}
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                              errors[`${roomKey}-adults-${adultIndex}-passportExpiry`] ? 'border-red-500' : 'border-gray-300'
+                            }`}
+                          />
+                          {errors[`${roomKey}-adults-${adultIndex}-passportExpiry`] && (
+                            <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-passportExpiry`]}</p>
+                          )}
+                        </div>
+                      </>
+                      {/* --- End Passport Fields --- */}
 
                       {/* Special Requests for each adult */}
                       <div className="md:col-span-2">
@@ -874,11 +968,11 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
                             </div>
                           </div>
 
-                          {/* PAN Card Number - Always visible for all children */}
+                          {/* --- Child PAN (Always Rendered) --- */}
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              PAN Card Number
-                            </label>
+                             <label className="block text-sm font-medium text-gray-700 mb-1">
+                                PAN Card Number {isPanMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
+                             </label>
                             <input
                               type="text"
                               value={guestInfo[roomKey]?.children[childIndex]?.panCardNumber || ''}
@@ -892,45 +986,48 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
                               <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-panCardNumber`]}</p>
                             )}
                           </div>
+                          {/* --- End Child PAN --- */}
 
-                          {/* Passport Number - Always visible for all children */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Passport Number
-                            </label>
-                            <input
-                              type="text"
-                              value={guestInfo[roomKey]?.children[childIndex]?.passportNumber || ''}
-                              onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'passportNumber', e.target.value)}
-                              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                errors[`${roomKey}-children-${childIndex}-passportNumber`] ? 'border-red-500' : 'border-gray-300'
-                              }`}
-                              placeholder="Enter passport number"
-                            />
-                            {errors[`${roomKey}-children-${childIndex}-passportNumber`] && (
-                              <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-passportNumber`]}</p>
-                            )}
-                          </div>
+                          {/* --- Child Passport (Always Rendered) --- */}
+                          <>
+                             <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Passport Number {isPassportMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
+                              </label>
+                              <input
+                                type="text"
+                                value={guestInfo[roomKey]?.children[childIndex]?.passportNumber || ''}
+                                onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'passportNumber', e.target.value)}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                  errors[`${roomKey}-children-${childIndex}-passportNumber`] ? 'border-red-500' : 'border-gray-300'
+                                }`}
+                                placeholder="Enter passport number"
+                              />
+                              {errors[`${roomKey}-children-${childIndex}-passportNumber`] && (
+                                <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-passportNumber`]}</p>
+                              )}
+                            </div>
 
-                          {/* Passport Expiry Date - Always visible for all children */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Passport Expiry Date
-                            </label>
-                            <input
-                              type="date"
-                              value={guestInfo[roomKey]?.children[childIndex]?.passportExpiry || ''}
-                              onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'passportExpiry', e.target.value)}
-                              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                errors[`${roomKey}-children-${childIndex}-passportExpiry`] ? 'border-red-500' : 'border-gray-300'
-                              }`}
-                            />
-                            {errors[`${roomKey}-children-${childIndex}-passportExpiry`] && (
-                              <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-passportExpiry`]}</p>
-                            )}
-                          </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Passport Expiry Date {isPassportMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
+                              </label>
+                              <input
+                                type="date"
+                                value={guestInfo[roomKey]?.children[childIndex]?.passportExpiry || ''}
+                                onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'passportExpiry', e.target.value)}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                  errors[`${roomKey}-children-${childIndex}-passportExpiry`] ? 'border-red-500' : 'border-gray-300'
+                                }`}
+                              />
+                              {errors[`${roomKey}-children-${childIndex}-passportExpiry`] && (
+                                <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-passportExpiry`]}</p>
+                              )}
+                            </div>
+                          </>
+                          {/* --- End Child Passport --- */}
 
-                          {/* Special Requests for each child */}
+                          {/* Child Special Requests */}
                           <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Special Requests
@@ -953,32 +1050,31 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
           })}
 
           <div className="mt-6">
-            {/* Price Change Display */}
-            {priceChangeData && (
-              <div className={`mb-4 p-4 rounded-lg ${
-                priceChangeData.isPriceChanged ? 'bg-yellow-50 border border-yellow-200' : 'bg-[#22c35e]/10 border border-[#22c35e]/20'
-              }`}>
+            {/* Price Change Display (after recheck) */}
+            {priceChangeData && submitStatus === 'price-changed' && (
+              <div className={`mb-4 p-4 rounded-lg bg-yellow-50 border border-yellow-200 animate-fadeIn`}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium">
-                    {priceChangeData.isPriceChanged ? 'Price has changed' : 'Price verified'}
+                  <span className="font-medium text-yellow-800">
+                    Price Has Changed
                   </span>
-                  {priceChangeData.isPriceChanged && (
-                    <span className={`font-bold ${
+                  <span className={`font-bold ${
                       priceChangeData.priceChangeAmount > 0 ? 'text-red-600' : 'text-[#22c35e]'
                     }`}>
-                      {priceChangeData.priceChangeAmount > 0 ? '+' : ''}
-                      ₹{priceChangeData.priceChangeAmount.toLocaleString()}
-                    </span>
-                  )}
+                      {/* Display sign only if amount is non-zero */}
+                      {priceChangeData.priceChangeAmount > 0 ? '+' : priceChangeData.priceChangeAmount < 0 ? '-' : ''}
+                      {priceChangeData.currency || 'INR'} {Math.abs(priceChangeData.priceChangeAmount ?? 0).toLocaleString()}
+                  </span>
                 </div>
-                <div className="text-sm">
+                <div className="text-sm text-yellow-700 space-y-1">
                   <div className="flex justify-between">
                     <span>Previous price:</span>
-                    <span>₹{priceChangeData.previousTotalAmount.toLocaleString()}</span>
+                    {/* Use optional chaining and nullish coalescing for safety */}
+                    <span>{priceChangeData.currency || 'INR'} {priceChangeData.previousTotalAmount?.toLocaleString() ?? 'N/A'}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Current price:</span>
-                    <span>₹{priceChangeData.currentTotalAmount.toLocaleString()}</span>
+                  <div className="flex justify-between font-semibold">
+                    <span>New price:</span>
+                     {/* Use optional chaining and nullish coalescing for safety */}
+                    <span>{priceChangeData.currency || 'INR'} {priceChangeData.currentTotalAmount?.toLocaleString() ?? 'N/A'}</span>
                   </div>
                 </div>
               </div>
@@ -987,41 +1083,52 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
             {/* Submit/Book Button */}
             <button
               type="button" 
-              disabled={isSubmitting || submitStatus === 'rechecking'}
+              // Disable button during submitting/rechecking/booking states
+              disabled={isSubmitting || submitStatus === 'submitting' || submitStatus === 'rechecking' || submitStatus === 'booking'}
               onClick={(e) => {
-                if (submitStatus === 'ready-to-book') {
-                  handleBook();
-                } else {
+                // --- Updated onClick Logic ---
+                if (submitStatus === 'ready-to-book' || submitStatus === 'price-changed') {
+                  // If ready or price changed, clicking means booking (or accepting and booking)
+                  handleBook(); 
+                } else if (submitStatus === 'idle') {
+                  // If idle, clicking submits guest info
                   handleSubmit(e);
                 }
+                // Do nothing if submitting, rechecking, booking, or completed
+                // --- End Updated onClick Logic ---
               }}
+              // --- Adjusted background colors based on status ---
               className={`relative group overflow-hidden w-full ${
                 submitStatus === 'ready-to-book' 
-                  ? 'bg-[#22c35e]' 
+                  ? 'bg-[#22c35e]' // Green for Book Now
                   : submitStatus === 'price-changed'
-                    ? 'bg-yellow-500'
-                    : isSubmitting || submitStatus === 'rechecking'
-                      ? 'bg-[#093923]/40 cursor-not-allowed'
-                      : 'bg-[#093923]'
+                    ? 'bg-yellow-500' // Yellow for Accept New Price
+                    : isSubmitting || submitStatus === 'submitting' || submitStatus === 'rechecking' || submitStatus === 'booking'
+                      ? 'bg-[#093923]/40 cursor-not-allowed' // Disabled look
+                      : 'bg-[#093923]' // Default green for Submit Info
               } text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center`}
             >
-              {!isSubmitting && submitStatus !== 'rechecking' && submitStatus !== 'price-changed' && (
-                <div className="absolute inset-0 bg-[#13804e] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
+              {/* --- Spinner Logic --- */}
+              {(isSubmitting || submitStatus === 'submitting' || submitStatus === 'rechecking' || submitStatus === 'booking') && (
+                <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
               )}
+              {/* --- Checkmark for Ready to Book --- */}
+              {submitStatus === 'ready-to-book' && (
+                 <svg className="h-5 w-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                 </svg>
+              )}
+              {/* --- Get Button Text --- */}
               <span className="relative z-10 flex items-center">
-                {(isSubmitting || submitStatus === 'rechecking') && (
-                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                )}
-                {submitStatus === 'ready-to-book' && (
-                  <svg className="h-5 w-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
                 {getSubmitButtonText()}
               </span>
+               {/* --- Hover effect only for active states --- */}
+               {!(isSubmitting || submitStatus === 'submitting' || submitStatus === 'rechecking' || submitStatus === 'booking') && (
+                  <div className="absolute inset-0 bg-[#13804e] w-0 group-hover:w-full transition-all duration-300 ease-in-out"></div>
+              )}
             </button>
           </div>
         </form>

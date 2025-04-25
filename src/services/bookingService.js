@@ -2,9 +2,9 @@
 import axios from 'axios';
 import config from '../config';
 import {
-  transformTCBookingResponse,
-  transformTCFareRulesResponse,
-  transformTCFlightSearchResponse
+    transformTCBookingResponse,
+    transformTCFareRulesResponse,
+    transformTCFlightSearchResponse
 } from './transformers/flight/tcTransformer';
 
 // API endpoints
@@ -1139,6 +1139,24 @@ export const updateInquiryDetails = async (inquiryToken, updateData) => {
   }
 };
 
+// Update hotel booking payment details in CRM database
+const updateHotelBookingToCRM = async (bookingId, updateData) => {
+  try {
+    console.log('📡 API REQUEST: updateHotelBookingToCRM', { bookingId, updateData });
+    
+    const response = await authAxios.put(`${API_BASE_URL}/bookings/single/hotel/${bookingId}`, updateData);
+    
+    console.log('📡 API RESPONSE: updateHotelBookingToCRM', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('📡 API ERROR: updateHotelBookingToCRM', error);
+    if (error.response) {
+      console.error('📡 Error response:', { status: error.response.status, data: error.response.data });
+    }
+    throw new Error(error.response?.data?.message || 'Failed to update hotel booking in CRM');
+  }
+};
+
 const bookingService = {
   // Flight services
   searchFlights,
@@ -1236,6 +1254,9 @@ const bookingService = {
 
   // Add the new inquiry update function
   updateInquiryDetails,
+
+  // Add the new hotel booking update function
+  updateHotelBookingToCRM,
 
   // Save hotel booking to CRM database
   saveHotelBookingToCRM: async (bookingData) => {
