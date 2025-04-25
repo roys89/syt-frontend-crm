@@ -978,17 +978,16 @@ const HotelBookingPage = () => {
       
       // Update step to booking complete
       setStep(4);
-      // Close itinerary modal (already handled in the parent component? Ensure this doesn't cause issues)
-      // Might need adjustment depending on where setShowItineraryModal(false) is called
-      // For safety, let's remove it here if GuestInfoModal's onClose handles modal closing
-      // setShowItineraryModal(false); 
+      // Close itinerary modal
+      setShowItineraryModal(false); 
     } catch (error) {
       console.error('Error saving booking to CRM:', error);
       toast.error('Booking completed but failed to save to CRM database');
       
       // Still update UI to show booking is complete
       setStep(4);
-      // setShowItineraryModal(false); // Also remove here
+      // Also close modal on error
+      setShowItineraryModal(false); 
     }
   };
 

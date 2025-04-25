@@ -41,13 +41,13 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
   const [lightboxImageUrl, setLightboxImageUrl] = useState('');
 
   // --- NEW STATE for flags ---
-  const [isPanMandatory, setIsPanMandatory] = useState(false); 
+  const [isPanMandatory, setIsPanMandatory] = useState(false);
   const [isPassportMandatory, setIsPassportMandatory] = useState(false);
   // ---
 
   // --- NEW STATE for initial price check ---
   const [initialPriceCheckStatus, setInitialPriceCheckStatus] = useState('idle'); // 'idle', 'checking', 'price-changed', 'confirmed'
-  const [initialPriceData, setInitialPriceData] = useState(null); 
+  const [initialPriceData, setInitialPriceData] = useState(null);
   // --- END NEW STATE ---
 
   const detailedHotelData = itineraryData?.data?.results?.[0]?.data?.[0];
@@ -169,16 +169,16 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
   // Function to proceed to Guest Info Modal
   const proceedToGuestInfo = (bookingFlags = {}) => { // Accept flags as argument
     // --- Set flags before opening modal ---
-    
+
     // Hard set state values directly and ensure they're converted to boolean
     const panMandatory = Boolean(bookingFlags.isPanMandatory);
     const passportMandatory = Boolean(bookingFlags.isPassportMandatory);
-    
+
     setIsPanMandatory(panMandatory);
     setIsPassportMandatory(passportMandatory);
-    
+
     // ---
-    
+
     // This is async, so do this after setting states
     setShowGuestInfoModal(true);
     setInitialPriceCheckStatus('confirmed'); // Mark price as confirmed
@@ -187,9 +187,9 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
   const handleConfirmSelection = useCallback(async () => {
       try {
         // --- Start initial price check ---
-        setIsLoading(true); 
+        setIsLoading(true);
         setInitialPriceCheckStatus('checking');
-        setInitialPriceData(null); 
+        setInitialPriceData(null);
         // ---
 
         if (selectedRooms.length === 0) {
@@ -227,7 +227,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
             setInitialPriceCheckStatus('idle');
             return;
         }
-        
+
         const requestPayload = {
             roomsAndRateAllocations: selectedRooms.map(room => ({
               rateId: room.rateId,
@@ -246,22 +246,22 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
         console.log('Room rates request payload:', requestPayload);
         const response = await bookingService.selectRoomRates(requestPayload);
         console.log('Room rates API response:', response);
-        
+
         if (response.success) {
           setRoomRatesResponse(response);
 
-          // --- Extract flags from response --- 
+          // --- Extract flags from response ---
           const bookingFlags = {
               isPanMandatory: Boolean(response.data?.data?.results?.[0]?.isPanMandatoryForBooking),
               isPassportMandatory: Boolean(response.data?.data?.results?.[0]?.isPassportMandatoryForBooking)
           };
-          
+
           // --- Check for price change ---
-          const priceChangeData = response.data?.data?.priceChangeData || 
-                                 response.data?.data?.results?.[0]?.items?.[0]?.priceChangeData; 
+          const priceChangeData = response.data?.data?.priceChangeData ||
+                                 response.data?.data?.results?.[0]?.items?.[0]?.priceChangeData;
           if (priceChangeData && priceChangeData.isPriceChanged) {
             setInitialPriceData(priceChangeData);
-            setInitialPriceCheckStatus('price-changed'); 
+            setInitialPriceCheckStatus('price-changed');
             toast.warning('The price has changed. Please review and confirm.');
              // Set flags here too, as proceedToGuestInfo might be called later on accept
              setIsPanMandatory(bookingFlags.isPanMandatory);
@@ -269,7 +269,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
           } else {
             toast.success('Room rates confirmed successfully.');
             // Pass flags when proceeding directly
-            proceedToGuestInfo(bookingFlags); 
+            proceedToGuestInfo(bookingFlags);
           }
           // --- End price change check ---
         } else {
@@ -339,11 +339,11 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
 
   const renderCollapsibleSection = useCallback((title, content, sectionId, count) => {
     if (sectionId === "reviews") return null;
-    
+
     const isExpanded = expandedSections[sectionId];
     return (
       <div className="border-t pt-6 mt-6">
-        <div 
+        <div
           onClick={() => toggleSection(sectionId)}
           className="flex items-center justify-between cursor-pointer"
         >
@@ -378,7 +378,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
 
     const rates = recommendation.rates.map((rateId) => getRateDetails(rateId));
     const totalPrice = calculateTotalPrice(recommendation);
-    const firstRate = rates[0]; 
+    const firstRate = rates[0];
 
     return (
       <div className="space-y-3 overflow-hidden">
@@ -407,7 +407,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
           <div className="flex justify-between items-end mt-2">
             <div className="text-xs sm:text-sm text-gray-600 space-y-0.5">
               <p>{firstRate.refundable ? "Refundable" : "Non-refundable"}</p>
-              {firstRate.boardBasis?.description && 
+              {firstRate.boardBasis?.description &&
                 <p className="break-words">{firstRate.boardBasis.description}</p>
               }
             </div>
@@ -423,13 +423,13 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
   const renderRoomTypeSection = useCallback((groupId, recommendations) => {
     const standardRoom = roomRateData?.standardizedRooms?.[groupId];
     if (!standardRoom) return null;
-  
+
     const isExpanded = expandedSections[groupId];
     const hasImage = standardRoom.images?.[0]?.links;
-    const imageUrl = imageErrorMap[groupId] 
+    const imageUrl = imageErrorMap[groupId]
       ? "/api/placeholder/96/96"
       : (hasImage ? standardRoom.images[0].links.find((l) => l.size === "Standard")?.url : "/api/placeholder/96/96");
-  
+
     return (
       <div key={groupId} className="mb-3 sm:mb-4">
         <div
@@ -480,7 +480,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                   onClick={() => handleRoomSelect(rec)}
                   className={`cursor-pointer p-3 sm:p-4 rounded-lg ${isSelected ? 'bg-[#093923]/10 border-2 border-[#093923]' : 'bg-white border border-gray-100 hover:border-[#093923]/30'} transition-all duration-200 shadow-sm`}
                 >
-                  {renderRecommendationDetails(rec)} 
+                  {renderRecommendationDetails(rec)}
                 </div>
               );
             })}
@@ -521,15 +521,15 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                   ))}
                 </div>
               )}
-              
+
               {detailedHotelData?.reviews?.[0]?.rating && (
                 <div className="flex items-center bg-[#22c35e]/10 px-2 py-1 rounded">
-                  <span className="font-bold text-[#22c35e]">{detailedHotelData.reviews[0].rating}/5</span> 
+                  <span className="font-bold text-[#22c35e]">{detailedHotelData.reviews[0].rating}/5</span>
                   <span className="mx-1 text-gray-400">•</span>
                   <span className="text-sm text-gray-600">{detailedHotelData.reviews[0].count} reviews</span>
                 </div>
               )}
-              
+
               {detailedHotelData?.contact?.address?.city?.name && (
                 <span className="text-sm text-gray-600">
                   {detailedHotelData.contact.address.city.name}, {detailedHotelData.contact.address.country?.name}
@@ -571,8 +571,8 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
 
                 {images.length > 1 && (
                   <>
-                    <button 
-                      onClick={goToPrevious} 
+                    <button
+                      onClick={goToPrevious}
                       className="absolute top-1/2 left-2 transform -translate-y-1/2 bg-black/40 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 hover:bg-black/60 focus:outline-none"
                       aria-label="Previous image"
                     >
@@ -580,8 +580,8 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                       </svg>
                     </button>
-                    <button 
-                      onClick={goToNext} 
+                    <button
+                      onClick={goToNext}
                       className="absolute top-1/2 right-2 transform -translate-y-1/2 bg-black/40 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 hover:bg-black/60 focus:outline-none"
                       aria-label="Next image"
                     >
@@ -592,7 +592,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                   </>
                 )}
               </div>
-                
+
               {images.length > 1 && (
                 <div className="w-full overflow-x-auto py-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   <div className="flex space-x-2 px-1 pb-1">
@@ -632,13 +632,13 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
               <div className="bg-white p-6 rounded-lg shadow-sm">
                 <h3 className="text-lg font-semibold mb-4">Available Room Types</h3>
                 <div className="space-y-4">
-                  {Object.entries(groupedRecommendations).map(([groupId, recs]) => 
+                  {Object.entries(groupedRecommendations).map(([groupId, recs]) =>
                     renderRoomTypeSection(groupId, recs)
                   )}
                 </div>
               </div>
             </div>
-            
+
             <div className="space-y-6">
               {(detailedHotelData?.descriptions?.find(desc => desc.type === "headline") || detailedHotelData?.descriptions?.find(desc => desc.type === "location")) && (
                 <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -659,7 +659,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                   )}
                 </div>
               )}
-                
+
               <div className="bg-white p-4 rounded-lg shadow-sm">
                 <h3 className="text-lg font-semibold mb-3">Location Map</h3>
                 {loadError && <div className="text-red-600 text-sm">Error loading map. Please check the API key and try again.</div>}
@@ -668,7 +668,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                   <GoogleMap
                     mapContainerStyle={containerStyle}
                     center={center}
-                    zoom={15} 
+                    zoom={15}
                     options={{ // Disable UI controls for a cleaner look
                         streetViewControl: false,
                         mapTypeControl: false,
@@ -699,7 +699,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                     </div>
                   </div>
                 )}
-                
+
                 {detailedHotelData?.contact?.phones && detailedHotelData.contact.phones.length > 0 && (
                   <div className="flex items-start mb-4">
                     <svg className="w-5 h-5 text-[#093923] mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -710,7 +710,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                     </div>
                   </div>
                 )}
-                
+
                 {detailedHotelData?.contact?.email && (
                   <div className="flex items-start">
                     <svg className="w-5 h-5 text-[#093923] mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -722,7 +722,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                   </div>
                 )}
               </div>
-              
+
               <div className="bg-white p-5 rounded-lg shadow-sm">
                 <h3 className="text-lg font-semibold mb-3">Hotel Highlights</h3>
                 <div className="space-y-3">
@@ -730,12 +730,12 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                     <span className="text-gray-700">Check-in</span>
                     <span className="font-medium">{detailedHotelData?.checkinInfo?.beginTime || '3:00 PM'}</span>
                   </div>
-                  
+
                   <div className="flex justify-between items-center">
                     <span className="text-gray-700">Check-out</span>
                     <span className="font-medium">{detailedHotelData?.checkoutInfo?.time || '12:00 PM'}</span>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 gap-2">
                     {detailedHotelData?.facilityGroups?.slice(0, 8).map(group => (
                       <div key={group.id} className="flex items-center">
@@ -750,7 +750,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                   </div>
                 </div>
               </div>
-              
+
               {detailedHotelData?.reviews && detailedHotelData.reviews[0] && (
                 <div className="bg-white p-6 rounded-lg shadow-sm">
                   <h3 className="text-lg font-semibold mb-3">Guest Reviews</h3>
@@ -763,7 +763,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                       <div className="text-sm text-gray-600">Based on {detailedHotelData.reviews[0].count} reviews</div>
                     </div>
                   </div>
-                  
+
                   {detailedHotelData.reviews[0].categoryratings && (
                     <div className="space-y-2">
                       {detailedHotelData.reviews[0].categoryratings.map((category, index) => (
@@ -773,8 +773,8 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                           </span>
                           <div className="flex items-center">
                             <div className="w-24 h-2 rounded-full bg-gray-200 mr-2">
-                              <div 
-                                className="h-2 rounded-full bg-[#22c35e]" 
+                              <div
+                                className="h-2 rounded-full bg-[#22c35e]"
                                 style={{ width: `${Math.min(100, (parseFloat(category.rating) / 5) * 100)}%` }}
                               ></div>
                             </div>
@@ -857,7 +857,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                   </button>
                 ))}
               </div>
-              
+
               {activeImageCategory && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {detailedHotelData.imagesAndCaptions[activeImageCategory].images.map((image, index) => {
@@ -870,7 +870,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                           alt={`${detailedHotelData.name} - ${detailedHotelData.imagesAndCaptions[activeImageCategory].captionLabel} ${index + 1}`}
                           className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
-                          onError={(e) => { e.target.src = '/api/placeholder/400/300'; }} 
+                          onError={(e) => { e.target.src = '/api/placeholder/400/300'; }}
                         />
                         {image.caption && (
                           <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -905,14 +905,14 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                       </div>
                     )}
                   </div>
-                  
+
                   {detailedHotelData.checkinInfo.instructions && detailedHotelData.checkinInfo.instructions.length > 0 && (
                     <div className="mt-2">
                       <h5 className="font-medium text-gray-800 mb-1">Instructions:</h5>
                       <div className="text-sm text-gray-600" dangerouslySetInnerHTML={{ __html: detailedHotelData.checkinInfo.instructions[0] }} />
                     </div>
                   )}
-                  
+
                   {detailedHotelData.checkinInfo.specialInstructions && detailedHotelData.checkinInfo.specialInstructions.length > 0 && (
                     <div className="mt-2">
                       <h5 className="font-medium text-gray-800 mb-1">Special Instructions:</h5>
@@ -921,14 +921,14 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                   )}
                 </div>
               )}
-              
+
               {detailedHotelData?.checkoutInfo && (
                 <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
                   <h4 className="font-medium text-gray-800 mb-2">Check-out Information</h4>
                   <p className="text-sm text-gray-600">Check-out time: {detailedHotelData.checkoutInfo.time}</p>
                 </div>
               )}
-              
+
               {detailedHotelData?.policies && detailedHotelData.policies.map((policy, index) => (
                 <div key={index} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
                   <h4 className="font-medium text-gray-800 mb-2">
@@ -952,7 +952,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
 
           <div className="bg-white p-6 rounded-lg shadow-sm mt-6">
             <h3 className="text-lg font-semibold mb-4">Confirm Selection</h3>
-            
+
             {/* --- Display Initial Price Change Info --- */}
             {initialPriceCheckStatus === 'price-changed' && initialPriceData && (
               <div className="mb-4 p-4 rounded-lg bg-yellow-50 border border-yellow-200 animate-fadeIn">
@@ -1005,12 +1005,12 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                 </div>
               )
             )}
-            
+
             <div className="flex justify-between gap-4">
               <button
                 onClick={onClose}
                 // Disable Back button if price changed and needs confirmation
-                disabled={initialPriceCheckStatus === 'price-changed'} 
+                disabled={initialPriceCheckStatus === 'price-changed'}
                 className={`relative group overflow-hidden w-full sm:w-60 py-2 border border-[#093923] rounded-lg text-[#093923] font-medium transition-opacity ${initialPriceCheckStatus === 'price-changed' ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <span className="relative z-10 group-hover:text-white">Back</span>
@@ -1034,7 +1034,7 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
                    </button>
                    <button
                      onClick={() => { // Accept handler
-                       proceedToGuestInfo(); 
+                       proceedToGuestInfo();
                        setIsLoading(false); // Stop loading on accept
                      }}
                      className="relative group overflow-hidden w-full sm:w-60 py-2 rounded-lg text-white font-medium bg-[#22c35e]"
@@ -1088,18 +1088,18 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
       />
 
       {isLightboxOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm"
           onClick={closeLightbox}
         >
           <div className="relative max-w-[90vw] max-h-[85vh]">
-            <img 
-              src={lightboxImageUrl} 
-              alt="Lightbox view" 
+            <img
+              src={lightboxImageUrl}
+              alt="Lightbox view"
               className="block max-w-full max-h-full object-contain rounded-lg shadow-xl"
-              onClick={(e) => e.stopPropagation()} 
+              onClick={(e) => e.stopPropagation()}
             />
-            <button 
+            <button
               onClick={closeLightbox}
               className="absolute -top-2 -right-2 sm:top-2 sm:right-2 bg-white/30 text-white rounded-full p-1.5 hover:bg-white/50 transition-colors z-[110] backdrop-blur-sm"
               aria-label="Close lightbox"
