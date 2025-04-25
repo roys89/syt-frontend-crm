@@ -1235,7 +1235,67 @@ const bookingService = {
   deleteInquiry,
 
   // Add the new inquiry update function
-  updateInquiryDetails
+  updateInquiryDetails,
+
+  // Save hotel booking to CRM database
+  saveHotelBookingToCRM: async (bookingData) => {
+    try {
+      console.log('📡 API REQUEST: saveHotelBookingToCRM', bookingData);
+      
+      const response = await authAxios.post(`${API_BASE_URL}/bookings/single/hotel`, bookingData);
+      
+      console.log('📡 API RESPONSE: saveHotelBookingToCRM', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('📡 API ERROR: saveHotelBookingToCRM', error);
+      if (error.response) {
+        console.error('📡 Error response:', { status: error.response.status, data: error.response.data });
+      }
+      throw new Error(error.response?.data?.message || 'Failed to save hotel booking to CRM');
+    }
+  },
+
+  // Save flight booking to CRM database
+  saveFlightBookingToCRM: async (bookingData) => {
+    try {
+      // Create a safe copy of the booking data to avoid circular references
+      // and ensure all complex objects are properly serialized
+      const safeBookingData = JSON.parse(JSON.stringify(bookingData));
+      
+      // Log the sanitized payload
+      console.log('📡 API REQUEST: saveFlightBookingToCRM', safeBookingData);
+      
+      // Send the sanitized payload to the API
+      const response = await authAxios.post(`${API_BASE_URL}/bookings/single/flight`, safeBookingData);
+      
+      console.log('📡 API RESPONSE: saveFlightBookingToCRM', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('📡 API ERROR: saveFlightBookingToCRM', error);
+      if (error.response) {
+        console.error('📡 Error response:', { status: error.response.status, data: error.response.data });
+      }
+      throw new Error(error.response?.data?.message || 'Failed to save flight booking to CRM');
+    }
+  },
+  
+  // Update flight booking payment details in CRM database
+  updateFlightBookingToCRM: async (bookingId, updateData) => {
+    try {
+      console.log('📡 API REQUEST: updateFlightBookingToCRM', { bookingId, updateData });
+      
+      const response = await authAxios.put(`${API_BASE_URL}/bookings/single/flight/${bookingId}`, updateData);
+      
+      console.log('📡 API RESPONSE: updateFlightBookingToCRM', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('📡 API ERROR: updateFlightBookingToCRM', error);
+      if (error.response) {
+        console.error('📡 Error response:', { status: error.response.status, data: error.response.data });
+      }
+      throw new Error(error.response?.data?.message || 'Failed to update flight booking in CRM');
+    }
+  }
 };
 
 export default bookingService;

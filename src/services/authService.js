@@ -53,9 +53,9 @@ const getCurrentUser = async () => {
       }
     };
     
-    console.log('Making /me request with auth header');
-    console.log('Request URL:', `${API_URL}/me`);
-    console.log('Headers included:', JSON.stringify(config.headers, null, 2));
+    // console.log('Making /me request with auth header');
+    // console.log('Request URL:', `${API_URL}/me`);
+    // console.log('Headers included:', JSON.stringify(config.headers, null, 2));
     
     // Make the API request
     const response = await axios.get(`${API_URL}/me`, config);

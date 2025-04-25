@@ -6,7 +6,13 @@ import bookingService from '../../services/bookingService';
 import FlightAncillarySelectionModal from './FlightAncillarySelectionModal';
 import PassengerInfoModal from './PassengerInfoModal';
 
-const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
+const FlightItineraryModal = ({ 
+  itineraryDetails, 
+  onClose, 
+  onBookNow, 
+  onPassengerInfoSuccess, 
+  onAncillaryInfoSuccess 
+}) => {
   const [activeTab, setActiveTab] = useState('flightDetails');
   const [selectedClass, setSelectedClass] = useState('economy');
   const [travelers, setTravelers] = useState(1);
@@ -65,12 +71,63 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
         itineraryCode: itineraryCodeToUse
       });
 
+      // Log the raw response from the booking service
+      console.log("Raw response from bookingService.bookFlight:", JSON.stringify(response, null, 2));
+
       if (response.success) {
         toast.success('Flight booked successfully!');
-        // ** CRITICAL: This calls the page's handleBookingSuccess **
-        if (onBookNow) { // Check if the prop exists
-          console.log("!!! FlightItineraryModal: Calling onBookNow prop with data:", response.data); // Add log
-          onBookNow(response.data); // Pass the booking response data
+        // ** CRITICAL: Pass provider response, passenger data, AND price details **
+        if (onBookNow) {
+          // Get the results object which contains the pricing data displayed in the UI
+          const results = itineraryDetails?.data?.results;
+          
+          // Determine the flight type based on the response structure
+          // Check if it's domestic
+          const isDomestic = results?.isDomestic;
+          
+          // Check if this is a round trip (has inbound flight) by looking at itineraryItems
+          // If there are 2 or more items, it's likely a round trip
+          const hasMultipleItems = results?.itineraryItems && results.itineraryItems.length >= 2;
+          
+          // Determine the flight type based on these factors
+          let flightType;
+          if (hasMultipleItems) {
+            flightType = isDomestic ? 'DOMESTIC_ROUND_TRIP' : 'INTERNATIONAL_ROUND_TRIP';
+          } else {
+            flightType = 'ONE_WAY';
+          }
+          
+          console.log(`Determined flight type: ${flightType} (isDomestic: ${isDomestic}, hasMultipleItems: ${hasMultipleItems})`, results?.itineraryItems?.length);
+          
+          const finalPriceDetails = {
+            // Use the values displayed in the fare breakdown section
+            baseFare: results?.baseFare || 0,
+            taxesAndFees: results?.taxAndSurcharge || 0,
+            totalFare: results?.totalAmount || 0, // This is the total without ancillaries
+            currency: 'INR', // Default to INR
+            // Include any discount if available
+            supplierDiscount: results?.tcDiscount || 0
+          };
+          
+          console.log("!!! FlightItineraryModal: Calling onBookNow prop with combined data:", { 
+            providerResponse: response, 
+            passengerData: confirmedAncillaries, 
+            bookingPriceDetails: finalPriceDetails,
+            flightType: flightType,
+            // Log the source of price data for debugging
+            priceSource: {
+              resultsBaseFare: results?.baseFare,
+              resultsTaxAndSurcharge: results?.taxAndSurcharge,
+              resultsTotalAmount: results?.totalAmount
+            }
+          });
+          
+          onBookNow({
+              providerResponse: response,          // Full provider booking response
+              passengerData: confirmedAncillaries, // Final passenger list with SSR
+              bookingPriceDetails: finalPriceDetails, // Final pricing details
+              flightType: flightType // Pass the exact flight type from itineraryDetails
+          });
         }
         // onClose(); // Let the page handle closing/state change
       } else {
@@ -90,6 +147,12 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
     setIsAllocated(true); // Mark as allocated once passenger info is submitted
     setShowPassengerInfo(false); // Close passenger modal
     setPassengerFormData(response); // Store passenger form data for general use
+
+    // --- Call parent callback with passenger data --- 
+    if (onPassengerInfoSuccess) {
+        onPassengerInfoSuccess(response);
+    }
+    // ---------------------------------------------
 
     // Price update logic (if response contains recheck info - adjust as needed)
     if (response.recheck) {
@@ -138,7 +201,7 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
     // ----------------------------------------------------------------
   };
 
-  // --- New Handler for Ancillary Success ---
+  // --- New Handler for Ancillary Success --- 
   const handleAncillarySuccess = async (passengerDataWithSsr) => {
       console.log("Ancillaries selected, final passenger data:", passengerDataWithSsr);
       setConfirmedAncillaries(passengerDataWithSsr); // Store the final combined data
@@ -152,6 +215,12 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
       });
       console.log("Calculated ancillary cost:", currentAncillaryCost);
       setAncillaryCost(currentAncillaryCost);
+
+      // --- Call parent callback with ancillary data & cost --- 
+      if (onAncillaryInfoSuccess) {
+          onAncillaryInfoSuccess({ passengerDataWithSsr, currentAncillaryCost });
+      }
+      // ------------------------------------------------------
 
       setAncillariesConfirmed(true);
       setShowAncillaryModal(false);
@@ -608,6 +677,33 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
                     </div>
                   )}
                   
+                  {/* --- Display Selected Ancillary Details --- */}
+                  {confirmedAncillaries && confirmedAncillaries.length > 0 && (ancillaryCost > 0) && (
+                    <div className="border-t pt-3 mt-3">
+                      <h4 className="text-base font-medium text-gray-900 mb-2">Selected Extras</h4>
+                      <div className="space-y-1 text-sm text-gray-600">
+                        {confirmedAncillaries.map((pax, paxIndex) => (
+                          // Check if this passenger has any selected ancillaries
+                          (pax.ssr?.seat?.length > 0 || pax.ssr?.baggage?.length > 0 || pax.ssr?.meal?.length > 0) && (
+                            <div key={`pax-${pax.paxId || paxIndex}-ancillaries`} className="bg-gray-50 p-2 rounded mb-1">
+                              <p className="text-xs font-medium text-gray-700 mb-1">Passenger {paxIndex + 1}: {pax.firstName} {pax.lastName}</p>
+                              {pax.ssr.seat?.map((seat, idx) => (
+                                <p key={`seat-${idx}`} className="text-xs ml-2">- Seat {seat.seat || seat.code} ({seat.origin}-{seat.destination}): ₹{seat.amt?.toLocaleString()}</p>
+                              ))}
+                              {pax.ssr.baggage?.map((bag, idx) => (
+                                <p key={`bag-${idx}`} className="text-xs ml-2">- Baggage {bag.dsc} ({bag.origin}-{bag.destination}): ₹{bag.amt?.toLocaleString()}</p>
+                              ))}
+                              {pax.ssr.meal?.map((meal, idx) => (
+                                <p key={`meal-${idx}`} className="text-xs ml-2">- Meal {meal.dsc} ({meal.origin}-{meal.destination}): ₹{meal.amt?.toLocaleString()}</p>
+                              ))}
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* --- End Selected Ancillary Details --- */}
+
                   <div className="border-t pt-2">
                     <div className="flex justify-between">
                       <span className="text-gray-900 font-semibold">Grand Total</span>
@@ -622,7 +718,7 @@ const FlightItineraryModal = ({ itineraryDetails, onClose, onBookNow }) => {
                 {/* Passenger Breakdown */}
                 <div className="border-t pt-3 mt-3">
                   <h4 className="text-base font-medium text-gray-900 mb-2">Per Passenger Breakdown</h4>
-                  <div className="bg-gray-50 p-3 rounded">
+                  <div className="bg-gray-50 p-4 rounded-md prose max-w-none">
                     {/* Use outbound flight for pax breakdown, assuming it's consistent */}
                     {outboundFlight?.fareQuote?.paxFareBreakUp?.map((pax, idx) => (
                       <div key={idx} className="mb-2 last:mb-0">

@@ -884,13 +884,116 @@ const HotelBookingPage = () => {
   };
 
   // Handle booking data submission from itinerary modal
-  const handleBookingSubmit = (bookingData) => {
-    // Set booking details from the confirmation response
-    setBookingDetails(bookingData);
-    // Update step to booking complete
-    setStep(4);
-    // Close itinerary modal
-    setShowItineraryModal(false);
+  const handleBookingSubmit = async (bookingData) => {
+    try {
+      // Set booking details from the confirmation response
+      setBookingDetails(bookingData);
+      
+      // Prepare data for CRM database
+      const booking = bookingData.results?.[0];
+      const bookingRefId = booking?.data?.[0]?.bookingRefId;
+      const providerConfirmationNumber = booking?.data?.[0]?.providerConfirmationNumber;
+      const status = booking?.data?.[0]?.status || 'Confirmed';
+      const roomConfirmation = booking?.data?.[0]?.roomConfirmation || [];
+      
+      if (bookingRefId) {
+        // Get hotel details from selected hotel
+        const hotelDetails = {
+          hotelId: selectedHotel.id,
+          name: selectedHotel.name,
+          starRating: selectedHotel.starRating,
+          address: {
+            line1: selectedHotel.contact?.address?.line1 || '',
+            line2: selectedHotel.contact?.address?.line2 || '',
+            city: selectedHotel.contact?.address?.city?.name || '',
+            state: selectedHotel.contact?.address?.state?.name || '',
+            country: selectedHotel.contact?.address?.country?.name || '',
+            postalCode: selectedHotel.contact?.address?.postalCode || ''
+          },
+          images: selectedHotel.images?.map(img => img.links?.find(link => link.size === 'Xxl')?.url || '') || [],
+          facilities: selectedHotel.facilities?.map(facility => facility.name) || []
+        };
+        
+        // Get booking details
+        const bookingDetails = {
+          checkIn: new Date(formData.checkIn),
+          checkOut: new Date(formData.checkOut),
+          rooms: roomConfirmation.map((room, index) => {
+            // Map room data from formData and booking response
+            const formRoom = formData.rooms[index] || { adults: [], children: [] };
+            return {
+              roomType: room.roomType || 'Standard',
+              occupancy: {
+                adults: formRoom.adults.length,
+                children: formRoom.children.length,
+                childAges: formRoom.children
+              },
+              mealPlan: room.mealPlan || '',
+              cancellationPolicy: room.cancellationPolicy || '',
+              price: {
+                amount: room.price?.amount || 0,
+                currency: room.price?.currency || 'INR'
+              },
+              bookingStatus: room.bookingStatus || 'Confirmed',
+              providerConfirmationNumber: room.providerConfirmationNumber || ''
+            };
+          })
+        };
+        
+        // Calculate total amount
+        const totalAmount = roomConfirmation.reduce((total, room) => {
+          return total + (room.price?.amount || 0);
+        }, 0);
+        
+        // Get payment details
+        const paymentDetails = {
+          totalAmount,
+          currency: roomConfirmation[0]?.price?.currency || 'INR',
+          paymentMethod: 'Card', // Default value
+          paymentStatus: 'Paid', // Default value
+          transactionId: booking?.transactionId || ''
+        };
+        
+        // Get guest details from booking data if available
+        const guestDetails = booking?.guestDetails || [];
+        
+        // Prepare complete data for CRM
+        const crmBookingData = {
+          bookingRefId,
+          providerConfirmationNumber,
+          itineraryCode: booking?.itineraryCode || '',
+          traceId: booking?.traceId || '',
+          status,
+          provider: selectedProvider,
+          hotelDetails,
+          bookingDetails,
+          paymentDetails,
+          guestDetails,
+          notes: ''
+        };
+        
+        // Save to CRM database
+        const crmResponse = await bookingService.saveHotelBookingToCRM(crmBookingData);
+        console.log('Hotel booking saved to CRM:', crmResponse);
+        
+        // Show success message
+        toast.success('Booking saved to CRM database');
+      } else {
+        console.warn('Missing booking reference ID, not saving to CRM');
+      }
+      
+      // Update step to booking complete
+      setStep(4);
+      // Close itinerary modal
+      setShowItineraryModal(false);
+    } catch (error) {
+      console.error('Error saving booking to CRM:', error);
+      toast.error('Booking completed but failed to save to CRM database');
+      
+      // Still update UI to show booking is complete
+      setStep(4);
+      setShowItineraryModal(false);
+    }
   };
 
   // Get voucher details

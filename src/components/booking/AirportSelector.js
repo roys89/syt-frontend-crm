@@ -85,7 +85,7 @@ const AirportSelector = ({ label, placeholder, value, onChange, error, fullWidth
         optionLabelProp="label"
         dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
         optionFilterProp="children"
-        dropdownMatchSelectWidth={true}
+        popupMatchSelectWidth={true}
         virtual={true}
       >
         {airports.map((airport) => (

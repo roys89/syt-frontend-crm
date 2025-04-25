@@ -48,9 +48,23 @@ const FlightBookingPage = () => {
   const [selectedProvider, setSelectedProvider] = useState('TC');
   const [isRoundTrip, setIsRoundTrip] = useState(false);
   const [bookingDetails, setBookingDetails] = useState(null);
+  const [bookingRefId, setBookingRefId] = useState(null);
+  const [finalTotalAmount, setFinalTotalAmount] = useState(null);
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [voucherDetails, setVoucherDetails] = useState(null);
   const [isLoadingVoucher, setIsLoadingVoucher] = useState(false);
+  const [savedBookingId, setSavedBookingId] = useState(null);
+  const [isSavingBooking, setIsSavingBooking] = useState(false);
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+  
+  // Payment form state
+  const [paymentForm, setPaymentForm] = useState({
+    paymentMethod: '',
+    transactionId: '',
+    paymentStatus: 'Paid',
+    paymentType: 'full',
+    amountPaid: ''
+  });
 
   // Form state
   const [formData, setFormData] = useState({
@@ -915,30 +929,322 @@ const FlightBookingPage = () => {
     }
   }, [step, formData.origin, formData.destination]);
 
+  // Initialize expanded states when inbound options change
+  useEffect(() => {
+    if (selectedOutboundFlight?.inboundOptions) {
+      setExpandedStates(new Array(selectedOutboundFlight.inboundOptions.length).fill(false));
+    }
+  }, [selectedOutboundFlight?.inboundOptions]);
+  
   const handleBookingSuccess = (response) => {
-    console.log("!!! FlightBookingPage: handleBookingSuccess called !!!", response);
-    if (response && response.results) { 
-    setBookingDetails(response.results);
+    console.log("Handling booking success with response:", response);
+    
+    // Check if response has the expected structure
+    if (response && response.providerResponse && response.providerResponse.data && response.providerResponse.data.results) {
+      // Set booking details from the provider response
+      setBookingDetails(response.providerResponse.data.results);
+      
+      // Make sure we have all required data before saving to CRM
+      if (!response.passengerData) {
+        console.warn('No passenger data in booking response, creating empty array');
+        response.passengerData = [];
+      }
+      
+      if (!response.bookingPriceDetails) {
+        console.warn('No booking price details in response, creating default object');
+        response.bookingPriceDetails = {
+          baseFare: 0,
+          taxesAndFees: 0,
+          totalFare: 0,
+          currency: 'INR'
+        };
+      }
+      
+      // Save flight booking to CRM database
+      saveFlightBookingToCRM(response);
     } else {
-        console.error("!!! handleBookingSuccess called with invalid/missing response.results:", response);
-        toast.error("Booking completed but response data is unexpected. Cannot display details.");
+      console.error("!!! handleBookingSuccess called with invalid/missing response structure:", response);
+      toast.error("Booking completed but response data is unexpected. Cannot display details.");
     }
     setStep(3);
   };
-
+  
+  // Save flight booking to CRM database
+  const saveFlightBookingToCRM = async (bookingResponse) => {
+    try {
+      setIsSavingBooking(true);
+      
+      console.log('Booking response received:', bookingResponse);
+      
+      // Extract necessary data from booking response
+      const { providerResponse, passengerData, bookingPriceDetails, flightType } = bookingResponse || {};
+      
+      // Generate a unique booking reference ID if not provided
+      const bookingRefId = `SYT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;      
+      
+      // Calculate ancillary costs from passenger data (safely)
+      const totalAncillariesAmount = calculateTotalAncillaryAmount(passengerData);
+      
+      // Get price details from the booking response exactly as FlightItineraryModal provides them
+      const baseFare = bookingPriceDetails?.baseFare || 0;
+      const taxesAndFees = bookingPriceDetails?.taxesAndFees || 0;
+      const totalFare = bookingPriceDetails?.totalFare || 0;
+      const currency = bookingPriceDetails?.currency || 'INR';
+      const supplierDiscount = bookingPriceDetails?.supplierDiscount || 0;
+      
+      // The final total is the flight fare plus any ancillaries
+      const finalTotalAmount = totalFare + totalAncillariesAmount;
+      
+      // Extract all booking codes from the provider response
+      const bookingCodes = [];
+      if (providerResponse?.data?.results?.details && Array.isArray(providerResponse.data.results.details)) {
+        providerResponse.data.results.details.forEach(detail => {
+          if (detail.bmsBookingCode) {
+            bookingCodes.push(detail.bmsBookingCode);
+          }
+        });
+      }
+      
+      // Get the primary booking code (first one)
+      const primaryBookingCode = bookingCodes.length > 0 ? bookingCodes[0] : '';
+      
+      console.log('Flight booking details:', {
+        bookingRefId,
+        flightType,
+        bookingCodes,
+        primaryBookingCode,
+        traceId,
+        baseFare,
+        taxesAndFees,
+        totalFare,
+        totalAncillariesAmount,
+        finalTotalAmount
+      });
+      
+      // Create payload for CRM database
+      const payload = {
+        // Essential booking details
+        bookingRefId,
+        flightType,
+        pnr: providerResponse?.data?.results?.details?.[0]?.pnr || '',
+        traceId, // Use the component's traceId state variable
+        bmsBookingCode: primaryBookingCode, // Use the primary booking code
+        bookingCodes, // Store all booking codes as an array
+        bookingStatus: 'Confirmed',
+        
+        // Store the full provider response for reference
+        providerBookingResponse: providerResponse,
+        
+        // Passenger details
+        passengerDetails: passengerData.map(passenger => ({
+          title: passenger.title,
+          firstName: passenger.firstName,
+          lastName: passenger.lastName,
+          email: passenger.email || '',
+          phoneNumber: passenger.contactNumber || passenger.phoneNumber || '',
+          dateOfBirth: passenger.dateOfBirth || null,
+          gender: passenger.gender || '',
+          nationality: passenger.nationality || '',
+          passportNumber: passenger.passportNumber || '',
+          passportExpiry: passenger.passportExpiry || null,
+          isLeadPassenger: passenger.isLeadPax || false,
+          type: passenger.paxType === 1 ? 'Adult' : (passenger.paxType === 2 ? 'Child' : 'Infant'),
+          ssr: passenger.ssr || {}
+        })),
+        
+        // Let the backend handle agent details from the JWT token
+        // The backend will automatically add the agent details from req.user
+        
+        // Payment details matching the expected structure in FlightBooking model
+        paymentDetails: {
+          paymentMethod: 'Pending',
+          transactionId: 'N/A',
+          // Removed amountPaid field as requested - will be set during payment update
+          paymentStatus: 'Pending',
+          currency,
+          totalFlightAmount: totalFare, // Total fare (base + taxes)
+          totalAncillariesAmount, // Ancillary costs
+          finalTotalAmount // Total fare + ancillaries
+        }
+      };
+      
+      console.log('Saving booking to CRM with payload:', payload);
+      
+      // Call the API to save the booking
+      const response = await bookingService.saveFlightBookingToCRM(payload);
+      
+      if (response.success) {
+        toast.success('Booking saved to CRM database');
+        setSavedBookingId(response.data._id);
+        // Store the bookingRefId in state for display
+        setBookingRefId(bookingRefId);
+        // Store the finalTotalAmount in state for display
+        setFinalTotalAmount(finalTotalAmount);
+      } else {
+        throw new Error(response.message || 'Failed to save booking to CRM');
+      }
+    } catch (error) {
+      console.error('Error saving booking to CRM:', error);
+      toast.error(error.message || 'Failed to save booking to CRM');
+    } finally {
+      setIsSavingBooking(false);
+    }
+  };
+  
+  // Helper function to calculate total ancillary amount from passenger data
+  const calculateTotalAncillaryAmount = (passengerData) => {
+    let totalAmount = 0;
+    
+    // Check if passengerData is null or undefined
+    if (!passengerData || !Array.isArray(passengerData)) {
+      console.log('No passenger data available for ancillary calculation');
+      return 0;
+    }
+    
+    passengerData.forEach(passenger => {
+      if (passenger && passenger.ssr) {
+        // Add baggage costs
+        if (passenger.ssr.baggage && Array.isArray(passenger.ssr.baggage)) {
+          passenger.ssr.baggage.forEach(item => {
+            totalAmount += parseFloat(item.amt || 0);
+          });
+        }
+        
+        // Add meal costs
+        if (passenger.ssr.meal && Array.isArray(passenger.ssr.meal)) {
+          passenger.ssr.meal.forEach(item => {
+            totalAmount += parseFloat(item.amt || 0);
+          });
+        }
+        
+        // Add seat costs
+        if (passenger.ssr.seat && Array.isArray(passenger.ssr.seat)) {
+          passenger.ssr.seat.forEach(item => {
+            totalAmount += parseFloat(item.amt || 0);
+          });
+        }
+      }
+    });
+    
+    console.log('Total ancillary amount calculated:', totalAmount);
+    return totalAmount;
+  };
+  
+  // Handle payment form input changes
+  const handlePaymentFormChange = (e) => {
+    const { name, value } = e.target;
+    
+    if (name === 'paymentType') {
+      // If switching to full payment, clear the amountPaid field
+      if (value === 'full') {
+        setPaymentForm(prev => ({
+          ...prev,
+          [name]: value,
+          amountPaid: ''
+        }));
+      } else {
+        setPaymentForm(prev => ({
+          ...prev,
+          [name]: value
+        }));
+      }
+    } else {
+      setPaymentForm(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+  
+  // Update payment details in CRM database
+  const handleUpdatePayment = async (e) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!paymentForm.paymentMethod) {
+      toast.error('Payment method is required');
+      return;
+    }
+    if (!paymentForm.transactionId) {
+      toast.error('Transaction ID is required');
+      return;
+    }
+    
+    // Validate partial payment amount if partial payment is selected
+    if (paymentForm.paymentType === 'partial' && (!paymentForm.amountPaid || parseFloat(paymentForm.amountPaid) <= 0)) {
+      toast.error('Please enter a valid amount for partial payment');
+      return;
+    }
+    
+    try {
+      setIsUpdatingPayment(true);
+      
+      // Get the total amount from booking details
+      const totalAmount = finalTotalAmount || 
+        (bookingDetails?.totalFare ? parseFloat(bookingDetails.totalFare) : 
+          (bookingDetails?.baseFare ? 
+            (parseFloat(bookingDetails.baseFare) + parseFloat(bookingDetails.taxAndSurcharge || 0)) : 0));
+      
+      // Determine the amount paid based on payment type
+      const amountPaid = paymentForm.paymentType === 'full' ? 
+        totalAmount : parseFloat(paymentForm.amountPaid);
+      
+      // Create payload for update that matches the FlightBooking model structure
+      const payload = {
+        paymentDetails: {
+          paymentMethod: paymentForm.paymentMethod,
+          transactionId: paymentForm.transactionId,
+          paymentStatus: paymentForm.paymentStatus,
+          amountPaid: amountPaid,
+          // Don't update these fields as they should remain the same
+          currency: 'INR'
+        }
+      };
+      
+      // Call the API to update the booking
+      const response = await bookingService.updateFlightBookingToCRM(savedBookingId, payload);
+      
+      if (response.success) {
+        toast.success('Payment details updated successfully');
+      } else {
+        throw new Error(response.message || 'Failed to update payment details');
+      }
+    } catch (error) {
+      console.error('Error updating payment details:', error);
+      toast.error(error.message || 'Failed to update payment details');
+    } finally {
+      setIsUpdatingPayment(false);
+    }
+  };
+  
+  // Handle view voucher button - updated to handle multiple booking codes
   const handleViewVoucher = async () => {
     try {
       setIsLoadingVoucher(true);
-      const bmsBookingCode = bookingDetails?.details?.[0]?.bmsBookingCode;
       
-      if (!bmsBookingCode) {
+      // Get all booking codes from the provider response
+      const bookingCodes = [];
+      if (bookingDetails?.details && Array.isArray(bookingDetails.details)) {
+        bookingDetails.details.forEach(detail => {
+          if (detail.bmsBookingCode) {
+            bookingCodes.push(detail.bmsBookingCode);
+          }
+        });
+      }
+      
+      // Get the primary booking code (first one)
+      const primaryBookingCode = bookingCodes.length > 0 ? bookingCodes[0] : null;
+      
+      if (!primaryBookingCode) {
         toast.error('Booking code not found');
         return;
       }
 
+      console.log('Fetching voucher for booking code:', primaryBookingCode);
+      
       const response = await bookingService.getBookingDetails({
         provider: 'TC',
-        bmsBookingCode
+        bmsBookingCode: primaryBookingCode
       });
 
       if (response.success) {
@@ -954,13 +1260,6 @@ const FlightBookingPage = () => {
       setIsLoadingVoucher(false);
     }
   };
-
-  // Initialize expanded states when inbound options change
-  useEffect(() => {
-    if (selectedOutboundFlight?.inboundOptions) {
-      setExpandedStates(new Array(selectedOutboundFlight.inboundOptions.length).fill(false));
-    }
-  }, [selectedOutboundFlight?.inboundOptions]);
   
   // Toggle expanded state for specific index
   const toggleExpanded = (index) => {
@@ -1303,23 +1602,32 @@ const FlightBookingPage = () => {
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Booking Confirmed</h3>
-                  <button
-                    onClick={handleViewVoucher}
-                    disabled={isLoadingVoucher}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
-                  >
-                    {isLoadingVoucher ? (
-                      <span className="flex items-center">
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Loading...
-                      </span>
-                    ) : (
-                      'View Voucher'
-                    )}
-                  </button>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => setStep(1)} 
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]"
+                    >
+                      {/* Reset to search form */}
+                      Search Flight
+                    </button>
+                    <button
+                      onClick={handleViewVoucher}
+                      disabled={isLoadingVoucher}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
+                    >
+                      {isLoadingVoucher ? (
+                        <span className="flex items-center">
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Loading...
+                        </span>
+                      ) : (
+                        'View Voucher'
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="bg-[#22c35e]/10 border border-[#22c35e]/30 rounded-lg p-4 mb-6">
                   <div className="flex">
@@ -1331,10 +1639,193 @@ const FlightBookingPage = () => {
                     <div className="ml-3">
                       <h3 className="text-sm font-medium text-[#22c35e]/90">Booking Successful</h3>
                       <div className="mt-2 text-sm text-[#22c35e]/80">
-                        <p>Your booking has been confirmed. Booking code: {bookingDetails.details[0].bmsBookingCode}</p>
+                        <p>Your flight booking has been confirmed. Please update the payment details below.</p>
                       </div>
                     </div>
                   </div>
+                </div>
+                
+                {/* Payment Update Form */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h4 className="text-lg font-medium text-gray-900 mb-4">Update Payment Details</h4>
+                  {isSavingBooking ? (
+                    <div className="flex items-center justify-center p-6">
+                      <svg className="animate-spin h-6 w-6 text-[#093923]" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span className="ml-2 text-gray-600">Saving booking to database...</span>
+                    </div>
+                  ) : savedBookingId ? (
+                    <form onSubmit={handleUpdatePayment} className="space-y-4">
+                      {/* Payment Summary */}
+                      <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Booking Reference</p>
+                            <p className="font-medium">{bookingRefId || savedBookingId}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Total Amount</p>
+                            <p className="font-medium text-[#093923]">
+                              ₹ {finalTotalAmount ? finalTotalAmount.toLocaleString() : 
+                                (bookingDetails?.totalFare ? 
+                                  parseFloat(bookingDetails.totalFare).toLocaleString() : 
+                                  (bookingDetails?.baseFare ? 
+                                    (parseFloat(bookingDetails.baseFare) + 
+                                     parseFloat(bookingDetails.taxAndSurcharge || 0)).toLocaleString() : 
+                                     '0'))}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700">Payment Method <span className="text-red-500">*</span></label>
+                          <select
+                            id="paymentMethod"
+                            name="paymentMethod"
+                            value={paymentForm.paymentMethod}
+                            onChange={handlePaymentFormChange}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#093923] focus:ring-[#093923] py-2 px-3"
+                            required
+                          >
+                            <option value="">Select Payment Method</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Credit Card">Credit Card</option>
+                            <option value="Debit Card">Debit Card</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Net Banking">Net Banking</option>
+                            <option value="Wallet">Wallet</option>
+                            <option value="Corporate Account">Corporate Account</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label htmlFor="transactionId" className="block text-sm font-medium text-gray-700">Transaction ID <span className="text-red-500">*</span></label>
+                          <input
+                            type="text"
+                            id="transactionId"
+                            name="transactionId"
+                            value={paymentForm.transactionId}
+                            onChange={handlePaymentFormChange}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#093923] focus:ring-[#093923] py-2 px-3"
+                            placeholder="Enter transaction reference"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label htmlFor="paymentStatus" className="block text-sm font-medium text-gray-700">Payment Status <span className="text-red-500">*</span></label>
+                          <select
+                            id="paymentStatus"
+                            name="paymentStatus"
+                            value={paymentForm.paymentStatus}
+                            onChange={handlePaymentFormChange}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#093923] focus:ring-[#093923] py-2 px-3"
+                            required
+                          >
+                            <option value="Paid">Paid</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Failed">Failed</option>
+                            <option value="Refunded">Refunded</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label htmlFor="paymentType" className="block text-sm font-medium text-gray-700">Payment Type <span className="text-red-500">*</span></label>
+                          <div className="flex space-x-4">
+                            <div className="flex items-center">
+                              <input
+                                id="paymentTypeFull"
+                                name="paymentType"
+                                type="radio"
+                                value="full"
+                                checked={paymentForm.paymentType === 'full'}
+                                onChange={handlePaymentFormChange}
+                                className="h-4 w-4 text-[#093923] focus:ring-[#093923] border-gray-300"
+                              />
+                              <label htmlFor="paymentTypeFull" className="ml-2 block text-sm text-gray-700">
+                                Full Payment
+                              </label>
+                            </div>
+                            <div className="flex items-center">
+                              <input
+                                id="paymentTypePartial"
+                                name="paymentType"
+                                type="radio"
+                                value="partial"
+                                checked={paymentForm.paymentType === 'partial'}
+                                onChange={handlePaymentFormChange}
+                                className="h-4 w-4 text-[#093923] focus:ring-[#093923] border-gray-300"
+                              />
+                              <label htmlFor="paymentTypePartial" className="ml-2 block text-sm text-gray-700">
+                                Partial Payment
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                        {paymentForm.paymentType === 'partial' && (
+                          <div className="space-y-2 col-span-2">
+                            <label htmlFor="amountPaid" className="block text-sm font-medium text-gray-700">Paid Amount <span className="text-red-500">*</span></label>
+                            <div className="relative rounded-md shadow-sm">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span className="text-gray-500 sm:text-sm">₹</span>
+                              </div>
+                              <input
+                                type="number"
+                                id="amountPaid"
+                                name="amountPaid"
+                                value={paymentForm.amountPaid}
+                                onChange={handlePaymentFormChange}
+                                className="block w-full pl-7 rounded-md border-gray-300 shadow-sm focus:border-[#093923] focus:ring-[#093923] py-2 px-3"
+                                placeholder="Enter paid amount"
+                                required={paymentForm.paymentType === 'partial'}
+                              />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Total amount: ₹{finalTotalAmount ? finalTotalAmount.toLocaleString() : 
+                                (bookingDetails?.totalFare ? 
+                                  parseFloat(bookingDetails.totalFare).toLocaleString() : '0')}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex justify-end pt-4">
+                        <button
+                          type="submit"
+                          disabled={isUpdatingPayment}
+                          className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
+                        >
+                          {isUpdatingPayment ? (
+                            <span className="flex items-center">
+                              <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Updating Payment...
+                            </span>
+                          ) : (
+                            'Confirm Payment'
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <h3 className="text-sm font-medium text-yellow-800">Failed to save booking to database</h3>
+                          <div className="mt-2 text-sm text-yellow-700">
+                            <p>Please try again later or contact support.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
