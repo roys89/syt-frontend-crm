@@ -2,9 +2,9 @@
 import axios from 'axios';
 import config from '../config';
 import {
-    transformTCBookingResponse,
-    transformTCFareRulesResponse,
-    transformTCFlightSearchResponse
+  transformTCBookingResponse,
+  transformTCFareRulesResponse,
+  transformTCFlightSearchResponse
 } from './transformers/flight/tcTransformer';
 
 // API endpoints
@@ -1157,6 +1157,37 @@ const updateHotelBookingToCRM = async (bookingId, updateData) => {
   }
 };
 
+// CRUD for CRM Flight Bookings (fetched from singleBookingController)
+const getCrmFlightBookings = async () => {
+  try {
+    // Corrected URL to include /single/
+    const response = await authAxios.get(`${BOOKING_API_URL}/single/flight`); 
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Failed to fetch CRM flight bookings');
+    }
+    return response.data; // Expecting { success: true, data: [...] }
+  } catch (error) {
+    console.error('Error fetching CRM flight bookings:', error);
+    throw error;
+  }
+};
+
+// CRUD for CRM Hotel Bookings (fetched from singleBookingController)
+const getCrmHotelBookings = async () => {
+  try {
+    // Corrected URL to include /single/
+    const response = await authAxios.get(`${BOOKING_API_URL}/single/hotel`); 
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Failed to fetch CRM hotel bookings');
+    }
+    return response.data; // Expecting { success: true, data: [...] }
+  } catch (error) {
+    console.error('Error fetching CRM hotel bookings:', error);
+    throw error;
+  }
+};
+
+// Combine all service methods into an object
 const bookingService = {
   // Flight services
   searchFlights,
@@ -1316,7 +1347,17 @@ const bookingService = {
       }
       throw new Error(error.response?.data?.message || 'Failed to update flight booking in CRM');
     }
-  }
+  },
+
+  // --- NEW: CRM Booking Fetch --- 
+  getCrmFlightBookings,
+  getCrmHotelBookings,
+
+  // Export provider constants
+  FLIGHT_PROVIDERS,
+  HOTEL_PROVIDERS,
+  TRANSFER_PROVIDERS,
+  ACTIVITY_PROVIDERS
 };
 
 export default bookingService;

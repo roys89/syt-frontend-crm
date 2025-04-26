@@ -6,63 +6,90 @@ import bookingService from '../../services/bookingService';
 import ShareItineraryButton from '../itinerary/ShareItineraryButton';
 
 // This component now holds the content previously directly in BookingsPage for the 'Bookings' main tab.
-// It fetches real itinerary data.
+// It fetches real itinerary, hotel, and flight data.
 
 const BookingsTabContent = () => {
   const [activeSubTab, setActiveSubTab] = useState('all'); // Sub-tab ID
   const [itineraries, setItineraries] = useState([]);
+  const [hotelBookings, setHotelBookings] = useState([]); // State for hotel bookings
+  const [flightBookings, setFlightBookings] = useState([]); // State for flight bookings
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [deletingItemId, setDeletingItemId] = useState(null); // State for delete loading
   const navigate = useNavigate(); // Hook for navigation
 
-  // Fetch itineraries when the component mounts or the relevant tab is selected
+  // Fetch data based on active sub tab
   useEffect(() => {
-    const fetchItineraries = async () => {
-      if (activeSubTab === 'all' || activeSubTab === 'itinerary') {
-        // Fetch if the list is empty OR if an item was just deleted (deletingItemId is null after success)
-        if (itineraries.length === 0 || deletingItemId === null) { 
-          setLoading(true);
-          setError(null);
-          try {
-            const response = await bookingService.getCrmItineraries();
-            if (response.success && Array.isArray(response.data)) {
-              // Add a type property for easier filtering/rendering later
-              const typedItineraries = response.data.map(it => ({ ...it, type: 'itinerary' }));
-              setItineraries(typedItineraries);
-            } else {
-              throw new Error(response.message || 'Failed to fetch itineraries');
-            }
-          } catch (err) {
-            console.error("Error fetching itineraries:", err);
-            setError(err.message || 'Could not load itineraries.');
-            setItineraries([]); // Clear itineraries on error
-          } finally {
-            setLoading(false);
-          }
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      setItineraries([]); // Clear all data on tab change before fetching
+      setHotelBookings([]);
+      setFlightBookings([]);
+
+      try {
+        let promises = [];
+        if (activeSubTab === 'all' || activeSubTab === 'itinerary') {
+          promises.push(bookingService.getCrmItineraries());
         }
-      } else {
-        // If a specific non-itinerary tab is selected, clear the itineraries 
-        // (or ideally fetch specific data type, but that's not implemented)
-        // For now, this ensures the list is empty for types other than 'all' and 'itinerary'
-        setItineraries([]); 
+        if (activeSubTab === 'all' || activeSubTab === 'hotel') {
+          promises.push(bookingService.getCrmHotelBookings());
+        }
+        if (activeSubTab === 'all' || activeSubTab === 'flight') {
+          promises.push(bookingService.getCrmFlightBookings());
+        }
+        // TODO: Add similar logic for activity and transfer when implemented
+
+        if (promises.length > 0) {
+          const results = await Promise.allSettled(promises);
+
+          results.forEach((result, index) => {
+            if (result.status === 'fulfilled') {
+              if (!result.value.success || !Array.isArray(result.value.data)) {
+                console.warn(`Fetched data invalid for type index ${index}:`, result.value);
+                // Optionally set specific error for this type
+              } else {
+                const type = 
+                  (activeSubTab === 'all' && index === 0) || activeSubTab === 'itinerary' ? 'itinerary' :
+                  (activeSubTab === 'all' && index === 1 && (promises.length === 3 || promises.length === 2)) || activeSubTab === 'hotel' ? 'hotel' :
+                  (activeSubTab === 'all' && index === 2 && promises.length === 3) || (activeSubTab === 'all' && index === 1 && promises.length === 2 && !hotelBookings.length) || activeSubTab === 'flight' ? 'flight' :
+                  'unknown'; // Fallback
+
+                const typedData = result.value.data.map(item => ({ ...item, type }));
+                
+                if (type === 'itinerary') setItineraries(typedData);
+                else if (type === 'hotel') setHotelBookings(typedData);
+                else if (type === 'flight') setFlightBookings(typedData);
+              }
+            } else {
+              console.error(`Error fetching data for type index ${index}:`, result.reason);
+              // Set a general error or specific error for this type
+              setError(result.reason?.message || `Could not load data for one or more types.`);
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching bookings:", err);
+        setError(err.message || 'Could not load bookings.');
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchItineraries();
-  }, [activeSubTab, itineraries.length, deletingItemId]); // Re-run if tab changes OR if deletingItemId becomes null (after deletion)
+    fetchData();
+  }, [activeSubTab, deletingItemId]); // Re-run if tab changes OR if deletingItemId becomes null
 
   // Filter data based on active sub tab
   const filteredData = (() => {
-    // Only show itineraries when 'all' or 'itinerary' tab is selected
-    if (activeSubTab === 'all' || activeSubTab === 'itinerary') {
-        return itineraries;
-    } 
-    // For other tabs (flight, hotel, etc.), return empty array as sample data is removed
-    // TODO: Implement fetching logic for these specific booking types
-    else { 
-        return [];
+    if (activeSubTab === 'itinerary') return itineraries;
+    if (activeSubTab === 'hotel') return hotelBookings;
+    if (activeSubTab === 'flight') return flightBookings;
+    if (activeSubTab === 'all') {
+      // Combine all fetched data for the 'all' tab
+      return [...itineraries, ...hotelBookings, ...flightBookings];
     }
+    // For other tabs (activity, transfer), return empty array for now
+    return [];
   })();
 
   // Format date function
@@ -140,17 +167,25 @@ const BookingsTabContent = () => {
   const renderBookingDetails = (item) => {
      switch (item.type) {
       case 'flight':
+        // Display flightType and bookingRefId as primary details
+        // Origin/Destination not directly available in the list view data
         return (
           <div>
-            <div className="font-medium text-gray-900">{item.details.origin.city} to {item.details.destination.city}</div>
-            <div className="text-xs text-gray-500">{item.details.origin.code} → {item.details.destination.code}</div>
+            <div className="font-medium text-gray-900 truncate w-40" title={item.bookingRefId}>{item.bookingRefId}</div>
+            <div className="text-xs text-gray-500">
+              {item.flightType ? item.flightType.replace('_', ' ') : 'Flight'}
+            </div>
           </div>
         );
       case 'hotel':
+        // Extract details from providerBookingResponse if needed, or use top-level fields if available
+        const hotelName = item.providerBookingResponse?.results?.[0]?.data?.[0]?.hotelDetails?.name || 'Hotel Name N/A';
+        const checkIn = item.providerBookingResponse?.results?.[0]?.data?.[0]?.checkIn || item.checkIn; // Use top-level if exists
+        const checkOut = item.providerBookingResponse?.results?.[0]?.data?.[0]?.checkOut || item.checkOut; // Use top-level if exists
         return (
           <div>
-            <div className="font-medium text-gray-900">{item.details.hotelName}</div>
-            <div className="text-xs text-gray-500">{formatDate(item.details.checkIn)} to {formatDate(item.details.checkOut)}</div>
+            <div className="font-medium text-gray-900 truncate w-40" title={hotelName}>{hotelName}</div>
+            <div className="text-xs text-gray-500">{formatDate(checkIn)} to {formatDate(checkOut)}</div>
           </div>
         );
       case 'activity':
@@ -299,28 +334,28 @@ const BookingsTabContent = () => {
                        Client
                      </th>
                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Details / Token
+                       Details / Ref ID
                      </th>
                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                        Date Added
                      </th>
                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Payment Status
+                       Payment
                      </th>
                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Booking Status
+                       Booking
                      </th>
                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Booking ID
+                       Provider Ref
                      </th>
                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Payment ID
+                       Itinerary/Trace ID
                      </th>
                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                          Assigned To
                      </th>
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                         Amount / Duration
+                         Amount
                      </th>
                      <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
                        <span className="sr-only">Actions</span>
@@ -328,90 +363,116 @@ const BookingsTabContent = () => {
                    </tr>
                  </thead>
                  <tbody className="bg-white divide-y divide-[#093923]/5">
-                   {filteredData.map((item) => (
-                     <tr key={item.itineraryToken || item._id} className="hover:bg-[#093923]/5 transition-colors ease duration-200">
-                       <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
-                         <div className={`flex items-center`}>
-                           <div className={`h-6 w-1 ${getTypeIndicator(item.type)} mr-3`}></div>
-                           <span className="font-medium text-[#093923] capitalize">{item.type}</span>
-                         </div>
-                       </td>
-                       <td className="px-3 py-4 text-sm text-[#093923]/80">
-                         {item.clientName || `${item.customer?.firstName || ''} ${item.customer?.lastName || ''}`.trim() || 'N/A'}
-                       </td>
-                       <td className="px-3 py-4 text-sm text-[#093923]/80">
-                         {renderBookingDetails(item)}
-                       </td>
-                       <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
-                         {formatDate(item.createdAt)}
-                       </td>
-                       <td className="px-3 py-4 text-sm whitespace-nowrap">
-                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.type === 'itinerary' ? item.paymentStatus : item.status)} capitalize`}>
-                           {item.type === 'itinerary' ? item.paymentStatus || 'Unknown' : item.status || 'Unknown'}
-                         </span>
-                       </td>
-                       <td className="px-3 py-4 text-sm whitespace-nowrap">
-                         {item.type === 'itinerary' ? (
-                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.bookingStatus)} capitalize`}>
-                             {item.bookingStatus || 'N/A'}
+                   {filteredData.map((item) => {
+                     // --- Find Lead Passenger for Client Column ---
+                     let leadPassenger = null;
+                     if (item.type === 'flight' && Array.isArray(item.passengerDetails)) {
+                       leadPassenger = item.passengerDetails.find(p => p.isLeadPassenger);
+                       // Fallback to first passenger if no lead is marked (optional)
+                       // if (!leadPassenger && item.passengerDetails.length > 0) {
+                       //   leadPassenger = item.passengerDetails[0];
+                       // }
+                     }
+                     const clientName = 
+                       leadPassenger ? `${leadPassenger.title || ''} ${leadPassenger.firstName} ${leadPassenger.lastName}`.trim() :
+                       item.clientName || `${item.customer?.firstName || ''} ${item.customer?.lastName || ''}`.trim() || 'N/A';
+                     const clientContact = leadPassenger?.phoneNumber || '-';
+                     // ---------------------------------------------
+                     
+                     return (
+                       <tr key={item._id || item.itineraryToken} className="hover:bg-[#093923]/5 transition-colors ease duration-200">
+                         <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
+                           <div className={`flex items-center`}>
+                             <div className={`h-6 w-1 ${getTypeIndicator(item.type)} mr-3`}></div>
+                             <span className="font-medium text-[#093923] capitalize">{item.type}</span>
+                           </div>
+                         </td>
+                         <td className="px-3 py-4 text-sm text-[#093923]/80">
+                           <div className="font-medium text-gray-900">{clientName}</div>
+                           <div className="text-xs text-gray-500">{clientContact}</div>
+                         </td>
+                         <td className="px-3 py-4 text-sm text-[#093923]/80">
+                           {renderBookingDetails(item)}
+                         </td>
+                         <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                           {formatDate(item.createdAt)}
+                         </td>
+                         <td className="px-3 py-4 text-sm whitespace-nowrap">
+                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.paymentDetails?.paymentStatus || item.paymentStatus)} capitalize`}>
+                             {item.paymentDetails?.paymentStatus || item.paymentStatus || 'Unknown'}
                            </span>
-                         ) : (
-                           'N/A' // Show N/A for non-itinerary types
-                         )}
-                       </td>
-                       <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
-                         {item.bookingId || '-'}
-                       </td>
-                       <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
-                         {item.paymentId || '-'}
-                       </td>
-                       <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
-                           {item.assignedTo ? item.assignedTo.name : 'Unassigned'}
                          </td>
-                       <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
-                           {item.type === 'itinerary' 
-                             ? (item.totalDays ? `${item.totalDays} Days` : 'N/A')
-                             : (item.totalAmount != null ? `₹${item.totalAmount.toLocaleString()}` : 'N/A')
-                           }
+                         <td className="px-3 py-4 text-sm whitespace-nowrap">
+                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.status || item.overallBookingStatus || item.bookingStatus)} capitalize`}>
+                               {/* Use appropriate status based on type */} 
+                               {item.type === 'itinerary' ? item.bookingStatus :
+                                item.type === 'hotel' ? item.status :
+                                item.type === 'flight' ? item.overallBookingStatus :
+                                'N/A'}
+                           </span>
                          </td>
-                       <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                          <div className="flex items-center justify-end space-x-3">
-                            {item.type === 'itinerary' && (
-                                <button 
-                                  onClick={() => handleViewItineraryClick(item)}
-                                  className="text-[#13804e] hover:text-[#0d5c3a] p-1 rounded hover:bg-[#13804e]/10 transition-colors ease duration-200"
-                                  title={`View/Modify Itinerary ${item.itineraryToken}`}
+                         <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                           {/* Show provider confirmation / PNR based on type */} 
+                           {item.type === 'hotel' ? item.providerConfirmationNumber :
+                            item.type === 'flight' ? item.pnr :
+                            item.type === 'itinerary' ? item.bookingId : 
+                             '-'} 
+                         </td>
+                         <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                           {/* Show Itinerary Token / Trace ID */} 
+                           {item.type === 'itinerary' ? item.itineraryToken :
+                            item.traceId || '-'}
+                         </td>
+                         <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                              {item.agentDetails?.name || 'Unassigned'}
+                           </td>
+                         <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                               {/* Show final amount based on type */} 
+                               {(item.paymentDetails?.finalRate != null) ? `${item.paymentDetails.currency || '₹'}${item.paymentDetails.finalRate.toLocaleString()}` :
+                                (item.paymentDetails?.finalTotalAmount != null) ? `${item.paymentDetails.currency || '₹'}${item.paymentDetails.finalTotalAmount.toLocaleString()}` :
+                                item.type === 'itinerary' ? `${item.totalDays || '?'} Days` : // Itinerary shows duration
+                                'N/A'
+                                }
+                             </td>
+                         <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                            <div className="flex items-center justify-end space-x-3">
+                              {item.type === 'itinerary' && (
+                                  <button 
+                                    onClick={() => handleViewItineraryClick(item)}
+                                    className="text-[#13804e] hover:text-[#0d5c3a] p-1 rounded hover:bg-[#13804e]/10 transition-colors ease duration-200"
+                                    title={`View/Modify Itinerary ${item.itineraryToken}`}
+                                  >
+                                    <span className="sr-only">View/Modify Itinerary</span>
+                                    <EyeIcon className="h-5 w-5" />
+                                  </button>
+                              )}
+                              
+                              {item.type === 'itinerary' && item.itineraryToken && (
+                                <button
+                                  onClick={() => handleDeleteItinerary(item)}
+                                  className="text-[#dc2626] hover:text-[#b91c1c] p-1 rounded hover:bg-[#dc2626]/10 transition-colors ease duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={`Delete Itinerary ${item.itineraryToken}`}
+                                  disabled={deletingItemId === (item.itineraryToken || item._id)}
                                 >
-                                  <span className="sr-only">View/Modify Itinerary</span>
-                                  <EyeIcon className="h-5 w-5" />
+                                  <span className="sr-only">Delete</span>
+                                  {deletingItemId === (item.itineraryToken || item._id) ? (
+                                    <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                  ) : (
+                                    <TrashIcon className="h-5 w-5" />
+                                  )}
                                 </button>
-                            )}
-                            
-                            {item.type === 'itinerary' && item.itineraryToken && (
-                              <button
-                                onClick={() => handleDeleteItinerary(item)}
-                                className="text-[#dc2626] hover:text-[#b91c1c] p-1 rounded hover:bg-[#dc2626]/10 transition-colors ease duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={`Delete Itinerary ${item.itineraryToken}`}
-                                disabled={deletingItemId === (item.itineraryToken || item._id)}
-                              >
-                                <span className="sr-only">Delete</span>
-                                {deletingItemId === (item.itineraryToken || item._id) ? (
-                                  <ArrowPathIcon className="h-5 w-5 animate-spin" />
-                                ) : (
-                                  <TrashIcon className="h-5 w-5" />
-                                )}
-                              </button>
-                            )}
-                            {item.type === 'itinerary' && (
-                              <ShareItineraryButton 
-                                itineraryToken={item.itineraryToken}
-                                inquiryToken={item.inquiryToken}
-                              />
-                            )}
-                          </div>
-                        </td>
-                     </tr>
-                   ))}
+                              )}
+                              {item.type === 'itinerary' && (
+                                <ShareItineraryButton 
+                                  itineraryToken={item.itineraryToken}
+                                  inquiryToken={item.inquiryToken}
+                                />
+                              )}
+                            </div>
+                          </td>
+                       </tr>
+                     );
+                   })}
                  </tbody>
                </table>
              </div>
