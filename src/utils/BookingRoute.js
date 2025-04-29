@@ -16,10 +16,15 @@ const BookingRoute = () => {
     return <Navigate to="/login" />;
   }
 
-  // Check if admin OR has bookings permission
-  const hasBookingPermission = user?.role === 'admin' || user?.permissions?.bookings === true;
+  // Check if admin OR has *any* specific booking permission
+  const hasAnyBookingPermission = user?.role === 'admin' || 
+                                  user?.permissions?.canBookFlights ||
+                                  user?.permissions?.canBookHotels ||
+                                  user?.permissions?.canBookActivities ||
+                                  user?.permissions?.canBookTransfers ||
+                                  user?.permissions?.canBookItineraries;
 
-  if (!hasBookingPermission) {
+  if (!hasAnyBookingPermission) {
     toast.error('Access denied. Booking privileges required.');
     // Redirect to dashboard or another appropriate page
     return <Navigate to="/dashboard" />;

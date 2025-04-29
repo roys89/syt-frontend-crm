@@ -18,7 +18,11 @@ const UserForm = () => {
       canViewLeads: true,
       canAddUser: false,
       canRemoveUser: false,
-      bookings: false
+      canBookFlights: false,
+      canBookHotels: false,
+      canBookActivities: false,
+      canBookTransfers: false,
+      canBookItineraries: false,
     }
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +46,11 @@ const UserForm = () => {
             canViewLeads: true, 
             canAddUser: false, 
             canRemoveUser: false, 
-            bookings: false 
+            canBookFlights: false,
+            canBookHotels: false,
+            canBookActivities: false,
+            canBookTransfers: false,
+            canBookItineraries: false,
           }
         }));
       }
@@ -67,7 +75,12 @@ const UserForm = () => {
           canViewLeads: user.permissions?.canViewLeads === undefined ? true : user.permissions.canViewLeads, // Default view to true if undefined
           canAddUser: user.permissions?.canAddUser || false,
           canRemoveUser: user.permissions?.canRemoveUser || false,
-          bookings: user.permissions?.bookings || false
+          // Map new granular permissions, falling back to old 'bookings' if needed for compatibility
+          canBookFlights: user.permissions?.canBookFlights || user.permissions?.bookings || false,
+          canBookHotels: user.permissions?.canBookHotels || user.permissions?.bookings || false,
+          canBookActivities: user.permissions?.canBookActivities || user.permissions?.bookings || false,
+          canBookTransfers: user.permissions?.canBookTransfers || user.permissions?.bookings || false,
+          canBookItineraries: user.permissions?.canBookItineraries || user.permissions?.bookings || false,
         },
         employeeId: user.employeeId || ''
       });
@@ -111,27 +124,42 @@ const UserForm = () => {
         canViewLeads: true,
         canAddUser: true,
         canRemoveUser: true,
-        bookings: true,
+        // Grant all booking perms to admin
+        canBookFlights: true,
+        canBookHotels: true,
+        canBookActivities: true,
+        canBookTransfers: true,
+        canBookItineraries: true,
       };
     } else if (newRole === 'manager') {
        // Manager permissions (example)
         newPermissions = {
-            ...newPermissions, // Keep existing non-admin perms like bookings
             canAddLead: true,
             canRemoveLead: true,
             canViewLeads: true,
             canAddUser: false, // Managers might not add other users
             canRemoveUser: false,
+            // Define manager booking permissions (adjust as needed)
+            canBookFlights: true,
+            canBookHotels: true,
+            canBookActivities: true,
+            canBookTransfers: true,
+            canBookItineraries: true,
         };
     } else { // 'user' role
         // Reset non-admin specific permissions (or set defaults)
         newPermissions = {
-            ...newPermissions, // Keep existing non-admin perms like bookings
             canAddLead: false, // Users typically don't add leads by default
             canRemoveLead: false,
             canViewLeads: true, // Users can typically view leads
             canAddUser: false,
             canRemoveUser: false,
+            // Define user booking permissions (adjust as needed - maybe none by default)
+            canBookFlights: false,
+            canBookHotels: false,
+            canBookActivities: false,
+            canBookTransfers: false,
+            canBookItineraries: false,
         };
     }
 
@@ -324,9 +352,16 @@ const UserForm = () => {
             {renderPermissionCheckbox('canViewLeads', 'Can View Leads', 'Allow user to view leads in the system.', formData.role === 'admin')}
             {renderPermissionCheckbox('canAddLead', 'Can Add Lead', 'Allow user to add new leads to the system.', formData.role === 'admin')}
             {renderPermissionCheckbox('canRemoveLead', 'Can Remove Lead', 'Allow user to remove leads from the system.', formData.role === 'admin')}
-            {renderPermissionCheckbox('bookings', 'Bookings Permission', 'Allow user to access and manage bookings (Flights, Hotels, etc.).', formData.role === 'admin')}
-            {renderPermissionCheckbox('canAddUser', 'Can Add Users', 'Allow user to create new user accounts (Admin only).', true)} {/* Always disabled unless admin */}
-            {renderPermissionCheckbox('canRemoveUser', 'Can Remove Users', 'Allow user to remove user accounts (Admin only).', true)} {/* Always disabled unless admin */}
+            <h4 className="text-md font-medium text-[#093923] pt-3 border-t border-[#093923]/10">Booking Permissions</h4>
+            {renderPermissionCheckbox('canBookFlights', 'Book Flights', 'Allow user to search and book flights.', formData.role === 'admin')}
+            {renderPermissionCheckbox('canBookHotels', 'Book Hotels', 'Allow user to search and book hotels.', formData.role === 'admin')}
+            {renderPermissionCheckbox('canBookActivities', 'Book Activities', 'Allow user to book tours and activities.', formData.role === 'admin')}
+            {renderPermissionCheckbox('canBookTransfers', 'Book Transfers', 'Allow user to arrange transfers.', formData.role === 'admin')}
+            {renderPermissionCheckbox('canBookItineraries', 'Create Itineraries', 'Allow user to create multi-item itineraries.', formData.role === 'admin')}
+
+            <h4 className="text-md font-medium text-[#093923] pt-3 border-t border-[#093923]/10">User Management Permissions</h4>
+            {renderPermissionCheckbox('canAddUser', 'Can Add Users', 'Allow user to create new user accounts (Admin only).', formData.role !== 'admin')}
+            {renderPermissionCheckbox('canRemoveUser', 'Can Remove Users', 'Allow user to remove user accounts (Admin only).', formData.role !== 'admin')}
                         </div>
                       </div>
 

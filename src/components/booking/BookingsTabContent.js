@@ -1,7 +1,8 @@
-import { ArrowPathIcon, EyeIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { ArrowPathIcon, EyeIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { AuthContext } from '../../context/AuthContext';
 import bookingService from '../../services/bookingService';
 import ShareItineraryButton from '../itinerary/ShareItineraryButton';
 
@@ -9,7 +10,26 @@ import ShareItineraryButton from '../itinerary/ShareItineraryButton';
 // It fetches real itinerary, hotel, and flight data.
 
 const BookingsTabContent = () => {
-  const [activeSubTab, setActiveSubTab] = useState('all'); // Sub-tab ID
+  const { user } = useContext(AuthContext);
+  
+  // Define all possible sub-tabs with their required permission keys
+  const allBookingSubTabs = [
+    { id: 'itinerary', label: 'Itineraries', permissionKey: 'canBookItineraries' },
+    { id: 'flight', label: 'Flights', permissionKey: 'canBookFlights' },
+    { id: 'hotel', label: 'Hotels', permissionKey: 'canBookHotels' },
+    { id: 'activity', label: 'Activities', permissionKey: 'canBookActivities' },
+    { id: 'transfer', label: 'Transfers', permissionKey: 'canBookTransfers' }
+  ];
+
+  // Filter tabs based on user permissions
+  const availableBookingSubTabs = allBookingSubTabs.filter(tab => 
+    user?.role === 'admin' || (user?.permissions && user.permissions[tab.permissionKey])
+  );
+
+  // Default to the ID of the first available tab, or null if none
+  const [activeSubTab, setActiveSubTab] = useState(() => 
+    availableBookingSubTabs.length > 0 ? availableBookingSubTabs[0].id : null
+  ); 
   const [itineraries, setItineraries] = useState([]);
   const [hotelBookings, setHotelBookings] = useState([]); // State for hotel bookings
   const [flightBookings, setFlightBookings] = useState([]); // State for flight bookings
@@ -20,6 +40,16 @@ const BookingsTabContent = () => {
 
   // Fetch data based on active sub tab
   useEffect(() => {
+    // Only fetch if there is an active tab selected
+    if (!activeSubTab) {
+      setLoading(false);
+      setError(null); // Clear any previous error
+      setItineraries([]); 
+      setHotelBookings([]);
+      setFlightBookings([]);
+      return; // Do nothing if no tab is active
+    }
+
     const fetchData = async () => {
       setLoading(true);
       setError(null);
@@ -29,13 +59,14 @@ const BookingsTabContent = () => {
 
       try {
         let promises = [];
-        if (activeSubTab === 'all' || activeSubTab === 'itinerary') {
+        // Remove checks for activeSubTab === 'all'
+        if (activeSubTab === 'itinerary') {
           promises.push(bookingService.getCrmItineraries());
         }
-        if (activeSubTab === 'all' || activeSubTab === 'hotel') {
+        if (activeSubTab === 'hotel') {
           promises.push(bookingService.getCrmHotelBookings());
         }
-        if (activeSubTab === 'all' || activeSubTab === 'flight') {
+        if (activeSubTab === 'flight') {
           promises.push(bookingService.getCrmFlightBookings());
         }
         // TODO: Add similar logic for activity and transfer when implemented
@@ -49,11 +80,8 @@ const BookingsTabContent = () => {
                 console.warn(`Fetched data invalid for type index ${index}:`, result.value);
                 // Optionally set specific error for this type
               } else {
-                const type = 
-                  (activeSubTab === 'all' && index === 0) || activeSubTab === 'itinerary' ? 'itinerary' :
-                  (activeSubTab === 'all' && index === 1 && (promises.length === 3 || promises.length === 2)) || activeSubTab === 'hotel' ? 'hotel' :
-                  (activeSubTab === 'all' && index === 2 && promises.length === 3) || (activeSubTab === 'all' && index === 1 && promises.length === 2 && !hotelBookings.length) || activeSubTab === 'flight' ? 'flight' :
-                  'unknown'; // Fallback
+                // Simplified type assignment since 'all' is gone
+                const type = activeSubTab;
 
                 const typedData = result.value.data.map(item => ({ ...item, type }));
                 
@@ -77,17 +105,18 @@ const BookingsTabContent = () => {
     };
 
     fetchData();
-  }, [activeSubTab, deletingItemId]); // Re-run if tab changes OR if deletingItemId becomes null
+  }, [activeSubTab]); // Removed deletingItemId dependency as it's handled differently
 
   // Filter data based on active sub tab
   const filteredData = (() => {
     if (activeSubTab === 'itinerary') return itineraries;
     if (activeSubTab === 'hotel') return hotelBookings;
     if (activeSubTab === 'flight') return flightBookings;
-    if (activeSubTab === 'all') {
-      // Combine all fetched data for the 'all' tab
-      return [...itineraries, ...hotelBookings, ...flightBookings];
-    }
+    // Remove the 'all' case
+    // if (activeSubTab === 'all') {
+    //   // Combine all fetched data for the 'all' tab
+    //   return [...itineraries, ...hotelBookings, ...flightBookings];
+    // }
     // For other tabs (activity, transfer), return empty array for now
     return [];
   })();
@@ -148,15 +177,6 @@ const BookingsTabContent = () => {
         return 'bg-gray-500';
     }
   };
-
-  const bookingSubTabs = [
-    { id: 'all', label: 'All Bookings' },
-    { id: 'itinerary', label: 'Itineraries' },
-    { id: 'flight', label: 'Flights' },
-    { id: 'hotel', label: 'Hotels' },
-    { id: 'activity', label: 'Activities' },
-    { id: 'transfer', label: 'Transfers' }
-  ];
 
   // Handler for changing sub tab
   const handleSubTabChange = (tabId) => {
@@ -264,218 +284,227 @@ const BookingsTabContent = () => {
 
   return (
     <div>
-       {/* Sub Tabs for Bookings */}
-       <div className="border-b border-[#093923]/10 mb-6">
-        <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Sub Tabs">
-          {bookingSubTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleSubTabChange(tab.id)}
-              disabled={loading}
-              className={`${
-                activeSubTab === tab.id
-                  ? 'border-[#13804e] text-[#13804e]'
-                  : 'border-transparent text-[#093923]/60 hover:text-[#093923] hover:border-[#093923]/30'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all ease duration-200`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-       {/* Loading State */}
-       {loading && (
-        <div className="text-center py-12">
-            <ArrowPathIcon className="animate-spin h-8 w-8 text-[#13804e] mx-auto mb-4" />
-            <p className="text-sm text-[#093923]/60">Loading bookings...</p>
-        </div>
+       {/* Sub Tabs for Bookings - Only render if there are available tabs */}
+       {availableBookingSubTabs.length > 0 ? (
+         <div className="border-b border-[#093923]/10 mb-6">
+           <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Sub Tabs">
+             {availableBookingSubTabs.map((tab) => (
+               <button
+                 key={tab.id}
+                 onClick={() => handleSubTabChange(tab.id)}
+                 disabled={loading} // Keep disabled logic based on general loading state
+                 className={`${ // Style based on activeSubTab state
+                   activeSubTab === tab.id
+                     ? 'border-[#13804e] text-[#13804e]'
+                     : 'border-transparent text-[#093923]/60 hover:text-[#093923] hover:border-[#093923]/30'
+                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all ease duration-200`}
+               >
+                 {tab.label}
+               </button>
+             ))}
+           </nav>
+         </div>
+       ) : (
+          // Render message if no sub-tabs are available for the user
+          <div className="text-center py-12 bg-white shadow-lg rounded-xl border border-[#093923]/10">
+            <h3 className="text-lg font-medium text-[#093923]">
+              No Booking Types Available
+            </h3>
+            <p className="mt-2 text-sm text-[#13804e]">
+              You do not have permission to view any specific booking types. Please contact an administrator if you need access.
+            </p>
+          </div>
        )}
 
-       {/* Error State */}
-       {!loading && error && (
-        <div className="text-center py-12 bg-[#dc2626]/5 border border-[#dc2626]/20 rounded-lg">
-          <h3 className="text-lg font-medium text-[#dc2626]">Error Loading Bookings</h3>
-          <p className="mt-2 text-sm text-[#dc2626]/80">{error}</p>
-        </div>
-       )}
-
-       {/* Data Table - Render only if not loading and no error */} 
-       {!loading && !error && (
-         <> 
-           {filteredData.length === 0 ? (
-             <div className="text-center py-12 bg-white shadow-lg rounded-xl border border-[#093923]/10">
-               <h3 className="text-lg font-medium text-[#093923]">
-                 No {activeSubTab !== 'all' ? `${activeSubTab} ` : ''} bookings found
-                 {activeSubTab !== 'all' ? ` for this type` : ''}.
-               </h3>
-               <p className="mt-2 text-sm text-[#13804e]">
-                 You currently don't have any assigned bookings in this category.
-               </p>
-               <div className="mt-6">
-                   <Link
-                     to="/bookings/create"
-                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#13804e] hover:bg-[#0d5c3a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#13804e]/50 transition-all ease duration-200"
-                   >
-                     <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-                     New Booking
-                   </Link>
+       {/* Render content area only if a tab is active */}
+       {activeSubTab && (
+         <>
+           {/* Loading State */} 
+           {loading && (
+            <div className="text-center py-12">
+                <ArrowPathIcon className="animate-spin h-8 w-8 text-[#13804e] mx-auto mb-4" />
+                <p className="text-sm text-[#093923]/60">Loading {activeSubTab} bookings...</p>
+            </div>
+           )}
+    
+           {/* Error State */} 
+           {!loading && error && (
+            <div className="text-center py-12 bg-[#dc2626]/5 border border-[#dc2626]/20 rounded-lg">
+              <h3 className="text-lg font-medium text-[#dc2626]">Error Loading Bookings</h3>
+              <p className="mt-2 text-sm text-[#dc2626]/80">{error}</p>
+            </div>
+           )}
+    
+           {/* Data Table / No Data Message - Render only if not loading, no error, and a tab is active */}
+           {!loading && !error && activeSubTab && (
+             <> 
+               {filteredData.length === 0 ? (
+                 <div className="text-center py-12 bg-white shadow-lg rounded-xl border border-[#093923]/10">
+                   <h3 className="text-lg font-medium text-[#093923]">
+                     No {activeSubTab} bookings found.
+                   </h3>
+                   <p className="mt-2 text-sm text-[#13804e]">
+                     You currently don't have any assigned bookings in this category.
+                   </p>
+                   {/* Optionally keep the New Booking button here or rely on the main page button */}
+                   {/* <div className="mt-6"> ... New Booking Link ... </div> */}
                  </div>
-             </div>
-           ) : (
-             <div className="overflow-x-auto shadow-lg ring-1 ring-[#093923]/5 sm:rounded-xl">
-               <table className="min-w-full divide-y divide-[#093923]/10">
-                 <thead className="bg-[#093923]/5">
-                   <tr>
-                     <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-[#093923] sm:pl-6">
-                       Type
-                     </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Client
-                     </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Details / Ref ID
-                     </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Date Added
-                     </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Payment
-                     </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Booking
-                     </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Provider Ref
-                     </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                       Itinerary/Trace ID
-                     </th>
-                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                         Assigned To
-                     </th>
-                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                         Amount
-                     </th>
-                     <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                       <span className="sr-only">Actions</span>
-                     </th>
-                   </tr>
-                 </thead>
-                 <tbody className="bg-white divide-y divide-[#093923]/5">
-                   {filteredData.map((item) => {
-                     // --- Find Lead Passenger for Client Column ---
-                     let leadPassenger = null;
-                     if (item.type === 'flight' && Array.isArray(item.passengerDetails)) {
-                       leadPassenger = item.passengerDetails.find(p => p.isLeadPassenger);
-                       // Fallback to first passenger if no lead is marked (optional)
-                       // if (!leadPassenger && item.passengerDetails.length > 0) {
-                       //   leadPassenger = item.passengerDetails[0];
-                       // }
-                     }
-                     const clientName = 
-                       leadPassenger ? `${leadPassenger.title || ''} ${leadPassenger.firstName} ${leadPassenger.lastName}`.trim() :
-                       item.clientName || `${item.customer?.firstName || ''} ${item.customer?.lastName || ''}`.trim() || 'N/A';
-                     const clientContact = leadPassenger?.phoneNumber || '-';
-                     // ---------------------------------------------
-                     
-                     return (
-                       <tr key={item._id || item.itineraryToken} className="hover:bg-[#093923]/5 transition-colors ease duration-200">
-                         <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
-                           <div className={`flex items-center`}>
-                             <div className={`h-6 w-1 ${getTypeIndicator(item.type)} mr-3`}></div>
-                             <span className="font-medium text-[#093923] capitalize">{item.type}</span>
-                           </div>
-                         </td>
-                         <td className="px-3 py-4 text-sm text-[#093923]/80">
-                           <div className="font-medium text-gray-900">{clientName}</div>
-                           <div className="text-xs text-gray-500">{clientContact}</div>
-                         </td>
-                         <td className="px-3 py-4 text-sm text-[#093923]/80">
-                           {renderBookingDetails(item)}
-                         </td>
-                         <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
-                           {formatDate(item.createdAt)}
-                         </td>
-                         <td className="px-3 py-4 text-sm whitespace-nowrap">
-                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.paymentDetails?.paymentStatus || item.paymentStatus)} capitalize`}>
-                             {item.paymentDetails?.paymentStatus || item.paymentStatus || 'Unknown'}
-                           </span>
-                         </td>
-                         <td className="px-3 py-4 text-sm whitespace-nowrap">
-                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.status || item.overallBookingStatus || item.bookingStatus)} capitalize`}>
-                               {/* Use appropriate status based on type */} 
-                               {item.type === 'itinerary' ? item.bookingStatus :
-                                item.type === 'hotel' ? item.status :
-                                item.type === 'flight' ? item.overallBookingStatus :
-                                'N/A'}
-                           </span>
-                         </td>
-                         <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
-                           {/* Show provider confirmation / PNR based on type */} 
-                           {item.type === 'hotel' ? item.providerConfirmationNumber :
-                            item.type === 'flight' ? item.pnr :
-                            item.type === 'itinerary' ? item.bookingId : 
-                             '-'} 
-                         </td>
-                         <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
-                           {/* Show Itinerary Token / Trace ID */} 
-                           {item.type === 'itinerary' ? item.itineraryToken :
-                            item.traceId || '-'}
-                         </td>
-                         <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
-                              {item.agentDetails?.name || 'Unassigned'}
-                           </td>
-                         <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
-                               {/* Show final amount based on type */} 
-                               {(item.paymentDetails?.finalRate != null) ? `${item.paymentDetails.currency || '₹'}${item.paymentDetails.finalRate.toLocaleString()}` :
-                                (item.paymentDetails?.finalTotalAmount != null) ? `${item.paymentDetails.currency || '₹'}${item.paymentDetails.finalTotalAmount.toLocaleString()}` :
-                                item.type === 'itinerary' ? `${item.totalDays || '?'} Days` : // Itinerary shows duration
-                                'N/A'
-                                }
+               ) : (
+                 <div className="overflow-x-auto shadow-lg ring-1 ring-[#093923]/5 sm:rounded-xl">
+                  <table className="min-w-full divide-y divide-[#093923]/10">
+                    <thead className="bg-[#093923]/5">
+                      <tr>
+                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-[#093923] sm:pl-6">
+                          Type
+                        </th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                          Client
+                        </th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                          Details / Ref ID
+                        </th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                          Date Added
+                        </th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                          Payment
+                        </th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                          Booking
+                        </th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                          Provider Ref
+                        </th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                          Itinerary/Trace ID
+                        </th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                            Assigned To
+                        </th>
+                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                            Amount
+                        </th>
+                        <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                          <span className="sr-only">Actions</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-[#093923]/5">
+                      {filteredData.map((item) => {
+                        // --- Find Lead Passenger for Client Column ---
+                        let leadPassenger = null;
+                        if (item.type === 'flight' && Array.isArray(item.passengerDetails)) {
+                          leadPassenger = item.passengerDetails.find(p => p.isLeadPassenger);
+                          // Fallback to first passenger if no lead is marked (optional)
+                          // if (!leadPassenger && item.passengerDetails.length > 0) {
+                          //   leadPassenger = item.passengerDetails[0];
+                          // }
+                        }
+                        const clientName = 
+                          leadPassenger ? `${leadPassenger.title || ''} ${leadPassenger.firstName} ${leadPassenger.lastName}`.trim() :
+                          item.clientName || `${item.customer?.firstName || ''} ${item.customer?.lastName || ''}`.trim() || 'N/A';
+                        const clientContact = leadPassenger?.phoneNumber || '-';
+                        // ---------------------------------------------
+                        
+                        return (
+                          <tr key={item._id || item.itineraryToken} className="hover:bg-[#093923]/5 transition-colors ease duration-200">
+                            <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
+                              <div className={`flex items-center`}>
+                                <div className={`h-6 w-1 ${getTypeIndicator(item.type)} mr-3`}></div>
+                                <span className="font-medium text-[#093923] capitalize">{item.type}</span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-4 text-sm text-[#093923]/80">
+                              <div className="font-medium text-gray-900">{clientName}</div>
+                              <div className="text-xs text-gray-500">{clientContact}</div>
+                            </td>
+                            <td className="px-3 py-4 text-sm text-[#093923]/80">
+                              {renderBookingDetails(item)}
+                            </td>
+                            <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                              {formatDate(item.createdAt)}
+                            </td>
+                            <td className="px-3 py-4 text-sm whitespace-nowrap">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.paymentDetails?.paymentStatus || item.paymentStatus)} capitalize`}>
+                                {item.paymentDetails?.paymentStatus || item.paymentStatus || 'Unknown'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-4 text-sm whitespace-nowrap">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.status || item.overallBookingStatus || item.bookingStatus)} capitalize`}>
+                                  {/* Use appropriate status based on type */} 
+                                  {item.type === 'itinerary' ? item.bookingStatus :
+                                   item.type === 'hotel' ? item.status :
+                                   item.type === 'flight' ? item.overallBookingStatus :
+                                   'N/A'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                              {/* Show provider confirmation / PNR based on type */} 
+                              {item.type === 'hotel' ? item.providerConfirmationNumber :
+                               item.type === 'flight' ? item.pnr :
+                               item.type === 'itinerary' ? item.bookingId : 
+                                '-'} 
+                            </td>
+                            <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                              {/* Show Itinerary Token / Trace ID */} 
+                              {item.type === 'itinerary' ? item.itineraryToken :
+                               item.traceId || '-'}
+                            </td>
+                            <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                                 {item.agentDetails?.name || 'Unassigned'}
+                              </td>
+                            <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                                  {/* Show final amount based on type */} 
+                                  {(item.paymentDetails?.finalRate != null) ? `${item.paymentDetails.currency || '₹'}${item.paymentDetails.finalRate.toLocaleString()}` :
+                                   (item.paymentDetails?.finalTotalAmount != null) ? `${item.paymentDetails.currency || '₹'}${item.paymentDetails.finalTotalAmount.toLocaleString()}` :
+                                   item.type === 'itinerary' ? `${item.totalDays || '?'} Days` : // Itinerary shows duration
+                                   'N/A'
+                                   }
+                                </td>
+                            <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                               <div className="flex items-center justify-end space-x-3">
+                                 {item.type === 'itinerary' && (
+                                     <button 
+                                       onClick={() => handleViewItineraryClick(item)}
+                                       className="text-[#13804e] hover:text-[#0d5c3a] p-1 rounded hover:bg-[#13804e]/10 transition-colors ease duration-200"
+                                       title={`View/Modify Itinerary ${item.itineraryToken}`}
+                                     >
+                                       <span className="sr-only">View/Modify Itinerary</span>
+                                       <EyeIcon className="h-5 w-5" />
+                                     </button>
+                                 )}
+                                 
+                                 {item.type === 'itinerary' && item.itineraryToken && (
+                                   <button
+                                     onClick={() => handleDeleteItinerary(item)}
+                                     className="text-[#dc2626] hover:text-[#b91c1c] p-1 rounded hover:bg-[#dc2626]/10 transition-colors ease duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                     title={`Delete Itinerary ${item.itineraryToken}`}
+                                     disabled={deletingItemId === (item.itineraryToken || item._id)}
+                                   >
+                                     <span className="sr-only">Delete</span>
+                                     {deletingItemId === (item.itineraryToken || item._id) ? (
+                                       <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                     ) : (
+                                       <TrashIcon className="h-5 w-5" />
+                                     )}
+                                   </button>
+                                 )}
+                                 {item.type === 'itinerary' && (
+                                   <ShareItineraryButton 
+                                     itineraryToken={item.itineraryToken}
+                                     inquiryToken={item.inquiryToken}
+                                   />
+                                 )}
+                               </div>
                              </td>
-                         <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                            <div className="flex items-center justify-end space-x-3">
-                              {item.type === 'itinerary' && (
-                                  <button 
-                                    onClick={() => handleViewItineraryClick(item)}
-                                    className="text-[#13804e] hover:text-[#0d5c3a] p-1 rounded hover:bg-[#13804e]/10 transition-colors ease duration-200"
-                                    title={`View/Modify Itinerary ${item.itineraryToken}`}
-                                  >
-                                    <span className="sr-only">View/Modify Itinerary</span>
-                                    <EyeIcon className="h-5 w-5" />
-                                  </button>
-                              )}
-                              
-                              {item.type === 'itinerary' && item.itineraryToken && (
-                                <button
-                                  onClick={() => handleDeleteItinerary(item)}
-                                  className="text-[#dc2626] hover:text-[#b91c1c] p-1 rounded hover:bg-[#dc2626]/10 transition-colors ease duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={`Delete Itinerary ${item.itineraryToken}`}
-                                  disabled={deletingItemId === (item.itineraryToken || item._id)}
-                                >
-                                  <span className="sr-only">Delete</span>
-                                  {deletingItemId === (item.itineraryToken || item._id) ? (
-                                    <ArrowPathIcon className="h-5 w-5 animate-spin" />
-                                  ) : (
-                                    <TrashIcon className="h-5 w-5" />
-                                  )}
-                                </button>
-                              )}
-                              {item.type === 'itinerary' && (
-                                <ShareItineraryButton 
-                                  itineraryToken={item.itineraryToken}
-                                  inquiryToken={item.inquiryToken}
-                                />
-                              )}
-                            </div>
-                          </td>
-                       </tr>
-                     );
-                   })}
-                 </tbody>
-               </table>
-             </div>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                 </div>
+               )}
+             </>
            )}
          </>
        )}

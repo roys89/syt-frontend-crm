@@ -1,10 +1,10 @@
 // src/components/layout/Sidebar.js
 import {
-  CalendarIcon,
-  HomeIcon,
-  PhoneIcon,
-  UserIcon,
-  UsersIcon
+    CalendarIcon,
+    HomeIcon,
+    PhoneIcon,
+    UserIcon,
+    UsersIcon
 } from '@heroicons/react/24/outline';
 import { useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -17,15 +17,16 @@ const location = useLocation();
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Leads', href: '/leads', icon: PhoneIcon },
-  { 
-    name: 'Bookings', 
-    href: '/bookings', 
+  {
+    name: 'Bookings',
+    href: '/bookings',
     icon: CalendarIcon,
     subItems: [
-      { name: 'Bookings & Inquiries', href: '/bookings' },
+      { name: 'Booking Details', href: '/bookings' },
       { name: 'Create Booking', href: '/bookings/create' },
-      { name: 'Itinerary Booking', href: '/bookings/itinerary' },
-    ] 
+      (user?.permissions?.canBookItineraries || user?.role === 'admin') && 
+        { name: 'Itinerary Booking', href: '/bookings/itinerary' },
+    ].filter(Boolean)
   },
   user?.role === 'admin' && { name: 'Users', href: '/users', icon: UsersIcon },
   { name: 'Profile', href: '/profile', icon: UserIcon },
@@ -63,14 +64,13 @@ return (
                 {item.name}
               </Link>
               
-              {/* Sub items for navigation items with subitems */}
               {item.subItems && isActive(item.href) && (
                 <div className="pl-10 mt-1 space-y-1">
                   {item.subItems.map((subItem) => (
                     <Link
                       key={subItem.name}
                       to={subItem.href}
-                      className={`${
+                      className={`${ 
                         location.pathname === subItem.href
                           ? 'text-white'
                           : 'text-gray-400 hover:text-white'

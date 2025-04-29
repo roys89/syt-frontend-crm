@@ -39,6 +39,7 @@ import TransferBookingPage from './pages/bookings/TransferBookingPage';
 // Route Guards
 import AdminRoute from './utils/AdminRoute';
 import BookingRoute from './utils/BookingRoute';
+import PermissionBasedRoute from './utils/PermissionBasedRoute';
 import PrivateRoute from './utils/PrivateRoute';
 
 // --- Placeholder for the new page component ---
@@ -76,21 +77,33 @@ function App() {
               <Route path="/leads/view/:id" element={<ViewLeadPage />} />
               <Route path="/leads/upload" element={<UploadLeadsPage />} />
               
-              {/* Booking Routes (Requires 'bookings' permission or admin) */}
+              {/* Booking Routes (Requires *any* booking permission or admin via BookingRoute) */}
               <Route element={<BookingRoute />}>
                 <Route path="/bookings" element={<BookingsPage />} />
                 <Route path="/inquiry/:inquiryToken" element={<InquiryDetailPage />} />
                 <Route path="/bookings/create" element={<CreateBookingPage />} />
-                <Route path="/bookings/itinerary" element={<ItineraryBookingPage />} />
-                <Route path="/bookings/itinerary/:itineraryToken" element={<ItineraryBookingPage />} />
-                <Route path="/crm/itinerary/:itineraryToken/change-hotel/:city/:checkIn/:checkOut" element={<CrmChangeHotelsPage />} />
-                <Route path="/crm/change-activity/:itineraryToken/:city/:date" element={<CrmChangeActivitiesPage />} />
-                <Route path="/crm/itinerary/:itineraryToken/add-hotel-results/:city/:checkIn/:checkOut" element={<CrmAddHotelResultsPage />} />
-                <Route path="/crm/itinerary/:itineraryToken/add-activity/:city/:date" element={<CrmAddActivityResultsPage />} />
-                <Route path="/crm/itinerary/:itineraryToken/add-transfer-results/:city/:date" element={<CrmAddTransferResultsPage />} />
-                <Route path="/crm/itinerary/:itineraryToken/add-flight-results/:date/:origin/:destination" element={<CrmAddFlightResultsPage />} />
-                <Route path="/crm/itinerary/:itineraryToken/change-flight-results" element={<CrmChangeFlightPage />} />
-                <Route path="/bookings/flight" element={<FlightBookingPage />} />
+                
+                {/* Specific Itinerary routes require canBookItineraries permission */}
+                <Route element={<PermissionBasedRoute permissionKey="canBookItineraries" />}>
+                  <Route path="/bookings/itinerary" element={<ItineraryBookingPage />} />
+                  <Route path="/bookings/itinerary/:itineraryToken" element={<ItineraryBookingPage />} />
+                  <Route path="/crm/itinerary/:itineraryToken/change-hotel/:city/:checkIn/:checkOut" element={<CrmChangeHotelsPage />} />
+                  <Route path="/crm/change-activity/:itineraryToken/:city/:date" element={<CrmChangeActivitiesPage />} />
+                  <Route path="/crm/itinerary/:itineraryToken/add-hotel-results/:city/:checkIn/:checkOut" element={<CrmAddHotelResultsPage />} />
+                  <Route path="/crm/itinerary/:itineraryToken/add-activity/:city/:date" element={<CrmAddActivityResultsPage />} />
+                  <Route path="/crm/itinerary/:itineraryToken/add-transfer-results/:city/:date" element={<CrmAddTransferResultsPage />} />
+                  <Route path="/crm/itinerary/:itineraryToken/add-flight-results/:date/:origin/:destination" element={<CrmAddFlightResultsPage />} />
+                  <Route path="/crm/itinerary/:itineraryToken/change-flight-results" element={<CrmChangeFlightPage />} />
+                </Route>
+                
+                {/* Other specific booking types - can add PermissionBasedRoute if needed */}
+                {/* For now, they are protected only by the general BookingRoute */}
+                {/* Example: If Flight booking needed its own check:
+                <Route element={<PermissionBasedRoute permissionKey="canBookFlights" />}>
+                  <Route path="/bookings/flight" element={<FlightBookingPage />} />
+                </Route> 
+                */}
+                <Route path="/bookings/flight" element={<FlightBookingPage />} /> 
                 <Route path="/bookings/hotel" element={<HotelBookingPage />} />
                 <Route path="/bookings/activity" element={<ActivityBookingPage />} />
                 <Route path="/bookings/transfer" element={<TransferBookingPage />} />
