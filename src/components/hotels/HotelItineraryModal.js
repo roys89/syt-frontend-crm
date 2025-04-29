@@ -1,4 +1,6 @@
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
+import { Popover } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import bookingService from '../../services/bookingService';
@@ -380,6 +382,114 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
     const totalPrice = calculateTotalPrice(recommendation);
     const firstRate = rates[0];
 
+    // Helper function to format date
+    const formatDate = (dateString) => {
+      if (!dateString) return '';
+      try {
+        return new Date(dateString).toLocaleDateString('en-GB', {
+          day: 'numeric', month: 'short', year: 'numeric'
+        });
+      } catch (e) {
+        console.error("Error formatting date:", e);
+        return '';
+      }
+    };
+
+    // Determine cancellation text based on the first rate
+    let cancellationText = 'Cancellation policy varies'; // Default text
+    let cancellationColor = 'text-gray-600'; // Default color
+
+    if (firstRate) {
+      if (!firstRate.refundable) {
+        cancellationText = 'Non-refundable';
+        cancellationColor = 'text-red-600';
+      } else {
+        const cancellationPolicy = firstRate.cancellationPolicies?.[0];
+        const freeCancellationRule = cancellationPolicy?.rules?.find(rule => rule.value === 0 || rule.valueType === 'Nights' && rule.value === 0);
+        if (freeCancellationRule?.end) {
+          cancellationText = `Free cancellation until ${formatDate(freeCancellationRule.end)}`;
+          cancellationColor = 'text-green-600';
+        } else {
+          // If refundable but no specific free cancellation date found, keep it general
+          cancellationText = 'Refundable (check details)';
+          cancellationColor = 'text-green-600';
+        }
+      }
+    }
+
+    // Helper to format date and time for popover
+    const formatPopoverDateTime = (dateString) => {
+      if (!dateString) return 'N/A';
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) +
+               ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+      } catch (e) {
+        return 'Invalid Date';
+      }
+    };
+
+    // Helper to format currency
+    const currencyFormatter = (amount, currencyCode = 'INR') => {
+        if (typeof amount !== 'number' || isNaN(amount)) {
+            return 'N/A';
+        }
+        const code = typeof currencyCode === 'string' && currencyCode.trim().length === 3
+                     ? currencyCode.trim().toUpperCase()
+                     : 'INR';
+        try {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: code,
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2 // Allow cents for charges
+            }).format(amount);
+        } catch (e) {
+            return `${code} ${amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+        }
+    };
+
+    // Generate Popover Content
+    const cancellationPolicyContent = (
+      <div className="w-80 p-2">
+        <h4 className="text-sm font-semibold mb-2 text-gray-700">Cancellation Policy</h4>
+        {firstRate && firstRate.cancellationPolicies?.[0]?.rules?.length > 0 ? (
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border p-1.5 text-left font-medium text-gray-600">Cancelled From</th>
+                <th className="border p-1.5 text-left font-medium text-gray-600">Cancelled Till</th>
+                <th className="border p-1.5 text-left font-medium text-gray-600">Charges</th>
+              </tr>
+            </thead>
+            <tbody>
+              {firstRate.cancellationPolicies[0].rules.map((rule, idx) => {
+                let chargeText = 'N/A';
+                if (rule.value === 0 || (rule.valueType === 'Nights' && rule.value === 0)) {
+                    chargeText = <span className="font-medium text-green-600">Free Cancellation</span>;
+                } else if (rule.valueType === 'Percentage') {
+                    chargeText = `${rule.value}%`;
+                } else if (rule.valueType === 'Nights') {
+                    chargeText = `${rule.value} Night${rule.value !== 1 ? 's' : ''}`;
+                } else if (rule.valueType === 'Amount') {
+                    chargeText = currencyFormatter(rule.value, firstRate.currency);
+                }
+                return (
+                  <tr key={idx} className="hover:bg-gray-50">
+                    <td className="border p-1.5 text-gray-700">{formatPopoverDateTime(rule.start)}</td>
+                    <td className="border p-1.5 text-gray-700">{formatPopoverDateTime(rule.end)}</td>
+                    <td className="border p-1.5 text-gray-700">{chargeText}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <p className="text-xs text-gray-500">Detailed cancellation policy not available.</p>
+        )}
+      </div>
+    );
+
     return (
       <div className="space-y-3 overflow-hidden">
         {rates.map((rate, index) => {
@@ -405,13 +515,28 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
         })}
         {firstRate && (
           <div className="flex justify-between items-end mt-2">
-            <div className="text-xs sm:text-sm text-gray-600 space-y-0.5">
-              <p>{firstRate.refundable ? "Refundable" : "Non-refundable"}</p>
+            <div className="text-xs sm:text-sm space-y-1">
+              {/* Display Board Basis */}
               {firstRate.boardBasis?.description &&
-                <p className="break-words">{firstRate.boardBasis.description}</p>
+                <p className="text-gray-600 break-words">{firstRate.boardBasis.description}</p>
               }
+              {/* Display Cancellation Policy with Popover */}
+              <div className={`flex items-center ${cancellationColor} font-medium break-words`}>
+                 <span>{cancellationText}</span>
+                 {firstRate && firstRate.cancellationPolicies?.[0]?.rules && (
+                   <Popover
+                     content={cancellationPolicyContent}
+                     title={null} // No default title
+                     trigger="click"
+                     placement="bottomLeft"
+                     overlayClassName="cancellation-popover"
+                   >
+                     <InformationCircleIcon className="h-4 w-4 ml-1 cursor-pointer text-gray-400 hover:text-gray-600" />
+                   </Popover>
+                 )}
+              </div>
             </div>
-            <div className="text-right font-semibold text-base sm:text-lg text-[#093923]">
+            <div className="text-right font-semibold text-base sm:text-lg text-[#093923] pl-2 flex-shrink-0">
               {firstRate?.currency || "USD"} {totalPrice.toLocaleString()}
             </div>
           </div>
