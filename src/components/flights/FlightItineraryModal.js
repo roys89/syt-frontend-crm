@@ -114,6 +114,7 @@ const FlightItineraryModal = ({
             passengerData: confirmedAncillaries, 
             bookingPriceDetails: finalPriceDetails,
             flightType: flightType,
+            originalItineraryData: itineraryDetails, // Include original data
             // Log the source of price data for debugging
             priceSource: {
               resultsBaseFare: results?.baseFare,
@@ -122,11 +123,13 @@ const FlightItineraryModal = ({
             }
           });
           
+          // Pass the original itineraryDetails prop back to the parent
           onBookNow({
               providerResponse: response,          // Full provider booking response
               passengerData: confirmedAncillaries, // Final passenger list with SSR
               bookingPriceDetails: finalPriceDetails, // Final pricing details
-              flightType: flightType // Pass the exact flight type from itineraryDetails
+              flightType: flightType, // Pass the exact flight type from itineraryDetails
+              originalItineraryData: itineraryDetails // Pass the original data
           });
         }
         // onClose(); // Let the page handle closing/state change

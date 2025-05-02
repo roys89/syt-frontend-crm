@@ -936,139 +936,192 @@ const FlightBookingPage = () => {
     }
   }, [selectedOutboundFlight?.inboundOptions]);
   
-  const handleBookingSuccess = (response) => {
-    console.log("Handling booking success with response:", response);
+  const handleBookingSuccess = (bookingConfirmationData) => { // Accept the single object
+    // Destructure the object passed from the modal
+    const { 
+      providerResponse, 
+      passengerData, 
+      bookingPriceDetails, 
+      flightType, 
+      originalItineraryData 
+    } = bookingConfirmationData;
+    
+    console.log("Handling booking success with data:", bookingConfirmationData);
     
     // Check if response has the expected structure
-    if (response && response.providerResponse && response.providerResponse.data && response.providerResponse.data.results) {
+    if (providerResponse && providerResponse.data && providerResponse.data.results) {
       // Set booking details from the provider response
-      setBookingDetails(response.providerResponse.data.results);
+      setBookingDetails(providerResponse.data.results);
       
       // Make sure we have all required data before saving to CRM
-      if (!response.passengerData) {
+      if (!passengerData) {
         console.warn('No passenger data in booking response, creating empty array');
-        response.passengerData = [];
+        // Cannot modify argument directly, handle in saveFlightBookingToCRM if needed
       }
       
-      if (!response.bookingPriceDetails) {
+      if (!bookingPriceDetails) {
         console.warn('No booking price details in response, creating default object');
-        response.bookingPriceDetails = {
-          baseFare: 0,
-          taxesAndFees: 0,
-          totalFare: 0,
-          currency: 'INR'
-        };
+        // Cannot modify argument directly, handle in saveFlightBookingToCRM if needed
       }
       
       // Save flight booking to CRM database
-      saveFlightBookingToCRM(response);
+      // Pass the whole destructured object + originalItineraryData to save function
+      saveFlightBookingToCRM({ 
+        providerResponse, 
+        passengerData: passengerData || [], // Ensure passengerData is an array
+        bookingPriceDetails: bookingPriceDetails || { baseFare: 0, taxesAndFees: 0, totalFare: 0, currency: 'INR' }, // Provide default if missing
+        flightType 
+      }, originalItineraryData); 
     } else {
-      console.error("!!! handleBookingSuccess called with invalid/missing response structure:", response);
+      console.error("!!! handleBookingSuccess called with invalid/missing response structure:", bookingConfirmationData);
       toast.error("Booking completed but response data is unexpected. Cannot display details.");
     }
     setStep(3);
   };
   
   // Save flight booking to CRM database
-  const saveFlightBookingToCRM = async (bookingResponse) => {
+  const saveFlightBookingToCRM = async (bookingResponse, originalItineraryData) => { // Accept originalItineraryData
     try {
       setIsSavingBooking(true);
       
-      console.log('Booking response received:', bookingResponse);
+      console.log('Booking response received for CRM save:', bookingResponse);
+      console.log('Original itinerary data for CRM save:', originalItineraryData); // Log itinerary data
+      
+      // Declare variables outside the try block to avoid redeclaration errors
+      let originCode = 'N/A';
+      let destinationCode = 'N/A';
+      let originCity = 'N/A';
+      let destinationCity = 'N/A';
+      let stops = 0;
       
       // Extract necessary data from booking response
       const { providerResponse, passengerData, bookingPriceDetails, flightType } = bookingResponse || {};
       
-      
-      // Calculate ancillary costs from passenger data (safely)
-      const totalAncillariesAmount = calculateTotalAncillaryAmount(passengerData);
-      
-      // Get price details from the booking response exactly as FlightItineraryModal provides them
-      const baseFare = bookingPriceDetails?.baseFare || 0;
-      const taxesAndFees = bookingPriceDetails?.taxesAndFees || 0;
-      const totalFare = bookingPriceDetails?.totalFare || 0;
-      const currency = bookingPriceDetails?.currency || 'INR';
-      const supplierDiscount = bookingPriceDetails?.supplierDiscount || 0;
-      
-      // The final total is the flight fare plus any ancillaries
-      const finalTotalAmount = totalFare + totalAncillariesAmount;
-      
-      // Extract all booking codes from the provider response
-      const bookingCodes = [];
-      if (providerResponse?.data?.results?.details && Array.isArray(providerResponse.data.results.details)) {
-        providerResponse.data.results.details.forEach(detail => {
-          if (detail.bmsBookingCode) {
-            bookingCodes.push(detail.bmsBookingCode);
-          }
-        });
-      }
-      
-      // Get the primary booking code (first one)
-      const primaryBookingCode = bookingCodes.length > 0 ? bookingCodes[0] : '';
-      
-      
-      // Create payload for CRM database
-      const payload = {
-        // Essential booking details
-        bookingRefId : primaryBookingCode,
-        flightType,
-        pnr: providerResponse?.data?.results?.details?.[0]?.pnr || '',
-        traceId, // Use the component's traceId state variable
-        bmsBookingCode: primaryBookingCode, // Use the primary booking code
-        bookingCodes, // Store all booking codes as an array
-        bookingStatus: 'Confirmed',
-        
-        // Store the full provider response for reference
-        providerBookingResponse: providerResponse,
-        
-        // Passenger details
-        passengerDetails: passengerData.map(passenger => ({
-          title: passenger.title,
-          firstName: passenger.firstName,
-          lastName: passenger.lastName,
-          email: passenger.email || '',
-          phoneNumber: passenger.contactNumber || passenger.phoneNumber || '',
-          dateOfBirth: passenger.dateOfBirth || null,
-          gender: passenger.gender || '',
-          nationality: passenger.nationality || '',
-          passportNumber: passenger.passportNumber || '',
-          passportExpiry: passenger.passportExpiry || null,
-          isLeadPassenger: passenger.isLeadPax || false,
-          type: passenger.paxType === 1 ? 'Adult' : (passenger.paxType === 2 ? 'Child' : 'Infant'),
-          ssr: passenger.ssr || {}
-        })),
-        
-        // Let the backend handle agent details from the JWT token
-        // The backend will automatically add the agent details from req.user
-        
-        // Payment details matching the expected structure in FlightBooking model
-        paymentDetails: {
-          paymentMethod: 'Pending',
-          transactionId: 'N/A',
-          // Removed amountPaid field as requested - will be set during payment update
-          paymentStatus: 'Pending',
-          currency,
-          totalFlightAmount: totalFare, // Total fare (base + taxes)
-          totalAncillariesAmount, // Ancillary costs
-          finalTotalAmount // Total fare + ancillaries
-        }
-      };
-      
-      console.log('Saving booking to CRM with payload:', payload);
-      
-      // Call the API to save the booking
-      const response = await bookingService.saveFlightBookingToCRM(payload);
-      
-      if (response.success) {
-        toast.success('Booking saved to CRM database');
-        setSavedBookingId(response.data._id);
-        // Store the bookingRefId in state for display
-        setBookingRefId(bookingRefId);
-        // Store the finalTotalAmount in state for display
-        setFinalTotalAmount(finalTotalAmount);
-      } else {
-        throw new Error(response.message || 'Failed to save booking to CRM');
-      }
+      // --- NEW: Extract origin, destination, stops from originalItineraryData ---
+      try {
+           // Accessing segments depends on the structure of originalItineraryData
+           // Adjust this path based on the actual structure logged above
+           // Check if the path exists and it's the ONE_WAY structure we expect
+           const itineraryItem = originalItineraryData?.data?.results?.itineraryItems?.[0]?.itemFlight;
+           // The actual segments are inside another array based on the example
+           const flightSegments = itineraryItem?.segments?.[0]; 
+
+           if (flightSegments && Array.isArray(flightSegments) && flightSegments.length > 0) {
+               // Extract from the first segment's origin (or)
+               originCode = flightSegments[0]?.or?.aC || 'N/A';
+               originCity = flightSegments[0]?.or?.cN || 'N/A';
+               
+               // Extract from the last segment's destination (ds)
+               const lastSegment = flightSegments[flightSegments.length - 1];
+               destinationCode = lastSegment?.ds?.aC || 'N/A';
+               destinationCity = lastSegment?.ds?.cN || 'N/A';
+               
+               // Stops is the number of segments minus 1
+               stops = flightSegments.length - 1;
+           }
+           console.log(`Extracted Flight Details: Origin=${originCode} (${originCity}), Dest=${destinationCode} (${destinationCity}), Stops=${stops}`);
+       } catch (extractError) {
+           console.error("Error extracting origin/destination/stops:", extractError);
+           toast.warn("Could not extract flight route details for saving.");
+       }
+       // --- END NEW EXTRACTION ---
+       
+       // Calculate ancillary costs from passenger data (safely)
+       const totalAncillariesAmount = calculateTotalAncillaryAmount(passengerData);
+       
+       // Get price details from the booking response exactly as FlightItineraryModal provides them
+       const baseFare = bookingPriceDetails?.baseFare ?? 0;
+       const taxesAndFees = bookingPriceDetails?.taxesAndFees ?? 0;
+       const totalFare = bookingPriceDetails?.totalFare ?? 0;
+       const currency = bookingPriceDetails?.currency ?? 'INR';
+       const supplierDiscount = bookingPriceDetails?.supplierDiscount ?? 0;
+       
+       // The final total is the flight fare plus any ancillaries
+       const finalTotalAmount = totalFare + totalAncillariesAmount;
+       
+       // Extract all booking codes from the provider response
+       const bookingCodes = [];
+       if (providerResponse?.data?.results?.details && Array.isArray(providerResponse?.data?.results?.details)) {
+         providerResponse.data.results.details.forEach(detail => {
+           if (detail.bmsBookingCode) {
+             bookingCodes.push(detail.bmsBookingCode);
+           }
+         });
+       }
+       
+       // Get the primary booking code (first one)
+       const primaryBookingCode = bookingCodes.length > 0 ? bookingCodes[0] : '';
+       
+       
+       // Create payload for CRM database
+       const payload = {
+         // Essential booking details
+         bookingRefId : primaryBookingCode,
+         flightType,
+         pnr: providerResponse?.data?.results?.details?.[0]?.pnr || '',
+         traceId, // Use the component's traceId state variable
+         bmsBookingCode: primaryBookingCode, // Use the primary booking code
+         bookingCodes, // Store all booking codes as an array
+         bookingStatus: 'Confirmed',
+         // --- NEW: Add extracted fields to payload --- 
+         originCode,
+         destinationCode,
+         originCity, // Add city name
+         destinationCity, // Add city name
+         stops,
+         // --- END NEW --- 
+         
+         // Store the full provider response for reference
+         providerBookingResponse: providerResponse,
+         
+         // Passenger details
+         passengerDetails: passengerData.map(passenger => ({
+           title: passenger.title,
+           firstName: passenger.firstName,
+           lastName: passenger.lastName,
+           email: passenger.email || '',
+           phoneNumber: passenger.contactNumber || passenger.phoneNumber || '',
+           dateOfBirth: passenger.dateOfBirth || null,
+           gender: passenger.gender || '',
+           nationality: passenger.nationality || '',
+           passportNumber: passenger.passportNumber || '',
+           passportExpiry: passenger.passportExpiry || null,
+           isLeadPassenger: passenger.isLeadPax || false,
+           type: passenger.paxType === 1 ? 'Adult' : (passenger.paxType === 2 ? 'Child' : 'Infant'),
+           ssr: passenger.ssr || {}
+         })),
+         
+         // Let the backend handle agent details from the JWT token
+         // The backend will automatically add the agent details from req.user
+         
+         // Payment details matching the expected structure in FlightBooking model
+         paymentDetails: {
+           paymentMethod: 'Pending',
+           transactionId: 'N/A',
+           // Removed amountPaid field as requested - will be set during payment update
+           paymentStatus: 'Pending',
+           currency,
+           totalFlightAmount: totalFare, // Total fare (base + taxes)
+           totalAncillariesAmount, // Ancillary costs
+           finalTotalAmount // Total fare + ancillaries
+         }
+       };
+       
+       console.log('Saving booking to CRM with payload:', payload);
+       
+       // Call the API to save the booking
+       const response = await bookingService.saveFlightBookingToCRM(payload);
+       
+       if (response.success) {
+         toast.success('Booking saved to CRM database');
+         setSavedBookingId(response.data._id);
+         // Store the bookingRefId in state for display
+         setBookingRefId(bookingRefId);
+         // Store the finalTotalAmount in state for display
+         setFinalTotalAmount(finalTotalAmount);
+       } else {
+         throw new Error(response.message || 'Failed to save booking to CRM');
+       }
     } catch (error) {
       console.error('Error saving booking to CRM:', error);
       toast.error(error.message || 'Failed to save booking to CRM');
