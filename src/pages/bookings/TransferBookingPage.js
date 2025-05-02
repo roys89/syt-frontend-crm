@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import AnalogClock from '../../components/common/AnalogClock';
 import LocationMapPicker from '../../components/common/LocationMapPicker';
-import BookingDetailsModal from '../../components/transfers/BookingDetailsModal';
 import GuestDetailsModal from '../../components/transfers/GuestDetailsModal';
 import TransferBookingVoucherModal from '../../components/transfers/TransferBookingVoucherModal';
 import TransferQuoteDetails from '../../components/transfers/TransferQuoteDetails';
@@ -267,9 +266,6 @@ const TransferBookingPage = () => {
   const [showGuestDetailsModal, setShowGuestDetailsModal] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingDetails, setBookingDetails] = useState(null);
-  const [isLoadingBookingDetails, setIsLoadingBookingDetails] = useState(false);
-  const [detailedBookingInfo, setDetailedBookingInfo] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [savedCrmBookingId, setSavedCrmBookingId] = useState(null);
   const [showTransferVoucherModal, setShowTransferVoucherModal] = useState(false);
   const [transferVoucherDetails, setTransferVoucherDetails] = useState(null);
@@ -434,11 +430,11 @@ const TransferBookingPage = () => {
 
       // --- Step 3: Update UI --- 
       setShowGuestDetailsModal(false);
-      setBookingDetails({ // Keep this for immediate status display from provider
-        success: providerResponse.data.status === 'success', // Use provider status for immediate feedback
+      setBookingDetails({ // Store the initial booking summary
+        success: providerResponse.success, // Store the success status from providerResponse
         data: {
-          status: providerResponse.data.status,
-          message: providerResponse.data.message,
+          status: providerResponse.data?.status, // Store provider's internal status if available
+          message: providerResponse.message || providerResponse.data?.message, // Store message
           booking_id: bookingRefId
         }
       });
@@ -451,37 +447,6 @@ const TransferBookingPage = () => {
       setSavedCrmBookingId(null); // Ensure ID is null on error
     } finally {
       setBookingLoading(false);
-    }
-  };
-
-  // Update the handleGetBookingDetails function
-  const handleGetBookingDetails = async () => {
-    if (!bookingDetails?.data?.booking_id) {
-        toast.error("Booking ID not found. Cannot fetch details.");
-        return;
-    }
-    try {
-      setIsLoadingBookingDetails(true);
-      console.log('Fetching details for booking ID:', bookingDetails.data.booking_id);
-      const response = await bookingService.getTransferBookingDetails(bookingDetails.data.booking_id);
-      console.log('Booking Details Response:', response);
-      if (response.success && response.data) {
-        console.log('Setting detailed booking details:', response);
-        setDetailedBookingInfo(response);
-        setShowDetailsModal(true);
-      } else {
-        console.error('Invalid response:', response);
-        toast.error(response.message || 'Failed to get booking details');
-        setDetailedBookingInfo(null);
-        setShowDetailsModal(false);
-      }
-    } catch (error) {
-      console.error('Error getting booking details:', error);
-      toast.error(error.message || 'Failed to get booking details');
-      setDetailedBookingInfo(null);
-      setShowDetailsModal(false);
-    } finally {
-      setIsLoadingBookingDetails(false);
     }
   };
 
@@ -522,35 +487,51 @@ const TransferBookingPage = () => {
 
   const [showPickupClock, setShowPickupClock] = useState(false);
 
-  // --- NEW: Function to get CRM data for voucher --- 
+  // --- CORRECTED: Function to get LIVE data for voucher --- 
   const handleGetTransferVoucher = async () => {
-    if (!savedCrmBookingId) {
-        toast.error('CRM Booking ID not found. Cannot generate voucher.');
-        return;
-    }
-    setIsLoadingVoucher(true);
-    try {
-        console.log(`Fetching CRM transfer booking details for ID: ${savedCrmBookingId}`);
-        // Use the getCrmTransferBookingById service function we added
-        const response = await bookingService.getCrmTransferBookingById(savedCrmBookingId);
-        console.log('CRM Booking Details for Voucher:', response);
+      const providerBookingRef = bookingDetails?.data?.booking_id; 
 
-        if (response.success && response.data) {
-            setTransferVoucherDetails(response.data); // Set the CRM data
-            setShowTransferVoucherModal(true); // Open the modal
-        } else {
-            toast.error(response.message || 'Failed to fetch booking details from CRM for voucher.');
-            setTransferVoucherDetails(null);
-        }
-    } catch (error) {
-        console.error('Error fetching CRM booking for voucher:', error);
-        toast.error(error.message || 'An error occurred while fetching voucher details.');
-        setTransferVoucherDetails(null);
-    } finally {
-        setIsLoadingVoucher(false);
-    }
+      if (!providerBookingRef) {
+          toast.error('Provider Booking ID not found. Cannot fetch live voucher details.');
+          console.error('[BookingPage] Provider booking_id is missing in bookingDetails state:', bookingDetails);
+          return;
+      }
+
+      setIsLoadingVoucher(true);
+      setTransferVoucherDetails(null); // Clear previous details
+
+      try {
+          console.log(`[BookingPage] Attempting API call getTransferBookingDetails with Provider Ref ID: ${providerBookingRef}`);
+          
+          // *** Call the service to get LIVE details from the PROVIDER ***
+          const response = await bookingService.getTransferBookingDetails(providerBookingRef);
+          console.log('[BookingPage] LIVE Provider API Response (getTransferBookingDetails):', response);
+
+          // *** Check the structure of the LIVE provider response ***
+          // Adapt this check based on the actual successful response structure
+          if (response && response.success && response.data) { // Assuming { success: true, data: {...} } structure
+              console.log('[BookingPage] LIVE Transfer details retrieved successfully:', response.data);
+              
+              // *** IMPORTANT: Store the PROVIDER'S data structure ***
+              setTransferVoucherDetails(response.data); 
+              
+              setShowTransferVoucherModal(true); // Open the modal
+              toast.success('Live voucher details loaded.');
+          } else {
+              const errorMessage = response?.message || response?.error?.message || 'Failed to get live voucher details (Invalid data or booking not found).';
+               throw new Error(errorMessage);
+          }
+      } catch (error) {
+          console.error('[BookingPage] Error fetching live voucher details:', error);
+          const message = error.message || 'An error occurred while fetching live voucher details.';
+          toast.error(`Failed to get live voucher details: ${message}`);
+          setTransferVoucherDetails(null);
+          setShowTransferVoucherModal(false); // Ensure modal doesn't open on error
+      } finally {
+          setIsLoadingVoucher(false);
+      }
   };
-  // --- END NEW FUNCTION ---
+  // --- END CORRECTED FUNCTION ---
 
   // --- NEW: Handle Payment Form Change ---
   const handlePaymentFormChange = (e) => {
@@ -910,99 +891,91 @@ const TransferBookingPage = () => {
                   <p className="flex items-center">
                     <span className="font-medium text-indigo-700 mr-2">Provider Status:</span>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${ 
-                      bookingDetails.data.status === 'success' || bookingDetails.data.status === 'confirmed' 
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}> 
-                      {bookingDetails.data.status}
+                      bookingDetails.success === true
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800' 
+                    }`}>
+                      {bookingDetails.success ? 'Success' : 'Failed'}
                     </span>
                   </p>
                   <p className="text-indigo-900 italic">{bookingDetails.data.message}</p>
                 </div>
               </div>
-              
-               {/* Actions: View Live Status / Download Voucher */}
-              <div className="space-y-6">
+
+               {/* Actions: Download Voucher */} 
+              <div className="space-y-2"> 
+                <div className="flex justify-between items-center">
                 <h3 className="text-xl font-semibold text-gray-900">Actions</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                   {/* View Live Details Button */} 
-                   <button
-                      onClick={handleGetBookingDetails}
-                      disabled={isLoadingBookingDetails}
-                      className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center"
-                    >
-                      {isLoadingBookingDetails ? (
-                          <><ArrowPathIcon className="animate-spin mr-2 h-5 w-5" /> Loading Details...</>
-                      ) : ('View Live Booking Status')}
-                  </button>
-                   {/* Download Voucher Button */} 
-                   <button
-                      onClick={handleGetTransferVoucher}
-                      disabled={isLoadingVoucher || !savedCrmBookingId} 
-                      className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center"
-                    >
+                   {/* Download Voucher Button - Uses CORRECTED handler */}
+                  <button
+                      onClick={handleGetTransferVoucher} // Uses the corrected function
+                      disabled={isLoadingVoucher || !bookingDetails?.data?.booking_id} // Disable if loading or no provider ID
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
                       {isLoadingVoucher ? (
-                          <><ArrowPathIcon className="animate-spin mr-2 h-5 w-5" /> Loading Voucher...</>
+                          <ArrowPathIcon className="animate-spin mr-1 h-4 w-4" />
                       ) : (
-                          <>
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                              Download Voucher
-                          </>
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                       )}
+                      Voucher
                   </button>
                 </div>
-              </div>
+              </div> 
 
-               {/* --- NEW: Payment Update Section --- */} 
-               {savedCrmBookingId && ( // Only show if CRM save was successful
+               {/* --- Payment Update Section --- */} 
+               {savedCrmBookingId && ( 
                   <div className="space-y-6 border-t pt-6 mt-6">
-                     <h3 className="text-xl font-semibold text-gray-900">Update Payment Details</h3>
-                      {paymentUpdatedSuccessfully ? (
+                     <h3 className="text-xl font-semibold text-gray-900 mb-4">Update Payment Details</h3>
+                      {paymentUpdatedSuccessfully ? ( 
                          <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
                              <p className="font-medium text-green-700">Payment details updated successfully!</p>
                          </div>
-                     ) : (
-                         <form onSubmit={handleUpdateTransferPayment} className="space-y-4">
-                              {/* Payment Method */} 
-                             <div>
-                                 <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
-                                 <select
-                                     id="paymentMethod"
-                                     name="paymentMethod"
-                                     value={paymentForm.paymentMethod}
-                                     onChange={handlePaymentFormChange}
-                                     required
-                                     className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] pl-3"
-                                 >
-                                     <option value="">Select Method...</option>
-                                     <option value="Credit Card">Credit Card</option>
-                                     <option value="Bank Transfer">Bank Transfer</option>
-                                     <option value="Cash">Cash</option>
-                                     <option value="UPI">UPI</option>
-                                     <option value="Other">Other</option>
-                                 </select>
-                             </div>
-
-                              {/* Transaction ID */} 
-                             <div>
-                                 <label htmlFor="transactionId" className="block text-sm font-medium text-gray-700 mb-1">Transaction ID / Reference</label>
-                                 <input
-                                     type="text"
-                                     id="transactionId"
-                                     name="transactionId"
-                                     value={paymentForm.transactionId}
-                                     onChange={handlePaymentFormChange}
-                                     required
-                                     className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] px-3"
-                                     placeholder="Enter Transaction ID or N/A"
-                                 />
-                             </div>
-                             
-                             {/* Payment Type & Amount */} 
-                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div>
-                                     <label className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
+                     ) : ( 
+                         <form 
+                           onSubmit={handleUpdateTransferPayment} 
+                           className="space-y-6 p-6 border border-gray-200 rounded-lg bg-gray-50"
+                         >
+                            {/* Row 1: Method & Transaction ID */} 
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                               <div> 
+                                   <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                                   <select
+                                       id="paymentMethod"
+                                       name="paymentMethod"
+                                       value={paymentForm.paymentMethod}
+                                       onChange={handlePaymentFormChange}
+                                       required
+                                       className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] pl-3"
+                                   >
+                                       <option value="">Select Method...</option>
+                                       <option value="Credit Card">Credit Card</option>
+                                       <option value="Bank Transfer">Bank Transfer</option>
+                                       <option value="Cash">Cash</option>
+                                       <option value="UPI">UPI</option>
+                                       <option value="Other">Other</option>
+                                   </select>
+                               </div> 
+                               <div> 
+                                   <label htmlFor="transactionId" className="block text-sm font-medium text-gray-700 mb-1">Transaction ID / Reference</label>
+                                   <input
+                                       type="text"
+                                       id="transactionId"
+                                       name="transactionId"
+                                       value={paymentForm.transactionId}
+                                       onChange={handlePaymentFormChange}
+                                       required
+                                       className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] px-3"
+                                       placeholder="Enter Transaction ID or N/A"
+                                   />
+                               </div> 
+                            </div> 
+                           
+                             {/* Row 2: Type & Status */} 
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                  <div> 
+                                     <label htmlFor="paymentType" className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
                                      <select
+                                         id="paymentType"
                                          name="paymentType"
                                          value={paymentForm.paymentType}
                                          onChange={handlePaymentFormChange}
@@ -1011,71 +984,71 @@ const TransferBookingPage = () => {
                                          <option value="full">Full Payment</option>
                                          <option value="partial">Partial Payment</option>
                                      </select>
-                                  </div>
-                                  {paymentForm.paymentType === 'partial' && (
-                                     <div>
-                                          <label htmlFor="amountPaid" className="block text-sm font-medium text-gray-700 mb-1">Amount Paid</label>
-                                          <input
-                                             type="number"
-                                             id="amountPaid"
-                                             name="amountPaid"
-                                             value={paymentForm.amountPaid}
-                                             onChange={handlePaymentFormChange}
-                                             required
-                                             min="0"
-                                             step="0.01"
-                                             className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] px-3"
-                                             placeholder="Enter amount"
-                                         />
-                                      </div>
-                                  )}
-                              </div>
+                                  </div> 
+                                  <div> 
+                                     <label htmlFor="paymentStatus" className="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
+                                     <select
+                                         id="paymentStatus"
+                                         name="paymentStatus"
+                                         value={paymentForm.paymentStatus}
+                                         onChange={handlePaymentFormChange}
+                                         required
+                                         className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] pl-3"
+                                     >
+                                         <option value="Paid">Paid</option>
+                                         <option value="Pending">Pending</option>
+                                         <option value="Failed">Failed</option>
+                                         <option value="Refunded">Refunded</option>
+                                     </select>
+                                  </div> 
+                              </div> 
 
-                              {/* Payment Status */} 
-                             <div>
-                                 <label htmlFor="paymentStatus" className="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
-                                 <select
-                                     id="paymentStatus"
-                                     name="paymentStatus"
-                                     value={paymentForm.paymentStatus}
-                                     onChange={handlePaymentFormChange}
-                                     required
-                                     className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] pl-3"
-                                 >
-                                     <option value="Paid">Paid</option>
-                                     <option value="Pending">Pending</option>
-                                     <option value="Failed">Failed</option>
-                                     <option value="Refunded">Refunded</option>
-                                 </select>
-                             </div>
+                             {/* Conditional Amount Paid for Partial */} 
+                             {paymentForm.paymentType === 'partial' && ( 
+                                 <div> 
+                                     <label htmlFor="amountPaid" className="block text-sm font-medium text-gray-700 mb-1">Amount Paid</label>
+                                     <input
+                                         type="number"
+                                         id="amountPaid"
+                                         name="amountPaid"
+                                         value={paymentForm.amountPaid}
+                                         onChange={handlePaymentFormChange}
+                                         required
+                                         min="0"
+                                         step="0.01"
+                                         className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] px-3"
+                                         placeholder="Enter amount"
+                                     />
+                                 </div> 
+                             )} 
 
-                             {paymentUpdateError && (
-                                 <p className="text-sm text-red-600">Error: {paymentUpdateError}</p>
-                             )}
+                             {paymentUpdateError && ( 
+                                 <p className="text-sm text-red-600 mt-2">Error: {paymentUpdateError}</p>
+                             )} 
 
-                             <div className="flex justify-end">
+                             <div className="flex justify-end pt-4 border-t border-gray-200"> 
                                  <button
                                      type="submit"
                                      disabled={isUpdatingPayment}
-                                     className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center"
+                                     className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all duration-300 transform hover:scale-[1.02] shadow-md flex items-center justify-center text-sm font-medium"
                                  >
                                      {isUpdatingPayment ? (
-                                         <><ArrowPathIcon className="animate-spin mr-2 h-5 w-5" /> Updating...</>
+                                         <><ArrowPathIcon className="animate-spin mr-2 h-4 w-4" /> Updating...</>
                                      ) : (
                                          'Update Payment'
                                      )}
                                  </button>
-                             </div>
-                         </form>
-                     )}
-                  </div>
-               )}
+                            </div> 
+                         </form> 
+                     )} 
+                  </div> 
+               )} 
                {/* --- END Payment Update Section --- */} 
 
-            </div>
-         </div>
-       </div>
-      )}
+            </div> 
+          </div> 
+        </div> 
+      )} 
 
       {/* Guest Details Modal */}
       <GuestDetailsModal
@@ -1094,32 +1067,21 @@ const TransferBookingPage = () => {
         />
       )}
 
-      {/* Render the actual BookingDetailsModal conditionally */}
-      {detailedBookingInfo && (
-        <BookingDetailsModal
-          isOpen={showDetailsModal}
-          onClose={() => {
-            setShowDetailsModal(false);
-            setDetailedBookingInfo(null);
-          }}
-          bookingDetails={detailedBookingInfo}
-          isLoading={isLoadingBookingDetails}
-        />
-      )}
-
-      {/* Render TransferBookingVoucherModal (PDF Download) */}
-      {transferVoucherDetails && (
+      {/* Render TransferBookingVoucherModal */} 
+      {/* Pass the providerBookingRef prop */} 
+      {transferVoucherDetails && ( 
           <TransferBookingVoucherModal
               isOpen={showTransferVoucherModal}
               onClose={() => {
                   setShowTransferVoucherModal(false);
-                  setTransferVoucherDetails(null); // Clear data when closing
+                  setTransferVoucherDetails(null); 
               }}
-              transferVoucherDetails={transferVoucherDetails} // Pass CRM data
+              transferVoucherDetails={transferVoucherDetails} 
+              providerBookingRef={bookingDetails?.data?.booking_id} // Pass the ref ID directly
           />
-      )}
+      )} 
 
-    </div>
+    </div> 
   );
 };
 

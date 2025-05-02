@@ -62,19 +62,16 @@ const RecentLeadsTable = () => {
       </div>
       
       {recentLeads.length === 0 ? (
-        <div className="text-center py-12 bg-white shadow rounded-lg mt-6">
-          <h3 className="text-lg font-medium text-gray-900">No leads yet</h3>
-          <p className="mt-2 text-sm text-gray-500">
+        <div className="text-center py-8 px-6 bg-white shadow rounded-lg mt-6">
+          <p className="text-gray-500 mb-4">
             Get started by creating your first lead.
           </p>
-          <div className="mt-6">
             <Link
               to="/leads/add"
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Add Lead
             </Link>
-          </div>
         </div>
       ) : (
         <div className="mt-6 flex flex-col">

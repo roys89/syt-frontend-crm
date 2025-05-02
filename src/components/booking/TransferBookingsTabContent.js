@@ -1,8 +1,9 @@
-import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, EyeIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import bookingService from '../../services/bookingService';
 // --- Import Transfer specific components if needed later ---
-// import TransferBookingVoucherModal from '../transfers/TransferBookingVoucherModal';
+import TransferBookingVoucherModal from '../transfers/TransferBookingVoucherModal'; // Make sure this is imported
 // import ProviderDetailsModal from './ProviderDetailsModal'; // Assuming a generic one can be used or a specific one created
 
 // Component dedicated to displaying Transfer Bookings
@@ -10,14 +11,18 @@ const TransferBookingsTabContent = () => {
   const [transferBookings, setTransferBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  // --- Placeholder state for future modals ---
-  // const [showTransferVoucherModal, setShowTransferVoucherModal] = useState(false);
-  // const [transferVoucherDetails, setTransferVoucherDetails] = useState(null);
-  // const [isLoadingTransferVoucher, setIsLoadingTransferVoucher] = useState(false);
-  // const [loadingVoucherForId, setLoadingVoucherForId] = useState(null);
+  // --- State for Voucher Modal (Corrected to use Provider Data) ---
+  const [showTransferVoucherModal, setShowTransferVoucherModal] = useState(false);
+  const [transferVoucherDetails, setTransferVoucherDetails] = useState(null); // Will store PROVIDER details now
+  const [isLoadingTransferVoucher, setIsLoadingTransferVoucher] = useState(false);
+  const [loadingVoucherForId, setLoadingVoucherForId] = useState(null); // Tracks loading by provider bookingRefId
+  // Add state to hold the ref ID specifically for the modal prop
+  const [voucherProviderRefId, setVoucherProviderRefId] = useState(null);
+  // Add state for cancellation
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null); // Track which booking is being cancelled
   // const [isProviderDetailsModalOpen, setIsProviderDetailsModalOpen] = useState(false);
   // const [selectedProviderDetails, setSelectedProviderDetails] = useState(null);
-  // --- End Placeholder State ---
 
   useEffect(() => {
     const fetchTransferData = async () => {
@@ -115,9 +120,114 @@ const TransferBookingsTabContent = () => {
     );
   };
 
+  // --- View Voucher Handler (CORRECTED: Calls getTransferBookingDetails) --- 
+  const handleViewTransferVoucher = async (item) => {
+    if (isLoadingTransferVoucher) return; // Prevent double clicks
+
+    // *** Use the PROVIDER'S booking reference ID ***
+    const providerBookingRef = item.bookingRefId; 
+
+    if (!providerBookingRef || providerBookingRef === 'N/A') {
+      toast.error('Provider Booking Reference ID not found. Cannot fetch live details.');
+      return;
+    }
+
+    console.log('[TabContent] Attempting to fetch LIVE transfer details for Provider Ref ID:', providerBookingRef);
+    setIsLoadingTransferVoucher(true);
+    setLoadingVoucherForId(providerBookingRef); // Indicate which row is loading using provider ID
+    setTransferVoucherDetails(null); // Clear previous details
+    setVoucherProviderRefId(null); // Clear previous ref ID
+
+    try {
+      // *** Call the service to get LIVE details from the PROVIDER ***
+      const response = await bookingService.getTransferBookingDetails(providerBookingRef); 
+      console.log('[TabContent] LIVE Provider API Response (getTransferBookingDetails):', response); // Log the response
+
+      // *** Check the structure of the LIVE provider response ***
+      // Adapt this check based on the actual successful response structure 
+      if (response && response.success && response.data) { // Assuming { success: true, data: {...} } structure
+        console.log('[TabContent] LIVE Transfer details retrieved successfully:', response.data);
+        
+        // *** IMPORTANT: Store the PROVIDER'S data structure ***
+        setTransferVoucherDetails(response.data); 
+        setVoucherProviderRefId(providerBookingRef); // Set the ref ID for the modal prop
+        setShowTransferVoucherModal(true); // Open the modal
+        toast.success('Live transfer details loaded.');
+      } else {
+        const errorMessage = response?.message || response?.error?.message || 'Failed to get live transfer details (Invalid data or booking not found).';
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error('[TabContent] Error getting live transfer details:', error);
+      const message = error.message || 'An unknown error occurred while fetching live details.';
+      toast.error(`Failed to get live transfer details: ${message}`);
+      setShowTransferVoucherModal(false); // Don't open modal on error
+    } finally {
+      setIsLoadingTransferVoucher(false);
+      setLoadingVoucherForId(null); // Reset loading indicator
+    }
+  };
+  // --- End CORRECTED Handler ---
+
+  // --- UPDATED Cancel Handler --- 
+  const handleCancelTransfer = async (item) => {
+    const providerBookingRef = item.bookingRefId;
+    const crmBookingId = item._id; // For potential local update
+
+    if (!providerBookingRef || providerBookingRef === 'N/A') {
+      toast.error('Provider Booking Reference ID not found. Cannot cancel booking.');
+      return;
+    }
+
+    // Optional: Confirmation dialog
+    if (!window.confirm(`Are you sure you want to attempt cancellation for booking ${providerBookingRef}? This action might be irreversible.`)) {
+        return;
+    }
+
+    console.log(`[TabContent] Attempting to cancel transfer booking: Provider Ref ${providerBookingRef}, CRM ID ${crmBookingId}`);
+    setIsCancelling(true);
+    setCancellingId(providerBookingRef); // Track by provider ref ID
+
+    try {
+        const response = await bookingService.cancelCrmTransferBooking(providerBookingRef);
+        console.log('[TabContent] Cancellation API response:', response);
+
+        if (response.success) {
+            toast.success(response.message || `Booking ${providerBookingRef} cancelled successfully!`);
+            // Option 1: Refetch the entire list
+            // fetchTransferData(); // You might need to extract fetchTransferData or pass it
+            
+            // Option 2: Update local state (example: mark as cancelled)
+            setTransferBookings(prevBookings => 
+                prevBookings.map(booking => 
+                    booking.bookingRefId === providerBookingRef 
+                        ? { ...booking, status: 'Cancelled' } // Update status locally
+                        : booking
+                )
+            );
+        } else {
+             // Handle logical failure from backend/provider
+             throw new Error(response.message || `Failed to cancel booking ${providerBookingRef}.`);
+        }
+
+    } catch (error) {
+        console.error(`[TabContent] Error cancelling transfer ${providerBookingRef}:`, error);
+        toast.error(`Cancellation failed: ${error.message || 'Please try again or contact support.'}`);
+    } finally {
+        setIsCancelling(false);
+        setCancellingId(null);
+    }
+  };
+  // --- End Cancel Handler ---
+
+  // --- Placeholder Handler for Amend ---
+  const handleAmendTransfer = (item) => {
+    console.log("Amend Transfer clicked for CRM ID:", item._id, "Provider Ref:", item.bookingRefId);
+    toast.info(`Amendment for ${item.bookingRefId || item._id} is not yet implemented.`);
+  };
+
   // --- Placeholder Handlers for future modals ---
-  // const handleViewTransferVoucher = async (item) => { console.log("View Voucher:", item._id); toast.info("Voucher view not implemented yet."); };
-  // const handleViewProviderDetails = (details) => { console.log("View Provider Details:", details); toast.info("Provider details view not implemented yet."); };
+  const handleViewProviderDetails = (details) => { console.log("View Provider Details:", details); toast.info("Provider details view not implemented yet."); };
   // --- End Placeholder Handlers ---
 
   // Loading State
@@ -175,14 +285,14 @@ const TransferBookingsTabContent = () => {
                 Date Added
               </th>
               <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                Booking Status
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                 Payment Status
               </th>
-               <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                 CRM Status
-               </th>
               <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
-                 Provider Status
-               </th>
+                Provider Status
+              </th>
               <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                 Assigned To
               </th>
@@ -201,6 +311,7 @@ const TransferBookingsTabContent = () => {
               const guestContact = item.guestDetails?.phone || '-';
               const providerBookingRef = item.bookingRefId || 'N/A'; // Provider's ID
               const crmBookingId = item._id; // MongoDB ID
+              const isCurrentCancelling = isCancelling && cancellingId === providerBookingRef;
 
               return (
                 <tr key={crmBookingId} className="hover:bg-[#093923]/5 transition-colors ease duration-200">
@@ -222,34 +333,23 @@ const TransferBookingsTabContent = () => {
                   <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
                     {formatDate(item.createdAt)}
                   </td>
+                  {/* Booking Status */}
+                  <td className="px-3 py-4 text-sm whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.status)} capitalize`}>
+                      {item.status || 'Unknown'}
+                    </span>
+                  </td>
                   {/* Payment Status */}
                   <td className="px-3 py-4 text-sm whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.paymentDetails?.paymentStatus)} capitalize`}>
                       {item.paymentDetails?.paymentStatus || 'Unknown'}
                     </span>
                   </td>
-                   {/* CRM Booking Status */}
-                   <td className="px-3 py-4 text-sm whitespace-nowrap">
-                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.status)} capitalize`}>
-                       {item.status || 'Unknown'}
-                     </span>
-                   </td>
                   {/* Provider Status */}
                    <td className="px-3 py-4 text-sm whitespace-nowrap">
-                     {/* Example: Button to view full provider details if needed */}
-                     {/* <div className="flex items-center space-x-1.5"> */}
                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(getProviderStatus(item.providerBookingResponse))} capitalize`}>
                          {getProviderStatus(item.providerBookingResponse)}
                        </span>
-                       {/* <button
-                           onClick={() => handleViewProviderDetails(item.providerBookingResponse)} // Placeholder
-                           className="text-gray-400 hover:text-blue-600 p-0.5 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                           title="View Full Provider Details"
-                           disabled={!item.providerBookingResponse} // Placeholder disable logic
-                         >
-                            <InformationCircleIcon className="h-4 w-4" />
-                         </button> */}
-                     {/* </div> */}
                    </td>
                   {/* Assigned To */}
                   <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
@@ -261,18 +361,48 @@ const TransferBookingsTabContent = () => {
                   </td>
                   {/* Actions */}
                   <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                     {/* Placeholder for future actions */}
                      <div className="flex items-center justify-end space-x-3">
-                      {/* Example Action: View Voucher */}
-                      {/* <button
-                         onClick={() => handleViewTransferVoucher(item)}
-                         className="text-cyan-600 hover:text-cyan-800 p-1 rounded hover:bg-cyan-100 disabled:opacity-50"
-                         title={`View Voucher for ${crmBookingId}`}
-                         disabled={true} // Enable when implemented
+                      {/* View Voucher/Details Button - Calls CORRECTED handler */}
+                      <button
+                        onClick={() => handleViewTransferVoucher(item)} // Use CORRECTED handler
+                        className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-100 transition-colors ease duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={`View LIVE Details for ${providerBookingRef || crmBookingId}`}
+                        disabled={isLoadingTransferVoucher || !providerBookingRef || providerBookingRef === 'N/A' || isCurrentCancelling} // Disable if loading or no provider ref or cancelling
+                      >
+                        <span className="sr-only">View Live Details</span>
+                        {/* Show spinner when loading details for this provider ref */}
+                        {isLoadingTransferVoucher && loadingVoucherForId === providerBookingRef ? (
+                          <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <EyeIcon className="h-5 w-5" />
+                        )}
+                      </button>
+
+                      {/* Amend Button (Placeholder) */}
+                      <button
+                         onClick={() => handleAmendTransfer(item)}
+                         className="text-yellow-600 hover:text-yellow-800 p-1 rounded hover:bg-yellow-100 transition-colors ease duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                         title={`Amend Booking ${providerBookingRef || crmBookingId} (Not Implemented)`}
+                         disabled={isCurrentCancelling} // Disable if cancelling
                        >
-                         <span className="sr-only">View Voucher</span>
-                         <EyeIcon className="h-5 w-5" />
-                       </button> */}
+                         <span className="sr-only">Amend Booking</span>
+                         <PencilSquareIcon className="h-5 w-5" />
+                      </button>
+
+                      {/* Cancel Button - UPDATED */} 
+                      <button
+                         onClick={() => handleCancelTransfer(item)} 
+                         className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-100 transition-colors ease duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                         title={`Cancel Booking ${providerBookingRef || crmBookingId}`}
+                         disabled={isCurrentCancelling || item.status === 'Cancelled'} // Disable if cancelling or already cancelled
+                       >
+                         <span className="sr-only">Cancel Booking</span>
+                         {isCurrentCancelling ? (
+                           <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                         ) : (
+                           <TrashIcon className="h-5 w-5" />
+                         )}
+                      </button>
                      </div>
                   </td>
                 </tr>
@@ -282,13 +412,19 @@ const TransferBookingsTabContent = () => {
         </table>
       </div>
 
-      {/* --- Placeholder for future Modals --- */}
       {/* Render the Transfer Voucher Modal */}
-      {/* <TransferBookingVoucherModal
+      {/* WARNING: This modal expects CRM data structure for now */}
+      {/* It will likely break until updated */}
+      <TransferBookingVoucherModal
          isOpen={showTransferVoucherModal}
-         onClose={() => setShowTransferVoucherModal(false)}
-         voucherDetails={transferVoucherDetails}
-       /> */}
+         onClose={() => {
+             setShowTransferVoucherModal(false);
+             setTransferVoucherDetails(null); 
+             setVoucherProviderRefId(null); // Clear ref ID on close
+         }}
+         transferVoucherDetails={transferVoucherDetails} 
+         providerBookingRef={voucherProviderRefId} // Pass the stored ref ID
+       />
 
       {/* Render the Provider Details Modal */}
       {/* <ProviderDetailsModal

@@ -48,24 +48,62 @@ const formatTimeSimple = (timeString) => { // Expects HH:MM (24hr)
 };
 // --- END Helper Functions ---
 
-// --- PDF Content Component ---
-// This component defines the structure and content of the PDF voucher.
-// It receives the `voucherData` (which is the CRM booking data).
-const PdfTransferVoucherContent = ({ voucherData }) => {
-    if (!voucherData) {
-        return <div className="p-4 text-red-500 text-xs">Error: Missing data for PDF rendering.</div>;
-    }
+// --- Map booking status (from live data) --- 
+const mapBookingStatus = (status) => {
+  switch (status) {
+    case 0: return 'Confirmed'; // Based on example "Detail found!"
+    case 1: return 'Pending'; // Assuming 1 means pending
+    case 2: return 'Cancelled'; // Assuming 2 means cancelled
+    case 3: return 'Failed'; // Assuming 3 means failed
+    default: return 'Unknown';
+  }
+};
 
-    const { 
-        bookingRefId = 'N/A',
-        status = 'N/A',
-        transferDetails = {},
-        guestDetails = {},
-        paymentDetails = {},
-        createdAt // Timestamp from Mongoose
+// --- Map payment status (from live data) ---
+const mapPaymentStatus = (status) => {
+  switch (status) {
+    case 1: return 'Paid'; // Assuming 1 means paid
+    case 0: return 'Pending'; // Assuming 0 means pending
+    // Add other statuses if known
+    default: return 'Unknown';
+  }
+}
+
+// --- PDF Content Component ---
+// Updated to handle LIVE data structure from getTransferBookingDetails
+// voucherData is expected to be the INNERMOST `data` object 
+// (i.e., response.data.data)
+const PdfTransferVoucherContent = ({ voucherData, providerBookingRef }) => {
+    if (!voucherData || typeof voucherData !== 'object') {
+        console.error("[PDF Content] Invalid or missing voucherData (expected innermost data object):", voucherData);
+        return <div className="p-4 text-red-500 text-xs">Error: Invalid data for PDF rendering.</div>;
+    }
+    const {
+        guest_name = 'N/A',
+        guest_email = 'N/A',
+        guest_phone = 'N/A',
+        notes = null,
+        total = 0,
+        currency = 'INR',
+        payment_status = null, // Numeric status
+        booking_status = null, // Numeric status
+        booking_date = null,
+        booking_time = null,
+        passengers = 0,
+        from = 'N/A', // Pickup address
+        to = 'N/A', // Dropoff address
+        created_date = null, // Use this instead of createdAt
+        vehicle = {} // Nested vehicle object
     } = voucherData;
 
-    const { origin = {}, destination = {}, vehicle = {} } = transferDetails;
+    const { 
+        class: vehicle_class = 'N/A', 
+        capacity: vehicle_capacity = 'N/A' 
+    } = vehicle;
+    
+    // Map numeric statuses to strings
+    const displayBookingStatus = mapBookingStatus(booking_status);
+    const displayPaymentStatus = mapPaymentStatus(payment_status);
 
     return (
         <div className="p-6 font-sans text-gray-800 bg-white w-[210mm] min-h-[297mm] text-[10px]">
@@ -86,9 +124,10 @@ const PdfTransferVoucherContent = ({ voucherData }) => {
                     </div>
                 </div>
                 <div className="text-[9px] text-right">
-                    <p>Booking Ref: <span className="font-semibold">{bookingRefId}</span></p>
-                    <p>Status: <span className={`font-semibold ${status === 'Confirmed' ? 'text-[#13804e]' : 'text-orange-600'}`}>{status}</span></p>
-                    <p>Booked On: <span className="font-semibold">{formatDateSimple(createdAt)}</span></p>
+                    {/* Use providerBookingRef passed from modal */}
+                    <p>Booking Ref: <span className="font-semibold">{providerBookingRef || 'N/A'}</span></p> 
+                    <p>Status: <span className={`font-semibold ${displayBookingStatus === 'Confirmed' ? 'text-[#13804e]' : 'text-orange-600'}`}>{displayBookingStatus}</span></p>
+                    <p>Booked On: <span className="font-semibold">{formatDateSimple(created_date)}</span></p>
                 </div>
             </div>
 
@@ -97,17 +136,18 @@ const PdfTransferVoucherContent = ({ voucherData }) => {
                 <div className="col-span-1 pr-4 border-r border-[#e6f0ea]">
                     <h2 className="text-xs font-serif font-semibold mb-2 text-[#093923]">Pickup Details</h2>
                     <div className="shadow-sm p-3 rounded-lg bg-[#e6f0ea] text-[9px]">
-                        <p className="font-medium mb-1">{origin.display_address || 'N/A'}</p>
-                        <p><strong>Date:</strong> {formatDateSimple(transferDetails.pickupDate)}</p>
-                        <p><strong>Time:</strong> {formatTimeSimple(transferDetails.pickupTime)}</p>
-                        {guestDetails.flightNumber && <p className="mt-1 text-blue-600"><strong>Flight No:</strong> {guestDetails.flightNumber}</p>}
+                        <p className="font-medium mb-1">{from}</p>
+                        <p><strong>Date:</strong> {formatDateSimple(booking_date)}</p>
+                        {/* booking_time includes seconds, formatTimeSimple expects HH:MM */}
+                        <p><strong>Time:</strong> {formatTimeSimple(booking_time?.substring(0, 5))}</p> 
+                        {/* Flight number not directly available in live data example, maybe in notes? */}
+                        {/* Consider adding if available elsewhere or removing */} 
                     </div>
                 </div>
                 <div className="col-span-1">
                      <h2 className="text-xs font-serif font-semibold mb-2 text-[#093923]">Dropoff Details</h2>
                      <div className="shadow-sm p-3 rounded-lg bg-[#e6f0ea] text-[9px]">
-                         <p className="font-medium mb-1">{destination.display_address || 'N/A'}</p>
-                         {/* Add estimated duration or other dropoff info if available */}
+                         <p className="font-medium mb-1">{to}</p>
                          <p className="text-gray-500 mt-1">Please verify dropoff details with the driver.</p>
                     </div>
                 </div>
@@ -117,9 +157,8 @@ const PdfTransferVoucherContent = ({ voucherData }) => {
             <div className="mb-4">
                  <h2 className="text-xs font-serif font-semibold mb-2 text-[#093923]">Vehicle Details</h2>
                  <div className="shadow-sm p-3 rounded-lg bg-[#e6f0ea] text-[9px]">
-                    <p><strong>Type:</strong> {vehicle.class || 'N/A'}</p>
-                    <p><strong>Capacity:</strong> {vehicle.capacity ? `${vehicle.capacity} passengers` : 'N/A'}</p>
-                    {/* Add specific vehicle notes if available */}
+                    <p><strong>Type:</strong> {vehicle_class}</p>
+                    <p><strong>Capacity:</strong> {vehicle_capacity ? `${vehicle_capacity} passengers` : 'N/A'}</p>
                 </div>
             </div>
 
@@ -138,17 +177,18 @@ const PdfTransferVoucherContent = ({ voucherData }) => {
                         </thead>
                         <tbody>
                             <tr className='bg-white border-b border-[#e6f0ea] last:border-b-0 hover:bg-[#2a9d6b]/10'>
-                                <td className="border-r border-[#e6f0ea] p-2">{guestDetails.firstName} {guestDetails.lastName} <span className="text-[#13804e] font-medium">(Lead)</span></td>
-                                <td className="border-r border-[#e6f0ea] p-2">{guestDetails.email || '-'}</td>
-                                <td className="border-r border-[#e6f0ea] p-2">{guestDetails.phone || '-'}</td>
-                                <td className="p-2 text-center">{guestDetails.totalPassengers || 'N/A'}</td>
+                                {/* guest_name is full name */}
+                                <td className="border-r border-[#e6f0ea] p-2">{guest_name} <span className="text-[#13804e] font-medium">(Lead)</span></td> 
+                                <td className="border-r border-[#e6f0ea] p-2">{guest_email || '-'}</td>
+                                <td className="border-r border-[#e6f0ea] p-2">{guest_phone || '-'}</td>
+                                <td className="p-2 text-center">{passengers || 'N/A'}</td>
                             </tr>
-                            {/* Add rows for other passengers if stored differently */}
                         </tbody>
                     </table>
-                     {guestDetails.notes && (
+                     {/* Use notes from live data */}
+                     {notes && (
                          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-[9px]">
-                             <strong>Guest Notes:</strong> {guestDetails.notes}
+                             <strong>Guest Notes:</strong> {notes}
                          </div>
                      )}
                 </div>
@@ -160,11 +200,11 @@ const PdfTransferVoucherContent = ({ voucherData }) => {
                 <div className="flex justify-between items-center text-[10px]">
                     <span className="font-medium text-gray-700">Total Booking Amount:</span>
                     <span className="font-bold text-base text-[#13804e]">
-                        {formatCurrencySimple(paymentDetails.fare, paymentDetails.currency)}
+                        {/* Use total and currency from live data */}
+                        {formatCurrencySimple(total, currency)} 
                     </span>
                 </div>
-                 <p className="text-[9px] text-gray-600 mt-1">Payment Status: <span className="font-medium">{paymentDetails.paymentStatus || 'N/A'}</span></p>
-                {/* Add base/tax breakdown if available */} 
+                 <p className="text-[9px] text-gray-600 mt-1">Payment Status: <span className="font-medium">{displayPaymentStatus}</span></p>
             </div>
 
             {/* Cancellation Policy / Terms */}
@@ -192,24 +232,24 @@ const PdfTransferVoucherContent = ({ voucherData }) => {
 
 
 // --- Main Modal Component ---
-// Receives `transferVoucherDetails` which should be the *CRM booking data*
-const TransferBookingVoucherModal = ({ isOpen, onClose, transferVoucherDetails }) => {
+// Receives `transferVoucherDetails` which is the OUTER `response.data` object
+const TransferBookingVoucherModal = ({ isOpen, onClose, transferVoucherDetails, providerBookingRef }) => {
     const [isLoading, setIsLoading] = useState(false);
-    // No need for pdfContentRef here as we render directly in the hidden div
 
     const handleDownloadPDF = async () => {
-        if (!transferVoucherDetails || !transferVoucherDetails._id) {
-            toast.error('Voucher data (from CRM) is not available for PDF generation.');
+        // `transferVoucherDetails` is the OUTER `response.data` object
+        // Extract the INNERMOST data object for the PDF content
+        const detailsForPdf = transferVoucherDetails?.data; 
+        const providerIdForFilename = providerBookingRef || 'Booking'; // Use prop or fallback
+
+        if (!detailsForPdf) {
+            toast.error('Live voucher details (inner data) not found for PDF generation.');
+            console.error('[PDF Gen] Missing inner data within transferVoucherDetails:', transferVoucherDetails);
             return;
         }
         setIsLoading(true);
-        console.log('[PDF Gen] Starting Transfer Voucher PDF Generation...');
-        console.log('[PDF Gen] CRM Data Received:', transferVoucherDetails);
-
-        // Data Transformation: CRM data is already structured, so minimal transformation needed.
-        // We pass the CRM data directly to PdfTransferVoucherContent.
-        const transformedData = { ...transferVoucherDetails }; 
-        console.log('[PDF Gen] Data for PDF Component:', transformedData);
+        console.log('[PDF Gen] Starting Transfer Voucher PDF Generation (Live Data)...');
+        console.log('[PDF Gen] Details for PDF Component:', detailsForPdf);
 
         // Create hidden container for rendering
         const containerId = `pdf-render-container-${Date.now()}`;
@@ -226,7 +266,8 @@ const TransferBookingVoucherModal = ({ isOpen, onClose, transferVoucherDetails }
         try {
             // Render the PDF content component in the hidden container
             root = createRoot(container);
-            await root.render(<PdfTransferVoucherContent voucherData={transformedData} />); 
+            // Pass the INNERMOST data and providerRefId to the PDF content
+            await root.render(<PdfTransferVoucherContent voucherData={detailsForPdf} providerBookingRef={providerIdForFilename} />); 
             await new Promise(resolve => setTimeout(resolve, 500)); // Wait for render
 
             // Capture with html2canvas
@@ -262,7 +303,7 @@ const TransferBookingVoucherModal = ({ isOpen, onClose, transferVoucherDetails }
             pdf.addImage(imgData, 'PNG', imgX, imgY, imgProps.width * ratio, imgProps.height * ratio);
 
             // Save PDF
-            const fileName = `Transfer_Voucher_${transformedData.bookingRefId || 'Booking'}.pdf`;
+            const fileName = `Transfer_Voucher_${providerIdForFilename}.pdf`;
             pdf.save(fileName);
             toast.success(`Voucher PDF "${fileName}" downloaded!`);
 
@@ -283,17 +324,26 @@ const TransferBookingVoucherModal = ({ isOpen, onClose, transferVoucherDetails }
 
     if (!isOpen) return null;
 
-    // Loading/Error state for missing data
-    if (!transferVoucherDetails) {
+    // Extract INNERMOST live data for preview
+    // Corrected path: Access .data from the transferVoucherDetails (which is response.data)
+    const liveDataForPreview = transferVoucherDetails?.data; 
+
+    // Loading/Error state check based on INNERMOST data
+    if (!liveDataForPreview) {
          return (
             <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[9999]">
                 <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-                    <p className="text-center text-red-600">Error: Voucher details not loaded.</p>
+                    {/* Updated error message */}
+                    <p className="text-center text-red-600">Error: Live voucher details not loaded or invalid structure (details missing within response data).</p>
                     <Button onClick={onClose} block className="mt-4">Close</Button>
                 </div>
             </div>
         );
     }
+    
+    // Map statuses for preview using INNERMOST data
+    const previewBookingStatus = mapBookingStatus(liveDataForPreview.booking_status);
+    const previewPaymentStatus = mapPaymentStatus(liveDataForPreview.payment_status);
 
     // --- Main Modal Structure --- 
     return (
@@ -303,9 +353,10 @@ const TransferBookingVoucherModal = ({ isOpen, onClose, transferVoucherDetails }
                     {/* Header */}
                     <div className="flex-shrink-0 flex items-start justify-between mb-4 border-b pb-3">
                          <div>
-                            <h2 className="text-xl font-bold text-gray-800 mb-1">Transfer Voucher</h2>
+                            <h2 className="text-xl font-bold text-gray-800 mb-1">Transfer Voucher (Live Details)</h2>
                             <p className="text-xs text-gray-600">
-                                Booking Ref: <span className="font-medium text-gray-800">{transferVoucherDetails.bookingRefId || 'N/A'}</span>
+                                {/* Use the providerBookingRef prop */}
+                                Booking Ref: <span className="font-medium text-gray-800">{providerBookingRef || 'N/A'}</span> 
                             </p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -331,36 +382,36 @@ const TransferBookingVoucherModal = ({ isOpen, onClose, transferVoucherDetails }
                         </div>
                     </div>
 
-                    {/* Content Area - Displays a preview/summary based on CRM data */}
+                    {/* Content Area - Displays a preview/summary based on INNERMOST LIVE data */}
                     <div className="flex-grow overflow-y-auto pr-2 -mr-2 text-sm">
-                         {/* Re-use parts of PdfTransferVoucherContent structure for preview if desired */}
-                         {/* Or simply show key details */}
+                         {/* Use liveDataForPreview for preview */}
                          <div className="p-4 mb-4 bg-gray-50 rounded-lg border border-gray-200">
                             <h3 className="font-semibold text-base mb-2 text-gray-800">Journey Summary</h3>
-                            <p><strong>From:</strong> {transferVoucherDetails.transferDetails?.origin?.display_address}</p>
-                            <p><strong>To:</strong> {transferVoucherDetails.transferDetails?.destination?.display_address}</p>
-                            <p><strong>Date:</strong> {formatDateSimple(transferVoucherDetails.transferDetails?.pickupDate)}</p>
-                            <p><strong>Time:</strong> {formatTimeSimple(transferVoucherDetails.transferDetails?.pickupTime)}</p>
-                            <p><strong>Vehicle:</strong> {transferVoucherDetails.transferDetails?.vehicle?.class} ({transferVoucherDetails.transferDetails?.vehicle?.capacity} passengers)</p>
+                            <p><strong>From:</strong> {liveDataForPreview.from}</p>
+                            <p><strong>To:</strong> {liveDataForPreview.to}</p>
+                            <p><strong>Date:</strong> {formatDateSimple(liveDataForPreview.booking_date)}</p>
+                            <p><strong>Time:</strong> {formatTimeSimple(liveDataForPreview.booking_time?.substring(0, 5))}</p>
+                            <p><strong>Vehicle:</strong> {liveDataForPreview.vehicle?.class} ({liveDataForPreview.vehicle?.capacity} passengers)</p>
                          </div>
                          
                           <div className="p-4 mb-4 bg-gray-50 rounded-lg border border-gray-200">
                             <h3 className="font-semibold text-base mb-2 text-gray-800">Lead Guest</h3>
-                            <p><strong>Name:</strong> {transferVoucherDetails.guestDetails?.firstName} {transferVoucherDetails.guestDetails?.lastName}</p>
-                            <p><strong>Contact:</strong> {transferVoucherDetails.guestDetails?.email} / {transferVoucherDetails.guestDetails?.phone}</p>
-                            <p><strong>Passengers:</strong> {transferVoucherDetails.guestDetails?.totalPassengers}</p>
-                            {transferVoucherDetails.guestDetails?.flightNumber && <p><strong>Flight Number:</strong> {transferVoucherDetails.guestDetails.flightNumber}</p>}
+                            <p><strong>Name:</strong> {liveDataForPreview.guest_name}</p>
+                            <p><strong>Contact:</strong> {liveDataForPreview.guest_email} / {liveDataForPreview.guest_phone}</p>
+                            <p><strong>Passengers:</strong> {liveDataForPreview.passengers}</p>
+                            {/* Flight number not in example live data */} 
                          </div>
                          
                          <div className="p-4 mb-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <h3 className="font-semibold text-base mb-2 text-gray-800">Payment</h3>
-                            <p><strong>Total Fare:</strong> {formatCurrencySimple(transferVoucherDetails.paymentDetails?.fare, transferVoucherDetails.paymentDetails?.currency)}</p>
-                            <p><strong>Status:</strong> <span className={`font-medium ${transferVoucherDetails.paymentDetails?.paymentStatus === 'Paid' ? 'text-green-600' : 'text-orange-500'}`}>{transferVoucherDetails.paymentDetails?.paymentStatus}</span></p>
+                            <h3 className="font-semibold text-base mb-2 text-gray-800">Payment & Status</h3>
+                            <p><strong>Total Fare:</strong> {formatCurrencySimple(liveDataForPreview.total, liveDataForPreview.currency)}</p>
+                            <p><strong>Payment Status:</strong> <span className={`font-medium ${previewPaymentStatus === 'Paid' ? 'text-green-600' : 'text-orange-500'}`}>{previewPaymentStatus}</span></p>
+                            <p><strong>Booking Status:</strong> <span className={`font-medium ${previewBookingStatus === 'Confirmed' ? 'text-green-600' : 'text-orange-500'}`}>{previewBookingStatus}</span></p>
                          </div>
 
                           <div className="p-4 mb-4 bg-yellow-50 rounded-lg border border-yellow-200 text-xs">
                              <h3 className="font-semibold text-sm mb-1 text-yellow-800">Note</h3>
-                             <p className="text-yellow-700">This is a preview based on saved booking data. The downloaded PDF will contain the official voucher format.</p>
+                             <p className="text-yellow-700">This is a preview based on live booking data. The downloaded PDF will contain the official voucher format.</p>
                          </div>
                     </div>
                 </div>

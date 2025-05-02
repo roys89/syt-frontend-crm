@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import leadService from '../../services/leadService';
 
 const StatusDistribution = () => {
@@ -72,13 +73,19 @@ const StatusDistribution = () => {
       <h2 className="text-xl font-semibold text-gray-900">Lead Status Distribution</h2>
       <p className="mt-2 text-sm text-gray-700">Current distribution of leads by status</p>
       
-      <div className="mt-6 bg-white shadow px-6 py-6 rounded-lg">
+      <div className="mt-6">
         {total === 0 ? (
-          <div className="text-center py-6">
-            <p className="text-gray-500">No lead data available</p>
+          <div className="text-center py-8 px-6 bg-white shadow rounded-lg">
+            <p className="text-gray-500 mb-4">No lead data available</p>
+            <Link
+              to="/leads/add"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Add Lead
+            </Link>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 bg-white shadow px-6 py-6 rounded-lg">
             {Object.entries(statusData).map(([status, count]) => {
               const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
               return (

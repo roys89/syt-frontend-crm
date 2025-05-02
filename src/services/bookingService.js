@@ -1433,6 +1433,41 @@ const bookingService = {
     }
   },
 
+  // --- NEW: Transfer Cancellation --- 
+  cancelCrmTransferBooking: async (providerBookingRef) => {
+    // Assumes provider is 'LA' for now, adjust if dynamic provider needed
+    const provider = 'LA'; 
+    if (!providerBookingRef) {
+        console.error('[bookingService] cancelCrmTransferBooking: Missing providerBookingRef');
+        throw new Error('Provider Booking ID is required for cancellation.');
+    }
+
+    const url = `${TRANSFER_API_URL}/${provider}/booking/${providerBookingRef}/cancel`;
+    console.log(`📡 API REQUEST: cancelCrmTransferBooking (POST ${url})`);
+
+    try {
+        // Use POST as defined in the backend route
+        const response = await authAxios.post(url); 
+        console.log('📡 API RESPONSE: cancelCrmTransferBooking', response.data);
+
+        // Backend controller sends { success: boolean, message: string, data?: any, error?: any }
+        if (!response.data || typeof response.data.success !== 'boolean') {
+            throw new Error('Invalid response format from cancellation endpoint.');
+        }
+
+        return response.data; // Forward the backend response { success, message, ... }
+
+    } catch (error) {
+        console.error('📡 API ERROR: cancelCrmTransferBooking', error);
+        const errorMessage = error.response?.data?.message 
+                            || error.message 
+                            || 'Failed to process transfer cancellation request.';
+        // Rethrow a simplified error or the structured one from backend
+        throw new Error(errorMessage); 
+    }
+  },
+  // --- End Transfer Cancellation ---
+
   // Export provider constants
   FLIGHT_PROVIDERS,
   HOTEL_PROVIDERS,

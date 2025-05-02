@@ -61,37 +61,37 @@ const TransferSearchResult = ({
               key={quote.quote_id}
               className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col md:flex-row"
             >
-              {/* Vehicle Image */}
+                {/* Vehicle Image */}
               <div className="md:w-1/3 h-48 md:h-auto bg-gray-100 flex-shrink-0">
-                <img
-                  src={quote.vehicle.image}
-                  alt={quote.vehicle.class}
-                  className="w-full h-full object-cover"
+                  <img
+                    src={quote.vehicle.image}
+                    alt={quote.vehicle.class}
+                    className="w-full h-full object-cover"
                   onError={(e) => { e.target.src = '/img/placeholder.png'; }}
-                />
-              </div>
+                  />
+                </div>
 
               {/* Vehicle Details & Price */}
               <div className="flex flex-col justify-between md:w-2/3 p-5">
                 {/* Top section: Name & Capacity */}
-                <div>
+                    <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-1">{quote.vehicle.similar_type || quote.vehicle.class}</h3>
                   <div className="flex items-center text-sm text-gray-600 mb-2">
                     <UserGroupIcon className="h-4 w-4 mr-1.5 text-gray-500" />
-                    <span>Up to {quote.vehicle.capacity} passengers</span>
+                          <span>Up to {quote.vehicle.capacity} passengers</span>
                     <span className="mx-2 text-gray-300">|</span>
                     <svg className="h-4 w-4 mr-1.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                    </svg>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                          </svg>
                     <span>Max {quote.vehicle.maxLuggage || 'N/A'} luggage</span>
-                  </div>
+                        </div>
                   {/* Optional: Add tags if available */}
                   {quote.vehicle.tags && quote.vehicle.tags.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {quote.vehicle.tags.split(' ').map((tag, index) => (
+                        {quote.vehicle.tags.split(' ').map((tag, index) => (
                         <span key={index} className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{tag}</span>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
                   )}
                 </div>
                 
@@ -103,19 +103,19 @@ const TransferSearchResult = ({
                     </div>
                     <div className="text-xs text-gray-500">
                       Total Price
-                    </div>
-                  </div>
-                  <button
-                    type="button"
+                      </div>
+                      </div>
+                      <button
+                        type="button"
                     className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white transition-colors ${ 
-                      selectedQuote?.quote_id === quote.quote_id
+                          selectedQuote?.quote_id === quote.quote_id
                         ? 'bg-[#13804e]' 
                         : 'bg-[#093923] hover:bg-[#13804e]'
                     } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]`}
-                    onClick={() => handleSelectTransfer(quote)}
-                  >
-                    {selectedQuote?.quote_id === quote.quote_id ? 'Selected' : 'Select'}
-                  </button>
+                        onClick={() => handleSelectTransfer(quote)}
+                      >
+                        {selectedQuote?.quote_id === quote.quote_id ? 'Selected' : 'Select'}
+                      </button>
                 </div>
               </div>
             </div>
