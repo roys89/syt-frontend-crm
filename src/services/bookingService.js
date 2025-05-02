@@ -256,7 +256,7 @@ const bookFlight = async ({ provider = 'TC', traceId, itineraryCode }) => {
       console.error('Error response data:', error.response.data);
       console.error('Error response status:', error.response.status);
     } else if (error.request) {
-      console.error('Error request (no response received):', error.request);
+      console.error('Error request (no response received)::', error.request);
     } else {
       console.error('Error setting up request:', error.message);
     }
@@ -1352,6 +1352,86 @@ const bookingService = {
   // --- NEW: CRM Booking Fetch --- 
   getCrmFlightBookings,
   getCrmHotelBookings,
+
+  // --- NEW: Transfer CRM Functions --- 
+  saveTransferBookingToCRM: async (bookingData) => {
+    try {
+      console.log('📡 API REQUEST: saveTransferBookingToCRM', bookingData);
+      const response = await authAxios.post(`${BOOKING_API_URL}/single/transfer`, bookingData);
+      console.log('📡 API RESPONSE: saveTransferBookingToCRM', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('📡 API ERROR: saveTransferBookingToCRM', error);
+      if (error.response) {
+        console.error('📡 Error response:', { status: error.response.status, data: error.response.data });
+      }
+      throw new Error(error.response?.data?.message || 'Failed to save transfer booking to CRM');
+    }
+  },
+
+  getCrmTransferBookings: async () => {
+    try {
+      console.log('📡 API REQUEST: getCrmTransferBookings');
+      const response = await authAxios.get(`${BOOKING_API_URL}/single/transfer`);
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to fetch CRM transfer bookings');
+      }
+      console.log('📡 API RESPONSE: getCrmTransferBookings', response.data);
+      return response.data; // Expecting { success: true, data: [...] }
+    } catch (error) {
+      console.error('📡 API ERROR: getCrmTransferBookings', error);
+      throw error;
+    }
+  },
+
+  getCrmTransferBookingById: async (id) => {
+    try {
+      console.log(`📡 API REQUEST: getCrmTransferBookingById (${id})`);
+      const response = await authAxios.get(`${BOOKING_API_URL}/single/transfer/${id}`);
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to fetch CRM transfer booking by ID');
+      }
+      console.log('📡 API RESPONSE: getCrmTransferBookingById', response.data);
+      return response.data; // Expecting { success: true, data: {...} }
+    } catch (error) {
+      console.error(`📡 API ERROR: getCrmTransferBookingById (${id})`, error);
+      throw error;
+    }
+  },
+
+  updateTransferBookingToCRM: async (id, updateData) => {
+    try {
+      console.log('📡 API REQUEST: updateTransferBookingToCRM', { id, updateData });
+      const response = await authAxios.put(`${BOOKING_API_URL}/single/transfer/${id}`, updateData);
+      console.log('📡 API RESPONSE: updateTransferBookingToCRM', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('📡 API ERROR: updateTransferBookingToCRM', error);
+      if (error.response) {
+        console.error('📡 Error response:', { status: error.response.status, data: error.response.data });
+      }
+      throw new Error(error.response?.data?.message || 'Failed to update transfer booking in CRM');
+    }
+  },
+
+  // --- NEW: Hotel Cancellation --- 
+  cancelHotelBooking: async (bookingCode, traceId) => {
+    try {
+      console.log('📡 API REQUEST: cancelHotelBooking', { bookingCode, traceId });
+      // Assuming the backend endpoint is /api/bookings/hotel/cancel/:bookingCode
+      // Adjust the URL structure if needed
+      const response = await authAxios.post(`${API_BASE_URL}/bookings/hotel/cancel/${bookingCode}`, { traceId });
+      console.log('📡 API RESPONSE: cancelHotelBooking', response.data);
+      return response.data; // Expecting { success: true, message: ..., data: ... }
+    } catch (error) {
+      console.error('📡 API ERROR: cancelHotelBooking', error);
+      if (error.response) {
+        console.error('📡 Error response:', { status: error.response.status, data: error.response.data });
+      }
+      // Rethrow a simplified error for the component to catch
+      throw new Error(error.response?.data?.message || 'Failed to process hotel cancellation request');
+    }
+  },
 
   // Export provider constants
   FLIGHT_PROVIDERS,
