@@ -1027,7 +1027,14 @@ const HotelBookingPage = () => {
       
       if (voucherResponse.success) {
         console.log('Voucher details retrieved successfully');
-        setVoucherDetails(voucherResponse.data);
+        // --- MODIFICATION START ---
+        // Add the original bookingRefId to the voucher data for the modal
+        const finalVoucherData = {
+            ...voucherResponse.data, // Spread the API response
+            crmBookingRefId: bookingCode // Add the bookingRefId used for the API call
+        };
+        setVoucherDetails(finalVoucherData); 
+        // --- MODIFICATION END ---
         setShowVoucherModal(true);
         toast.success('Voucher details retrieved successfully');
       } else {
