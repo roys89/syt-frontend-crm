@@ -61,13 +61,13 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Guest Details</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-800">Guest Details</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
+            className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <XMarkIcon className="h-6 w-6" />
           </button>
@@ -77,7 +77,7 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
-                First Name
+                First Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -85,7 +85,8 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
                 name="first_name"
                 value={formData.first_name}
                 onChange={handleChange}
-                className={`mt-1 block w-full rounded-md border ${errors.first_name ? 'border-red-500' : 'border-gray-300'} shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm`}
+                required
+                className={`mt-1 block w-full rounded-md border ${errors.first_name ? 'border-red-500' : 'border-gray-300'} shadow-sm focus:border-[#13804e] focus:ring-[#13804e] sm:text-sm h-10 px-3`}
               />
               {errors.first_name && (
                 <p className="mt-1 text-sm text-red-600">{errors.first_name}</p>
@@ -94,7 +95,7 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
 
             <div>
               <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
-                Last Name
+                Last Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -102,7 +103,8 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
                 name="last_name"
                 value={formData.last_name}
                 onChange={handleChange}
-                className={`mt-1 block w-full rounded-md border ${errors.last_name ? 'border-red-500' : 'border-gray-300'} shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm`}
+                required
+                className={`mt-1 block w-full rounded-md border ${errors.last_name ? 'border-red-500' : 'border-gray-300'} shadow-sm focus:border-[#13804e] focus:ring-[#13804e] sm:text-sm h-10 px-3`}
               />
               {errors.last_name && (
                 <p className="mt-1 text-sm text-red-600">{errors.last_name}</p>
@@ -112,7 +114,7 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email
+              Email <span className="text-red-500">*</span>
             </label>
             <input
               type="email"
@@ -120,7 +122,8 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className={`mt-1 block w-full rounded-md border ${errors.email ? 'border-red-500' : 'border-gray-300'} shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm`}
+              required
+              className={`mt-1 block w-full rounded-md border ${errors.email ? 'border-red-500' : 'border-gray-300'} shadow-sm focus:border-[#13804e] focus:ring-[#13804e] sm:text-sm h-10 px-3`}
             />
             {errors.email && (
               <p className="mt-1 text-sm text-red-600">{errors.email}</p>
@@ -129,7 +132,7 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
 
           <div>
             <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-              Phone Number
+              Phone Number <span className="text-red-500">*</span>
             </label>
             <input
               type="tel"
@@ -137,7 +140,8 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              className={`mt-1 block w-full rounded-md border ${errors.phone ? 'border-red-500' : 'border-gray-300'} shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm`}
+              required
+              className={`mt-1 block w-full rounded-md border ${errors.phone ? 'border-red-500' : 'border-gray-300'} shadow-sm focus:border-[#13804e] focus:ring-[#13804e] sm:text-sm h-10 px-3`}
             />
             {errors.phone && (
               <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
@@ -146,7 +150,7 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
 
           <div>
             <label htmlFor="total_passenger" className="block text-sm font-medium text-gray-700">
-              Total Passengers
+              Total Passengers <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
@@ -155,7 +159,8 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
               min="1"
               value={formData.total_passenger}
               onChange={handleChange}
-              className={`mt-1 block w-full rounded-md border ${errors.total_passenger ? 'border-red-500' : 'border-gray-300'} shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm`}
+              required
+              className={`mt-1 block w-full rounded-md border ${errors.total_passenger ? 'border-red-500' : 'border-gray-300'} shadow-sm focus:border-[#13804e] focus:ring-[#13804e] sm:text-sm h-10 px-3`}
             />
             {errors.total_passenger && (
               <p className="mt-1 text-sm text-red-600">{errors.total_passenger}</p>
@@ -172,7 +177,7 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
               name="flight_number"
               value={formData.flight_number}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-[#13804e] focus:ring-[#13804e] sm:text-sm h-10 px-3"
             />
           </div>
 
@@ -186,22 +191,22 @@ const GuestDetailsModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
               rows="3"
               value={formData.comments}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-[#13804e] focus:ring-[#13804e] sm:text-sm px-3 py-2"
             />
           </div>
 
-          <div className="flex justify-end space-x-3 mt-6">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#13804e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50 transition-colors"
             >
               {isLoading ? 'Processing...' : 'Confirm Booking'}
             </button>

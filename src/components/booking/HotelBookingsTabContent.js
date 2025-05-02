@@ -13,6 +13,8 @@ const HotelBookingsTabContent = () => {
   const [hotelVoucherDetails, setHotelVoucherDetails] = useState(null);
   const [isLoadingHotelVoucher, setIsLoadingHotelVoucher] = useState(false);
   const [loadingVoucherForId, setLoadingVoucherForId] = useState(null); // Track which voucher is loading
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellingBookingId, setCancellingBookingId] = useState(null);
 
   useEffect(() => {
     const fetchHotelData = async () => {
@@ -117,6 +119,53 @@ const HotelBookingsTabContent = () => {
     } finally {
       setIsLoadingHotelVoucher(false);
       setLoadingVoucherForId(null); // Clear loading state
+    }
+  };
+
+  // Cancel Hotel Booking Handler
+  const handleCancelHotelBooking = async (item) => {
+    const bookingCode = item.bookingRefId;
+    const traceId = item.traceId; // Get traceId from the item
+
+    if (!bookingCode) {
+      toast.error('Booking reference ID not found.');
+      return;
+    }
+    if (!traceId) {
+      // Although unlikely based on the example, handle missing traceId defensively
+      toast.error('Trace ID not found for this booking. Cannot cancel.');
+      return;
+    }
+
+    // Simple confirmation dialog
+    if (!window.confirm(`Are you sure you want to attempt cancellation for booking ${bookingCode}? This action might have consequences based on provider policies.`)) {
+      return;
+    }
+
+    if (isCancelling) return; // Prevent multiple cancellations
+
+    console.log('Attempting to cancel hotel booking:', bookingCode);
+    setIsCancelling(true);
+    setCancellingBookingId(bookingCode);
+
+    try {
+      // Call the service function (we'll create this next)
+      const response = await bookingService.cancelHotelBooking(bookingCode, traceId);
+
+      if (response.success) {
+        toast.success(`Cancellation request for booking ${bookingCode} processed. Status may take time to update.`);
+        // TODO: Optionally refresh the list or update the item's status locally
+        // For now, we just show a toast. Refreshing might be better UX.
+        // fetchHotelData(); // Example: Re-fetch data
+      } else {
+        throw new Error(response.message || 'Cancellation request failed.');
+      }
+    } catch (error) {
+      console.error('Error cancelling hotel booking:', error);
+      toast.error(`Cancellation failed for ${bookingCode}: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsCancelling(false);
+      setCancellingBookingId(null);
     }
   };
 
@@ -266,6 +315,24 @@ const HotelBookingsTabContent = () => {
                           <ArrowPathIcon className="h-5 w-5 animate-spin" />
                         ) : (
                           <EyeIcon className="h-5 w-5" />
+                        )}
+                      </button>
+                      {/* Cancel Button */}
+                      <button
+                        onClick={() => handleCancelHotelBooking(item)}
+                        className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-100 transition-colors ease duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={`Cancel Booking ${item.bookingRefId}`}
+                        disabled={isCancelling || item.status === 'Cancelled'} // Disable if already cancelling or cancelled
+                      >
+                        <span className="sr-only">Cancel Booking</span>
+                        {/* Show spinner only for the specific item being cancelled */}
+                        {isCancelling && cancellingBookingId === item.bookingRefId ? (
+                          <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                        ) : (
+                          // Simple X icon for cancel
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
                         )}
                       </button>
                       {/* Add other hotel-specific actions here if needed */}

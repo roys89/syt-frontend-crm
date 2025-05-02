@@ -6,166 +6,12 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import AnalogClock from '../../components/common/AnalogClock';
 import LocationMapPicker from '../../components/common/LocationMapPicker';
+import BookingDetailsModal from '../../components/transfers/BookingDetailsModal';
 import GuestDetailsModal from '../../components/transfers/GuestDetailsModal';
+import TransferBookingVoucherModal from '../../components/transfers/TransferBookingVoucherModal';
 import TransferQuoteDetails from '../../components/transfers/TransferQuoteDetails';
 import TransferSearchResult from '../../components/transfers/TransferSearchResult';
 import bookingService, { TRANSFER_PROVIDERS } from '../../services/bookingService';
-
-// Custom wrapper to display BookingDetailsModal inline
-const InlineBookingDetailsWrapper = ({ bookingDetails, isLoading }) => {
-  if (!bookingDetails) return null;
-
-  // Modify the BookingDetailsModal to render inline
-  return (
-    <div className="mt-8">
-      <div className="bg-white rounded-lg text-left overflow-hidden shadow-lg">
-        <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-          <div className="sm:flex sm:items-start">
-            <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Booking Details</h3>
-              </div>
-
-              {isLoading ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Skip the Booking Status Card since it's already shown above */}
-
-                  {/* Use the details from BookingDetailsModal but skip the status section */}
-                  {bookingDetails.data && bookingDetails.data.data && (
-                    <>
-                      {/* Guest Information */}
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                          <h4 className="text-lg font-semibold text-gray-900">Guest Information</h4>
-                        </div>
-                        <div className="p-6 grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-gray-500">Name</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.guest_name}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Phone</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.guest_phone}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Passengers</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.passengers}</p>
-                          </div>
-                          {bookingDetails.data.data.notes && (
-                            <div className="col-span-2">
-                              <p className="text-sm text-gray-500">Notes</p>
-                              <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.notes}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Journey Details */}
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                          <h4 className="text-lg font-semibold text-gray-900">Journey Details</h4>
-                        </div>
-                        <div className="p-6 grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-gray-500">From</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.from}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">To</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.to}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Date</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.booking_date}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Time</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.booking_time}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Journey Type</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.journey_type}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Created Date</p>
-                            <p className="mt-1 font-medium text-gray-900">
-                              {new Date(bookingDetails.data.data.created_date).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Vehicle Information */}
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                          <h4 className="text-lg font-semibold text-gray-900">Vehicle Information</h4>
-                        </div>
-                        <div className="p-6 grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-gray-500">Class</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.vehicle.class}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Capacity</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.vehicle.capacity} passengers</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Payment Information */}
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                          <h4 className="text-lg font-semibold text-gray-900">Payment Information</h4>
-                        </div>
-                        <div className="p-6 grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-gray-500">Amount</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.currency_fare}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Payment Method</p>
-                            <p className="mt-1 font-medium text-gray-900">{bookingDetails.data.data.payment_method}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Status</p>
-                            <span className={`mt-1 inline-flex px-3 py-1 rounded-full text-sm font-medium ${bookingDetails.data.data.payment_status === 1
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                              {bookingDetails.data.data.payment_status === 1 ? 'Paid' : 'Pending'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Booking Actions */}
-                      <div className="flex justify-end space-x-4">
-                        {bookingDetails.data.data.is_amend_allow && (
-                          <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg">
-                            Amend Booking
-                          </button>
-                        )}
-                        {bookingDetails.data.data.is_cancel_allow && (
-                          <button className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg">
-                            Cancel Booking
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // Update the theme configuration
 const theme = {
@@ -423,53 +269,186 @@ const TransferBookingPage = () => {
   const [bookingDetails, setBookingDetails] = useState(null);
   const [isLoadingBookingDetails, setIsLoadingBookingDetails] = useState(false);
   const [detailedBookingInfo, setDetailedBookingInfo] = useState(null);
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [savedCrmBookingId, setSavedCrmBookingId] = useState(null);
+  const [showTransferVoucherModal, setShowTransferVoucherModal] = useState(false);
+  const [transferVoucherDetails, setTransferVoucherDetails] = useState(null);
+  const [isLoadingVoucher, setIsLoadingVoucher] = useState(false);
 
-  const handleBookTransfer = async (guestDetails) => {
+  // --- NEW Payment Update State ---
+  const [paymentForm, setPaymentForm] = useState({
+    paymentMethod: '',
+    transactionId: '',
+    paymentStatus: 'Paid', // Default to Paid, can be changed
+    paymentType: 'full', // 'full' or 'partial'
+    amountPaid: ''
+  });
+  const [transferTotalAmount, setTransferTotalAmount] = useState(null);
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+  const [paymentUpdateError, setPaymentUpdateError] = useState(null); // Optional: for specific errors
+  const [paymentUpdatedSuccessfully, setPaymentUpdatedSuccessfully] = useState(false);
+  // --- END NEW Payment Update State ---
+
+  const handleBookTransfer = async (guestDetailsFromModal) => {
+    // Validate inputs (selectedTransfer must exist)
+    if (!selectedTransfer || !selectedTransfer.quote_id || !selectedTransfer.quoteDetails) {
+        toast.error('Selected transfer details are missing. Please go back and select again.');
+        return;
+    }
+    if (!searchResults || !searchResults.quotation_id) {
+        toast.error('Quotation ID is missing. Please perform the search again.');
+        return;
+    }
+
     try {
       setBookingLoading(true);
 
-      // Prepare the booking payload
-      const bookingPayload = {
+      // --- Step 1: Book with the Provider --- 
+      const providerBookingPayload = {
         booking_date: formData.pickupDate,
         booking_time: formData.pickupTime,
         guest_details: {
-          first_name: guestDetails.first_name,
-          last_name: guestDetails.last_name,
-          email: guestDetails.email,
-          phone: guestDetails.phone
+          first_name: guestDetailsFromModal.first_name,
+          last_name: guestDetailsFromModal.last_name,
+          email: guestDetailsFromModal.email,
+          phone: guestDetailsFromModal.phone
         },
         quotation_id: searchResults.quotation_id,
         quotation_child_id: selectedTransfer.quote_id,
-        comments: guestDetails.comments,
-        total_passenger: guestDetails.total_passenger,
-        flight_number: guestDetails.flight_number || undefined
+        comments: guestDetailsFromModal.comments,
+        total_passenger: guestDetailsFromModal.total_passenger,
+        flight_number: guestDetailsFromModal.flight_number || undefined
       };
 
-      // Call the booking API
-      const response = await bookingService.bookTransfer({
+      console.log("📡 Calling bookTransfer with payload:", providerBookingPayload);
+      const providerResponse = await bookingService.bookTransfer({ // Capture the response
         provider: selectedProvider,
-        ...bookingPayload
+        ...providerBookingPayload
       });
+      console.log("📡 Provider bookTransfer response:", providerResponse);
 
-      if (response) {
-        toast.success('Transfer booked successfully!');
-        setShowGuestDetailsModal(false);
-        setBookingDetails({
-          success: true,
-          data: {
-            status: response.data.status,
-            message: response.data.message,
-            booking_id: response.data.data.booking_id
-          }
-        });
-        setStep(4); // Move to booking confirmation step
-      } else {
-        throw new Error('Failed to book transfer');
+      // Check for successful booking ID from provider
+      if (!providerResponse || !providerResponse.data?.data?.booking_id) {
+         let errorMessage = 'Failed to book transfer with provider.';
+        if (providerResponse && providerResponse.data && providerResponse.data.message) {
+            errorMessage = providerResponse.data.message;
+        } else if (providerResponse && providerResponse.message) {
+             errorMessage = providerResponse.message;
+        }
+        throw new Error(errorMessage);
       }
+
+      // --- Step 2: Save to CRM --- 
+      const bookingRefId = providerResponse.data.data.booking_id;
+      
+      // --- Debugging: Log the quote details --- 
+      console.log("Selected Transfer Quote Details for Fare Extraction:", JSON.stringify(selectedTransfer?.quoteDetails, null, 2));
+      // ----------------------------------------
+      
+      // --- Corrected Path based on Logs --- 
+      const quoteData = selectedTransfer.quoteDetails?.data?.quote;
+      const fareString = quoteData?.fare; // Fare is a string: "1450.00"
+      const currencyCode = quoteData?.currency; // Currency: "INR"
+      
+      // --- Parse and Validate Fare --- 
+      let parsedFare = 0;
+      let fareIsValid = false;
+      if (typeof fareString === 'string') {
+          parsedFare = parseFloat(fareString);
+          if (!isNaN(parsedFare) && parsedFare > 0) {
+              fareIsValid = true;
+          } 
+      }
+
+      if (!fareIsValid) {
+          console.error(`Error: Invalid or zero fare retrieved. String: '${fareString}', Parsed: ${parsedFare}. Quote Data:`, quoteData, "Full Quote Details:", selectedTransfer?.quoteDetails);
+          toast.error('Could not retrieve valid fare details from quote. Please check booking details.'); 
+          // Decide if we should stop the process
+          // throw new Error('Invalid fare details retrieved from quote.'); 
+      }
+      // --- End Validation ---
+
+      const crmBookingData = {
+        bookingRefId: bookingRefId,
+        provider: selectedProvider,
+        providerBookingResponse: providerResponse, 
+        status: 'Confirmed', 
+        transferDetails: {
+            origin: formData.origin,
+            destination: formData.destination,
+            pickupDate: formData.pickupDate,
+            pickupTime: formData.pickupTime,
+            journeyType: providerResponse.data?.data?.journey_type || 'one_way',
+            vehicle: {
+                class: quoteData?.vehicle?.ve_class || selectedTransfer.vehicle.class, 
+                capacity: parseInt(quoteData?.vehicle?.ve_max_capacity || selectedTransfer.vehicle.capacity, 10) || 0, // Ensure capacity is number
+            }
+        },
+        guestDetails: {
+            firstName: guestDetailsFromModal.first_name,
+            lastName: guestDetailsFromModal.last_name,
+            email: guestDetailsFromModal.email,
+            phone: guestDetailsFromModal.phone,
+            totalPassengers: parseInt(guestDetailsFromModal.total_passenger, 10) || 0, 
+            flightNumber: guestDetailsFromModal.flight_number || null,
+            notes: guestDetailsFromModal.comments || null
+        },
+        paymentDetails: {
+            currency: currencyCode || 'INR', // Use extracted currency
+            fare: fareIsValid ? parsedFare : 0, // Use the parsed and validated number
+            paymentMethod: 'Pending', 
+            paymentStatus: 'Pending',
+            transactionId: 'N/A',
+            amountPaid: 0, 
+            remarks: ''
+        },
+        notes: '' 
+      };
+
+      // Store the *validated* total amount (fare) for the payment form state
+      // Ensure transferTotalAmount state is set with the *number*, not the string
+      setTransferTotalAmount(crmBookingData.paymentDetails.fare);
+
+      console.log("💾 Preparing to save to CRM:", crmBookingData); // Check this log for correct fare
+      const crmResponse = await bookingService.saveTransferBookingToCRM(crmBookingData);
+      console.log("💾 CRM save response:", crmResponse);
+
+      if (!crmResponse || !crmResponse.success || !crmResponse.data?._id) {
+        // Booking succeeded with provider, but failed to save to CRM. Log and notify.
+        console.error("Booking successful with provider but failed to save to CRM:", crmResponse?.message || 'Unknown CRM save error');
+        toast.warn('Transfer booked, but failed to save details to CRM. Please note down Booking ID: ' + bookingRefId);
+        setSavedCrmBookingId(null); // Indicate CRM save failed
+      } else {
+        // CRM save successful
+        setSavedCrmBookingId(crmResponse.data._id); 
+        setPaymentUpdatedSuccessfully(false); // Reset payment status on new booking
+        setPaymentForm({ // Reset form for new booking
+           paymentMethod: '',
+           transactionId: '',
+           paymentStatus: 'Paid',
+           paymentType: 'full',
+           amountPaid: ''
+        });
+        toast.success('Transfer booked and saved to CRM successfully!');
+      }
+
+      // --- Step 3: Update UI --- 
+      setShowGuestDetailsModal(false);
+      setBookingDetails({ // Keep this for immediate status display from provider
+        success: providerResponse.data.status === 'success', // Use provider status for immediate feedback
+        data: {
+          status: providerResponse.data.status,
+          message: providerResponse.data.message,
+          booking_id: bookingRefId
+        }
+      });
+      setStep(4); // Move to booking confirmation step
+
     } catch (error) {
-      console.error('Error booking transfer:', error);
-      toast.error('Failed to book transfer. Please try again.');
+      console.error('Error during transfer booking process:', error);
+      // Display the specific error message thrown earlier or a generic one
+      toast.error(error.message || 'Failed to book transfer. Please try again.');
+      setSavedCrmBookingId(null); // Ensure ID is null on error
     } finally {
       setBookingLoading(false);
     }
@@ -477,22 +456,30 @@ const TransferBookingPage = () => {
 
   // Update the handleGetBookingDetails function
   const handleGetBookingDetails = async () => {
+    if (!bookingDetails?.data?.booking_id) {
+        toast.error("Booking ID not found. Cannot fetch details.");
+        return;
+    }
     try {
       setIsLoadingBookingDetails(true);
-      console.log('Current bookingDetails:', bookingDetails);
+      console.log('Fetching details for booking ID:', bookingDetails.data.booking_id);
       const response = await bookingService.getTransferBookingDetails(bookingDetails.data.booking_id);
       console.log('Booking Details Response:', response);
       if (response.success && response.data) {
         console.log('Setting detailed booking details:', response);
         setDetailedBookingInfo(response);
-        setShowDetails(true);
+        setShowDetailsModal(true);
       } else {
         console.error('Invalid response:', response);
-        toast.error('Failed to get booking details');
+        toast.error(response.message || 'Failed to get booking details');
+        setDetailedBookingInfo(null);
+        setShowDetailsModal(false);
       }
     } catch (error) {
       console.error('Error getting booking details:', error);
-      toast.error('Failed to get booking details');
+      toast.error(error.message || 'Failed to get booking details');
+      setDetailedBookingInfo(null);
+      setShowDetailsModal(false);
     } finally {
       setIsLoadingBookingDetails(false);
     }
@@ -534,6 +521,109 @@ const TransferBookingPage = () => {
   };
 
   const [showPickupClock, setShowPickupClock] = useState(false);
+
+  // --- NEW: Function to get CRM data for voucher --- 
+  const handleGetTransferVoucher = async () => {
+    if (!savedCrmBookingId) {
+        toast.error('CRM Booking ID not found. Cannot generate voucher.');
+        return;
+    }
+    setIsLoadingVoucher(true);
+    try {
+        console.log(`Fetching CRM transfer booking details for ID: ${savedCrmBookingId}`);
+        // Use the getCrmTransferBookingById service function we added
+        const response = await bookingService.getCrmTransferBookingById(savedCrmBookingId);
+        console.log('CRM Booking Details for Voucher:', response);
+
+        if (response.success && response.data) {
+            setTransferVoucherDetails(response.data); // Set the CRM data
+            setShowTransferVoucherModal(true); // Open the modal
+        } else {
+            toast.error(response.message || 'Failed to fetch booking details from CRM for voucher.');
+            setTransferVoucherDetails(null);
+        }
+    } catch (error) {
+        console.error('Error fetching CRM booking for voucher:', error);
+        toast.error(error.message || 'An error occurred while fetching voucher details.');
+        setTransferVoucherDetails(null);
+    } finally {
+        setIsLoadingVoucher(false);
+    }
+  };
+  // --- END NEW FUNCTION ---
+
+  // --- NEW: Handle Payment Form Change ---
+  const handlePaymentFormChange = (e) => {
+      const { name, value } = e.target;
+      setPaymentForm(prev => ({
+          ...prev,
+          [name]: value
+      }));
+  };
+  // --- END NEW FUNCTION ---
+
+  // --- NEW: Handle Payment Update Submit ---
+   const handleUpdateTransferPayment = async (e) => {
+      e.preventDefault();
+      setPaymentUpdateError(null);
+
+      // Basic Validation
+      if (!paymentForm.paymentMethod) {
+          toast.error('Payment method is required');
+          return;
+      }
+      if (!paymentForm.transactionId) {
+          toast.error('Transaction ID is required');
+          return;
+      }
+      if (paymentForm.paymentType === 'partial' && (!paymentForm.amountPaid || parseFloat(paymentForm.amountPaid) <= 0)) {
+          toast.error('Please enter a valid amount for partial payment');
+          return;
+      }
+      if (!savedCrmBookingId) {
+          toast.error('Cannot update payment: CRM Booking ID is missing.');
+          return;
+      }
+
+      setIsUpdatingPayment(true);
+      try {
+          const totalAmount = transferTotalAmount || 0;
+          const amountPaid = paymentForm.paymentType === 'full' 
+              ? totalAmount 
+              : parseFloat(paymentForm.amountPaid);
+          
+          // Construct payload matching the backend controller/schema ($set notation needed)
+          const updatePayload = {
+              paymentDetails: { // Send the nested object
+                  paymentMethod: paymentForm.paymentMethod,
+                  transactionId: paymentForm.transactionId,
+                  paymentStatus: paymentForm.paymentStatus,
+                  amountPaid: amountPaid
+                  // Optionally add remarks if needed
+              }
+          };
+
+          console.log(`Updating payment for CRM ID ${savedCrmBookingId} with payload:`, updatePayload);
+
+          const response = await bookingService.updateTransferBookingToCRM(savedCrmBookingId, updatePayload);
+
+          if (response.success) {
+              toast.success('Payment details updated successfully!');
+              setPaymentUpdatedSuccessfully(true); // Hide form on success
+              // Optional: Refetch details or update local state if needed
+          } else {
+              throw new Error(response.message || 'Failed to update payment details');
+          }
+
+      } catch (error) {
+          console.error('Error updating transfer payment:', error);
+          setPaymentUpdateError(error.message || 'Failed to update payment.');
+          toast.error(error.message || 'Failed to update payment details. Please try again.');
+      } finally {
+          setIsUpdatingPayment(false);
+      }
+  };
+  // --- END NEW FUNCTION ---
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -797,71 +887,194 @@ const TransferBookingPage = () => {
       {/* Step 4: Booking Confirmation */}
       {step === 4 && bookingDetails && (
         <div className="space-y-8">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mb-4">
             <h2 className="text-3xl font-bold text-gray-900">Booking Confirmation</h2>
             <button
-              onClick={() => setStep(3)}
+              onClick={() => setStep(1)} // Go back to search for new booking
               className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors duration-300"
             >
-              Back to Details
+              New Search
             </button>
           </div>
 
           <div className="bg-white rounded-xl shadow-lg p-8 transform transition-all duration-300 hover:shadow-xl">
             <div className="grid grid-cols-1 gap-8">
-              {/* Always show Booking Information */}
+               {/* Booking Information display (Provider Status) */}
               <div className="space-y-6">
                 <h3 className="text-xl font-semibold text-gray-900">Booking Information</h3>
                 <div className="space-y-4 p-6 bg-indigo-50 rounded-lg border border-indigo-100">
                   <p className="flex items-center">
                     <span className="font-medium text-indigo-700 mr-2">Booking ID:</span>
-                    <span className="text-indigo-900">{bookingDetails.data.booking_id}</span>
+                    <span className="text-indigo-900 font-mono text-sm bg-indigo-100 px-2 py-0.5 rounded">{bookingDetails.data.booking_id}</span>
                   </p>
                   <p className="flex items-center">
-                    <span className="font-medium text-indigo-700 mr-2">Status:</span>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      bookingDetails.data.status === true
+                    <span className="font-medium text-indigo-700 mr-2">Provider Status:</span>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${ 
+                      bookingDetails.data.status === 'success' || bookingDetails.data.status === 'confirmed' 
                         ? 'bg-green-100 text-green-800'
                         : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {bookingDetails.data.status === true ? 'Success' : 'Failed'}
+                    }`}> 
+                      {bookingDetails.data.status}
                     </span>
                   </p>
-                  <p className="text-indigo-900">{bookingDetails.data.message}</p>
+                  <p className="text-indigo-900 italic">{bookingDetails.data.message}</p>
                 </div>
               </div>
-
-              {/* Always show Actions */}
+              
+               {/* Actions: View Live Status / Download Voucher */}
               <div className="space-y-6">
                 <h3 className="text-xl font-semibold text-gray-900">Actions</h3>
-                <div className="space-y-4">
-                  <button
-                    onClick={handleGetBookingDetails}
-                    disabled={isLoadingBookingDetails}
-                    className="w-full px-6 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
-                  >
-                    {isLoadingBookingDetails ? (
-                      <span className="flex items-center justify-center">
-                        <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-5 w-5" />
-                        Loading...
-                      </span>
-                    ) : (
-                      'View Booking Details'
-                    )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                   {/* View Live Details Button */} 
+                   <button
+                      onClick={handleGetBookingDetails}
+                      disabled={isLoadingBookingDetails}
+                      className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center"
+                    >
+                      {isLoadingBookingDetails ? (
+                          <><ArrowPathIcon className="animate-spin mr-2 h-5 w-5" /> Loading Details...</>
+                      ) : ('View Live Booking Status')}
+                  </button>
+                   {/* Download Voucher Button */} 
+                   <button
+                      onClick={handleGetTransferVoucher}
+                      disabled={isLoadingVoucher || !savedCrmBookingId} 
+                      className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center"
+                    >
+                      {isLoadingVoucher ? (
+                          <><ArrowPathIcon className="animate-spin mr-2 h-5 w-5" /> Loading Voucher...</>
+                      ) : (
+                          <>
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                              Download Voucher
+                          </>
+                      )}
                   </button>
                 </div>
               </div>
 
-              {/* Show the InlineBookingDetails component when details are loaded */}
-              {showDetails && detailedBookingInfo && (
-                <InlineBookingDetailsWrapper
-                  bookingDetails={detailedBookingInfo}
-                  isLoading={isLoadingBookingDetails}
-                />
-              )}
+               {/* --- NEW: Payment Update Section --- */} 
+               {savedCrmBookingId && ( // Only show if CRM save was successful
+                  <div className="space-y-6 border-t pt-6 mt-6">
+                     <h3 className="text-xl font-semibold text-gray-900">Update Payment Details</h3>
+                      {paymentUpdatedSuccessfully ? (
+                         <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+                             <p className="font-medium text-green-700">Payment details updated successfully!</p>
+                         </div>
+                     ) : (
+                         <form onSubmit={handleUpdateTransferPayment} className="space-y-4">
+                              {/* Payment Method */} 
+                             <div>
+                                 <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                                 <select
+                                     id="paymentMethod"
+                                     name="paymentMethod"
+                                     value={paymentForm.paymentMethod}
+                                     onChange={handlePaymentFormChange}
+                                     required
+                                     className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] pl-3"
+                                 >
+                                     <option value="">Select Method...</option>
+                                     <option value="Credit Card">Credit Card</option>
+                                     <option value="Bank Transfer">Bank Transfer</option>
+                                     <option value="Cash">Cash</option>
+                                     <option value="UPI">UPI</option>
+                                     <option value="Other">Other</option>
+                                 </select>
+                             </div>
+
+                              {/* Transaction ID */} 
+                             <div>
+                                 <label htmlFor="transactionId" className="block text-sm font-medium text-gray-700 mb-1">Transaction ID / Reference</label>
+                                 <input
+                                     type="text"
+                                     id="transactionId"
+                                     name="transactionId"
+                                     value={paymentForm.transactionId}
+                                     onChange={handlePaymentFormChange}
+                                     required
+                                     className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] px-3"
+                                     placeholder="Enter Transaction ID or N/A"
+                                 />
+                             </div>
+                             
+                             {/* Payment Type & Amount */} 
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div>
+                                     <label className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
+                                     <select
+                                         name="paymentType"
+                                         value={paymentForm.paymentType}
+                                         onChange={handlePaymentFormChange}
+                                         className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] pl-3"
+                                     >
+                                         <option value="full">Full Payment</option>
+                                         <option value="partial">Partial Payment</option>
+                                     </select>
+                                  </div>
+                                  {paymentForm.paymentType === 'partial' && (
+                                     <div>
+                                          <label htmlFor="amountPaid" className="block text-sm font-medium text-gray-700 mb-1">Amount Paid</label>
+                                          <input
+                                             type="number"
+                                             id="amountPaid"
+                                             name="amountPaid"
+                                             value={paymentForm.amountPaid}
+                                             onChange={handlePaymentFormChange}
+                                             required
+                                             min="0"
+                                             step="0.01"
+                                             className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] px-3"
+                                             placeholder="Enter amount"
+                                         />
+                                      </div>
+                                  )}
+                              </div>
+
+                              {/* Payment Status */} 
+                             <div>
+                                 <label htmlFor="paymentStatus" className="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
+                                 <select
+                                     id="paymentStatus"
+                                     name="paymentStatus"
+                                     value={paymentForm.paymentStatus}
+                                     onChange={handlePaymentFormChange}
+                                     required
+                                     className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm h-[42px] pl-3"
+                                 >
+                                     <option value="Paid">Paid</option>
+                                     <option value="Pending">Pending</option>
+                                     <option value="Failed">Failed</option>
+                                     <option value="Refunded">Refunded</option>
+                                 </select>
+                             </div>
+
+                             {paymentUpdateError && (
+                                 <p className="text-sm text-red-600">Error: {paymentUpdateError}</p>
+                             )}
+
+                             <div className="flex justify-end">
+                                 <button
+                                     type="submit"
+                                     disabled={isUpdatingPayment}
+                                     className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center"
+                                 >
+                                     {isUpdatingPayment ? (
+                                         <><ArrowPathIcon className="animate-spin mr-2 h-5 w-5" /> Updating...</>
+                                     ) : (
+                                         'Update Payment'
+                                     )}
+                                 </button>
+                             </div>
+                         </form>
+                     )}
+                  </div>
+               )}
+               {/* --- END Payment Update Section --- */} 
+
             </div>
-          </div>
-        </div>
+         </div>
+       </div>
       )}
 
       {/* Guest Details Modal */}
@@ -879,6 +1092,31 @@ const TransferBookingPage = () => {
           onChange={(time) => handleTimeSelect(time, 'pickupTime')}
           onClose={() => setShowPickupClock(false)}
         />
+      )}
+
+      {/* Render the actual BookingDetailsModal conditionally */}
+      {detailedBookingInfo && (
+        <BookingDetailsModal
+          isOpen={showDetailsModal}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setDetailedBookingInfo(null);
+          }}
+          bookingDetails={detailedBookingInfo}
+          isLoading={isLoadingBookingDetails}
+        />
+      )}
+
+      {/* Render TransferBookingVoucherModal (PDF Download) */}
+      {transferVoucherDetails && (
+          <TransferBookingVoucherModal
+              isOpen={showTransferVoucherModal}
+              onClose={() => {
+                  setShowTransferVoucherModal(false);
+                  setTransferVoucherDetails(null); // Clear data when closing
+              }}
+              transferVoucherDetails={transferVoucherDetails} // Pass CRM data
+          />
       )}
 
     </div>
