@@ -9,6 +9,7 @@ import FlightBookingsTabContent from '../../components/booking/FlightBookingsTab
 import HotelBookingsTabContent from '../../components/booking/HotelBookingsTabContent';
 import InquiriesTabContent from '../../components/booking/InquiriesTabContent';
 import ItineraryBookingsTabContent from '../../components/booking/ItineraryBookingsTabContent';
+import TransferBookingsTabContent from '../../components/booking/TransferBookingsTabContent';
 
 const BookingsPage = () => {
   const { user } = useContext(AuthContext);
@@ -63,6 +64,33 @@ const BookingsPage = () => {
                 Add Itinerary Inquiry
               </Link>
             )}
+            {activeMainTab === 'flight' && (
+              <Link
+                to="/bookings/flight" // Link to the flight booking creation page
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#13804e] hover:bg-[#0d5c3a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#13804e]/50 transition-all ease duration-200"
+              >
+                <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                Add Flight Booking
+              </Link>
+            )}
+            {activeMainTab === 'hotel' && (
+              <Link
+                to="/bookings/hotel" // Link to the hotel booking creation page
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#13804e] hover:bg-[#0d5c3a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#13804e]/50 transition-all ease duration-200"
+              >
+                <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                Add Hotel Booking
+              </Link>
+            )}
+            {activeMainTab === 'transfer' && (
+                <Link
+                  to="/bookings/transfer"
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#13804e] hover:bg-[#0d5c3a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#13804e]/50 transition-all ease duration-200"
+                >
+                  <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                  Add Transfer Booking
+                </Link>
+             )}
           </div>
 
           {/* Main Tabs - Only show if more than one tab is available */}
@@ -92,7 +120,8 @@ const BookingsPage = () => {
             {activeMainTab === 'flight' && <FlightBookingsTabContent />}
             {activeMainTab === 'itinerary' && <ItineraryBookingsTabContent />}
             {activeMainTab === 'inquiries' && <InquiriesTabContent />}
-            {!'hotel,flight,itinerary,inquiries'.split(',').includes(activeMainTab) && (
+            {activeMainTab === 'transfer' && <TransferBookingsTabContent />}
+            {!'hotel,flight,itinerary,inquiries,transfer'.split(',').includes(activeMainTab) && (
               <div className="text-center py-12 bg-gray-50 rounded-lg">
                 <p className="text-gray-500">Content for {currentActiveTab.label} is not yet implemented.</p>
               </div>
