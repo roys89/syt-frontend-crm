@@ -1,9 +1,9 @@
 import {
-    BriefcaseIcon,
-    CalendarIcon,
-    ClockIcon,
-    MapPinIcon,
-    UserGroupIcon
+  BriefcaseIcon,
+  CalendarIcon,
+  ClockIcon,
+  MapPinIcon,
+  UserGroupIcon
 } from '@heroicons/react/24/outline';
 import React from 'react';
 import { formatTimeForDisplay } from '../../utils/dateUtils';
@@ -199,7 +199,14 @@ const TransferQuoteDetails = ({ quoteDetails }) => {
         <p>
           <strong>Note:</strong> Transfer prices include all taxes and fees.
           The driver will monitor your flight arrival time and wait for you in case of delays.
-          Cancellation is free up to 24 hours before the scheduled pickup.
+        </p>
+        <p className="mt-2">
+          <strong>Cancellation Policy:</strong>
+          <ul className="list-disc list-inside ml-4">
+            <li>Free cancellation up to 48 hours before ride.</li>
+            <li>50% charge for cancellations within 24 hours.</li>
+            <li>No refund for cancellations within 4 hours.</li>
+          </ul>
         </p>
       </div>
     </div>

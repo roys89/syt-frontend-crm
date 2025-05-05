@@ -1468,6 +1468,33 @@ const bookingService = {
   },
   // --- End Transfer Cancellation ---
 
+  // --- NEW: Transfer Cancellation Details ---
+  getTransferCancellationDetails: async (providerBookingRef) => {
+    if (!providerBookingRef) {
+        console.error('[bookingService] getTransferCancellationDetails: Missing providerBookingRef');
+        throw new Error('Provider Booking ID is required to get cancellation details.');
+    }
+    // Assuming the endpoint structure, adjust if different
+    const url = `${TRANSFER_API_URL}/get-cancellation-details`; 
+    console.log(`📡 API REQUEST: getTransferCancellationDetails (POST ${url})`);
+    try {
+        const response = await authAxios.post(url, { booking_id: providerBookingRef });
+        console.log('📡 API RESPONSE: getTransferCancellationDetails', response.data);
+        // Assuming backend returns { success: boolean, data: { policy: string, fee: number, currency: string } } or similar
+        if (!response.data?.success) {
+            throw new Error(response.data?.message || 'Failed to fetch cancellation details.');
+        }
+        return response.data; // Forward the backend response { success, data: {...} }
+    } catch (error) {
+        console.error('📡 API ERROR: getTransferCancellationDetails', error);
+        const errorMessage = error.response?.data?.message 
+                            || error.message 
+                            || 'Failed to process request for cancellation details.';
+        throw new Error(errorMessage); 
+    }
+  },
+  // --- End Transfer Cancellation Details ---
+
   // Export provider constants
   FLIGHT_PROVIDERS,
   HOTEL_PROVIDERS,

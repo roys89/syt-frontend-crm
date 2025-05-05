@@ -5,6 +5,8 @@ import bookingService from '../../services/bookingService';
 // --- Import Transfer specific components if needed later ---
 import TransferBookingVoucherModal from '../transfers/TransferBookingVoucherModal'; // Make sure this is imported
 // import ProviderDetailsModal from './ProviderDetailsModal'; // Assuming a generic one can be used or a specific one created
+// Add new import for CancellationModal
+import CancellationDetailsModal from './CancellationDetailsModal';
 
 // Component dedicated to displaying Transfer Bookings
 const TransferBookingsTabContent = () => {
@@ -23,6 +25,10 @@ const TransferBookingsTabContent = () => {
   const [cancellingId, setCancellingId] = useState(null); // Track which booking is being cancelled
   // const [isProviderDetailsModalOpen, setIsProviderDetailsModalOpen] = useState(false);
   // const [selectedProviderDetails, setSelectedProviderDetails] = useState(null);
+  // Add new state for cancellation modal
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
+  const [cancellationDetails, setCancellationDetails] = useState(null);
+  const [selectedBookingForCancellation, setSelectedBookingForCancellation] = useState(null);
 
   useEffect(() => {
     const fetchTransferData = async () => {
@@ -172,53 +178,80 @@ const TransferBookingsTabContent = () => {
   // --- UPDATED Cancel Handler --- 
   const handleCancelTransfer = async (item) => {
     const providerBookingRef = item.bookingRefId;
-    const crmBookingId = item._id; // For potential local update
 
     if (!providerBookingRef || providerBookingRef === 'N/A') {
       toast.error('Provider Booking Reference ID not found. Cannot cancel booking.');
       return;
     }
 
-    // Optional: Confirmation dialog
-    if (!window.confirm(`Are you sure you want to attempt cancellation for booking ${providerBookingRef}? This action might be irreversible.`)) {
-        return;
-    }
-
-    console.log(`[TabContent] Attempting to cancel transfer booking: Provider Ref ${providerBookingRef}, CRM ID ${crmBookingId}`);
     setIsCancelling(true);
-    setCancellingId(providerBookingRef); // Track by provider ref ID
+    setCancellingId(providerBookingRef);
 
     try {
-        const response = await bookingService.cancelCrmTransferBooking(providerBookingRef);
-        console.log('[TabContent] Cancellation API response:', response);
+      // First, fetch cancellation details
+      const cancellationDetailsResponse = await bookingService.getTransferCancellationDetails(providerBookingRef);
+      
+      if (!cancellationDetailsResponse.success) {
+        throw new Error(cancellationDetailsResponse.message || 'Failed to fetch cancellation details');
+      }
 
-        if (response.success) {
-            toast.success(response.message || `Booking ${providerBookingRef} cancelled successfully!`);
-            // Option 1: Refetch the entire list
-            // fetchTransferData(); // You might need to extract fetchTransferData or pass it
-            
-            // Option 2: Update local state (example: mark as cancelled)
-            setTransferBookings(prevBookings => 
-                prevBookings.map(booking => 
-                    booking.bookingRefId === providerBookingRef 
-                        ? { ...booking, status: 'Cancelled' } // Update status locally
-                        : booking
-                )
-            );
-        } else {
-             // Handle logical failure from backend/provider
-             throw new Error(response.message || `Failed to cancel booking ${providerBookingRef}.`);
-        }
+      const { canCancel, policyText, fee, currency, deadline } = cancellationDetailsResponse.data;
+
+      if (!canCancel) {
+        toast.error(policyText || 'This booking cannot be cancelled.');
+        return;
+      }
+
+      // Store the cancellation details and selected booking
+      setCancellationDetails(cancellationDetailsResponse.data);
+      setSelectedBookingForCancellation(item);
+      setShowCancellationModal(true);
 
     } catch (error) {
-        console.error(`[TabContent] Error cancelling transfer ${providerBookingRef}:`, error);
-        toast.error(`Cancellation failed: ${error.message || 'Please try again or contact support.'}`);
+      console.error(`[TabContent] Error fetching cancellation details for ${providerBookingRef}:`, error);
+      toast.error(`Failed to fetch cancellation details: ${error.message || 'Please try again or contact support.'}`);
     } finally {
-        setIsCancelling(false);
-        setCancellingId(null);
+      setIsCancelling(false);
+      setCancellingId(null);
     }
   };
-  // --- End Cancel Handler ---
+
+  // New handler for actual cancellation after confirmation
+  const handleConfirmCancellation = async () => {
+    if (!selectedBookingForCancellation) return;
+
+    const providerBookingRef = selectedBookingForCancellation.bookingRefId;
+    setIsCancelling(true);
+    setCancellingId(providerBookingRef);
+
+    try {
+      const response = await bookingService.cancelCrmTransferBooking(providerBookingRef);
+      console.log('[TabContent] Cancellation API response:', response);
+
+      if (response.success) {
+        toast.success(response.message || `Booking ${providerBookingRef} cancelled successfully!`);
+        // Update local state
+        setTransferBookings(prevBookings => 
+          prevBookings.map(booking => 
+            booking.bookingRefId === providerBookingRef 
+              ? { ...booking, status: 'Cancelled' }
+              : booking
+          )
+        );
+      } else {
+        throw new Error(response.message || `Failed to cancel booking ${providerBookingRef}.`);
+      }
+    } catch (error) {
+      console.error(`[TabContent] Error cancelling transfer ${providerBookingRef}:`, error);
+      toast.error(`Cancellation failed: ${error.message || 'Please try again or contact support.'}`);
+    } finally {
+      setIsCancelling(false);
+      setCancellingId(null);
+      setShowCancellationModal(false);
+      setCancellationDetails(null);
+      setSelectedBookingForCancellation(null);
+    }
+  };
 
   // --- Placeholder Handler for Amend ---
   const handleAmendTransfer = (item) => {
@@ -425,6 +458,20 @@ const TransferBookingsTabContent = () => {
          transferVoucherDetails={transferVoucherDetails} 
          providerBookingRef={voucherProviderRefId} // Pass the stored ref ID
        />
+
+      {/* New Cancellation Details Modal */}
+      <CancellationDetailsModal
+        isOpen={showCancellationModal}
+        onClose={() => {
+          setShowCancellationModal(false);
+          setCancellationDetails(null);
+          setSelectedBookingForCancellation(null);
+        }}
+        onConfirm={handleConfirmCancellation}
+        details={cancellationDetails}
+        bookingDetails={selectedBookingForCancellation}
+        isCancelling={isCancelling}
+      />
 
       {/* Render the Provider Details Modal */}
       {/* <ProviderDetailsModal

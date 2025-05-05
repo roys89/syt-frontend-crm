@@ -154,6 +154,20 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingDetails, isLoading }) => 
                       </div>
                     </div>
 
+                    {/* Cancellation Policy */}
+                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                        <h4 className="text-lg font-semibold text-gray-900">Cancellation Policy</h4>
+                      </div>
+                      <div className="p-6">
+                        <ul className="list-disc list-inside space-y-2 text-sm text-gray-700">
+                          <li>Free cancellation up to 48 hours before ride.</li>
+                          <li>50% charge for cancellations within 24 hours.</li>
+                          <li>No refund for cancellations within 4 hours.</li>
+                        </ul>
+                      </div>
+                    </div>
+
                     {/* Booking Actions */}
                     <div className="flex justify-end space-x-4">
                       {bookingDetails.data.data.is_amend_allow && (
