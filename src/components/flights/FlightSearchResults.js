@@ -323,7 +323,7 @@ const FlightCard = ({
               
               allInboundOptions.push({
                 index: i,
-                price: inboundOption.price || { amount: inboundOption.pF, currency: inboundOption.cr },
+                price: inboundOption.price || { amount: inboundOption.fF, currency: inboundOption.cr },
                 isRefundable: inboundOption.isRefundable !== undefined ? inboundOption.isRefundable : inboundOption.iR,
                 fareClass: inboundOption.fareClass || inboundOption.pFC,
                 segments: segmentsToUse,
@@ -425,7 +425,7 @@ const FlightCard = ({
 
   // Price extraction with fallbacks for every format
   const displayPrice = {
-    amount: flight.price?.amount || flight.pF || 0,
+    amount: flight.price?.amount || flight.fF || 0, // Removed fF
     currency: flight.price?.currency || flight.cr || 'INR'
   };
 
@@ -541,7 +541,7 @@ const FlightCard = ({
       onSelect({
         rI: flight.rI,
         sg: flight.sg,
-        pF: flight.pF,
+        fF: flight.fF,
         cr: flight.cr,
         iR: flight.iR,
         pFC: flight.pFC
@@ -631,7 +631,7 @@ const FlightCard = ({
           <div className="flex justify-between items-center mt-4">
             <div className="text-left">
               <div className="text-lg font-semibold text-[#13804e]">
-                {option.price?.currency || 'INR'} {(option.price?.amount || 0).toLocaleString()}
+                {option.price?.currency || 'INR'} {(option.price?.amount || option.fF || 0).toLocaleString()}
               </div>
               <div className="text-sm text-gray-500">
                 {option.isRefundable ? 'Refundable' : 'Non-refundable'}
@@ -733,7 +733,7 @@ const FlightCard = ({
                     <div className="flex justify-between items-center mt-3">
                       <div className="text-left">
                         <div className="text-lg font-semibold text-[#13804e]">
-                          {groupOption.price?.currency || 'INR'} {(groupOption.price?.amount || 0).toLocaleString()}
+                          {groupOption.price?.currency || 'INR'} {(groupOption.price?.amount || option.fF || 0).toLocaleString()}
                         </div>
                         <div className="text-sm text-gray-500">
                           {groupOption.isRefundable ? 'Refundable' : 'Non-refundable'}
@@ -911,7 +911,7 @@ const FlightCard = ({
                 <div className="mt-4 flex justify-between items-center">
                   <div className="text-left">
                     <div className="text-lg font-semibold text-[#13804e]">
-                      {groupFlight.price?.currency || displayPrice.currency} {(groupFlight.price?.amount || displayPrice.amount).toLocaleString()}
+                      {groupFlight.price?.currency || displayPrice.currency} {(groupFlight.price?.amount || groupFlight.fF || displayPrice.amount).toLocaleString()}
                     </div>
                     <div className="text-sm text-gray-500">
                       {groupFlight.isRefundable !== undefined ? (groupFlight.isRefundable ? 'Refundable' : 'Non-refundable') : isRefundable ? 'Refundable' : 'Non-refundable'}
@@ -1197,8 +1197,8 @@ const FlightSummaryPanel = ({
           if (option.price?.amount !== undefined) {
             total = option.price.amount;
             currency = option.price.currency || currency;
-          } else if (typeof option.pF === 'number') { // Legacy format
-            total = option.pF;
+          } else if (typeof option.fF === 'number') { // Legacy format
+            total = option.fF;
             currency = option.cr || currency;
           }
           console.log('International RT - Using Inbound Option Price as Total:', { total, currency });
@@ -1213,8 +1213,8 @@ const FlightSummaryPanel = ({
       } else if (selectedOutboundFlight.outbound?.price?.amount !== undefined) { // Handle nested outbound price
         total = selectedOutboundFlight.outbound.price.amount;
         currency = selectedOutboundFlight.outbound.price.currency || currency;
-      } else if (typeof selectedOutboundFlight.pF === 'number') { // Legacy format
-        total = selectedOutboundFlight.pF;
+      } else if (typeof selectedOutboundFlight.fF === 'number') { // Legacy format - Use fF
+        total = selectedOutboundFlight.fF;
         currency = selectedOutboundFlight.cr || currency;
       }
       console.log('International RT - Using Outbound Price (Inbound not selected):', { total, currency });
@@ -1226,9 +1226,9 @@ const FlightSummaryPanel = ({
       if (selectedOutboundFlight.price?.amount !== undefined) {
         total = selectedOutboundFlight.price.amount;
         currency = selectedOutboundFlight.price.currency || currency;
-      } else if (typeof selectedOutboundFlight.pF === 'number') { // Legacy format
-        total = selectedOutboundFlight.pF;
-        currency = selectedOutboundFlight.cr || currency;
+      } else if (typeof selectedOutboundFlight.fF === 'number') { // Legacy format fF
+        total = selectedOutboundFlight.fF;
+        currency = selectedOutboundFlight.cr || currency; // Reuse currency code if available
       }
       console.log('One Way - Using Outbound Price:', { total, currency });
       return { amount: total, currency };
@@ -1244,8 +1244,8 @@ const FlightSummaryPanel = ({
       } else if (selectedOutboundFlight.outbound?.price?.amount !== undefined) {
         outboundPrice = selectedOutboundFlight.outbound.price.amount;
         currency = selectedOutboundFlight.outbound.price.currency || currency;
-      } else if (typeof selectedOutboundFlight.pF === 'number') { // Legacy format
-        outboundPrice = selectedOutboundFlight.pF;
+      } else if (typeof selectedOutboundFlight.fF === 'number') { // Legacy format - Use fF
+        outboundPrice = selectedOutboundFlight.fF;
         currency = selectedOutboundFlight.cr || currency;
       }
       total += outboundPrice;
@@ -1258,8 +1258,8 @@ const FlightSummaryPanel = ({
           inboundPrice = selectedInboundFlight.price.amount;
         } else if (selectedInboundFlight.inbound?.price?.amount !== undefined) {
           inboundPrice = selectedInboundFlight.inbound.price.amount;
-        } else if (typeof selectedInboundFlight.pF === 'number') { // Legacy format
-          inboundPrice = selectedInboundFlight.pF;
+        } else if (typeof selectedInboundFlight.fF === 'number') { // Legacy format - Use fF
+          inboundPrice = selectedInboundFlight.fF;
         }
         total += inboundPrice;
         console.log('Domestic RT - Inbound price added:', inboundPrice);
@@ -1383,14 +1383,37 @@ const FlightSummaryPanel = ({
     
     // --- Price extraction (remains mostly the same, uses selectedOutboundFlight directly) ---
     if (flightStructureType === 'DOMESTIC_ROUND_TRIP') {
-      if (selectedOutboundFlight.pF) {
+      if (selectedOutboundFlight.fF) {
         price = { 
-          amount: selectedOutboundFlight.pF, 
+          amount: selectedOutboundFlight.fF, 
           currency: selectedOutboundFlight.cr || 'INR' 
         };
         baseFare = selectedOutboundFlight.bF || Math.round(price.amount * 0.85) || 0;
         tax = price.amount - baseFare;
       }
+    } else if (flightStructureType === 'ONE_WAY') {
+        // Specific logic for ONE_WAY to prioritize fF, bF, tAS
+        if (selectedOutboundFlight.price?.amount !== undefined) {
+          price = selectedOutboundFlight.price;
+          const paxBreakdown = selectedOutboundFlight.paxFareBreakUp?.[0];
+          baseFare = paxBreakdown?.baseFare ?? Math.round(price.amount * 0.85) ?? 0;
+          tax = paxBreakdown?.tax ?? Math.round(price.amount * 0.15) ?? 0;
+        } else if (typeof selectedOutboundFlight.fF === 'number') {
+          // Prioritize legacy fF, bF, tAS
+          price = { amount: selectedOutboundFlight.fF, currency: selectedOutboundFlight.cr || 'INR' };
+          baseFare = selectedOutboundFlight.bF !== undefined ? selectedOutboundFlight.bF : Math.round(price.amount * 0.85);
+          tax = selectedOutboundFlight.tAS !== undefined ? selectedOutboundFlight.tAS : Math.max(0, price.amount - baseFare);
+        } else if (typeof selectedOutboundFlight.fF === 'number') {
+          // Fallback to fF if bF is not present
+          price = { amount: selectedOutboundFlight.fF, currency: selectedOutboundFlight.cr || 'INR' };
+          baseFare = selectedOutboundFlight.bF !== undefined ? selectedOutboundFlight.bF : Math.round(price.amount * 0.85);
+          tax = Math.max(0, price.amount - baseFare); // Calculate tax if tAS missing
+        } else {
+          price = { amount: 0, currency: 'INR' }; // Default fallback
+          baseFare = 0;
+          tax = 0;
+        }
+        console.log('[ONE_WAY] Extracted Price Components:', { totalAmount: price.amount, baseFare, tax, source: { priceObj: selectedOutboundFlight.price, fF: selectedOutboundFlight.fF, bF: selectedOutboundFlight.bF, tAS: selectedOutboundFlight.tAS, paxBreakdown: selectedOutboundFlight.paxFareBreakUp } });
     } else { // Intl RT or One Way
       if (selectedOutboundFlight.price?.amount) {
         price = selectedOutboundFlight.price;
@@ -1398,9 +1421,9 @@ const FlightSummaryPanel = ({
         const paxBreakdown = selectedOutboundFlight.paxFareBreakUp?.[0];
         baseFare = paxBreakdown?.baseFare ?? Math.round(price.amount * 0.85) ?? 0;
         tax = paxBreakdown?.tax ?? Math.round(price.amount * 0.15) ?? 0;
-      } else if (typeof selectedOutboundFlight.pF === 'number') { // Legacy
+      } else if (typeof selectedOutboundFlight.fF === 'number') { // Legacy
         price = { 
-          amount: selectedOutboundFlight.pF, 
+          amount: selectedOutboundFlight.fF, 
           currency: selectedOutboundFlight.cr || 'INR' 
         };
         baseFare = selectedOutboundFlight.bF || Math.round(price.amount * 0.85) || 0;
@@ -1496,8 +1519,8 @@ const FlightSummaryPanel = ({
         stops = segments.length > 1 ? segments.length - 1 : 0;
 
         // Price from the source object directly
-        if (inboundDataSource.pF) {
-          price = { amount: inboundDataSource.pF, currency: inboundDataSource.cr || 'INR' };
+        if (inboundDataSource.fF) {
+          price = { amount: inboundDataSource.fF, currency: inboundDataSource.cr || 'INR' };
           baseFare = inboundDataSource.bF || Math.round(price.amount * 0.85) || 0;
           // Correct tax calculation for domestic using baseFare
           tax = price.amount - baseFare; 
@@ -1545,11 +1568,13 @@ const FlightSummaryPanel = ({
           price = inboundDataSource.price;
           // Use baseFare/tax directly if available in price object (common for Intl)
           baseFare = inboundDataSource.price.baseFare ?? inboundDataSource.bF ?? Math.round(price.amount * 0.85) ?? 0;
-          tax = inboundDataSource.price.tax ?? (price.amount - baseFare) ?? 0;
-        } else if (typeof inboundDataSource.pF === 'number') { // Legacy on option
-          price = { amount: inboundDataSource.pF, currency: inboundDataSource.cr || 'INR' };
+          tax = inboundDataSource.price.tax ?? inboundDataSource.tAS ?? (price.amount - baseFare) ?? 0; // Added tAS check
+        } else if (typeof inboundDataSource.fF === 'number') { // Legacy on option - Use fF
+          price = { amount: inboundDataSource.fF, currency: inboundDataSource.cr || 'INR' };
           baseFare = inboundDataSource.bF || Math.round(price.amount * 0.85) || 0;
-          tax = price.amount - baseFare;
+          tax = inboundDataSource.tAS || Math.max(0, price.amount - baseFare); // Use tAS if available
+        } else {
+          console.log('No segments found in international inbound option.');
         }
       } else {
          console.log('No segments found in international inbound option.');
@@ -1978,11 +2003,11 @@ const FlightSearchResults = ({
       // Use the same sorting logic as the current sortBy state
       switch (sortBy) {
         case 'priceAsc':
-          return (a.price?.amount || a.pF || 0) - (b.price?.amount || b.pF || 0);
+          return (a.price?.amount || a.fF || 0) - (b.price?.amount || b.fF || 0);
         case 'priceDesc':
-          return (b.price?.amount || b.pF || 0) - (a.price?.amount || a.pF || 0);
+          return (b.price?.amount || b.fF || 0) - (a.price?.amount || a.fF || 0);
         default:
-          return (a.price?.amount || a.pF || 0) - (b.price?.amount || b.pF || 0);
+          return (a.price?.amount || a.fF || 0) - (b.price?.amount || b.fF || 0);
       }
     });
     
@@ -2005,12 +2030,12 @@ const FlightSearchResults = ({
       switch (sortBy) {
         case 'priceAsc':
           sorted = sorted.sort((a, b) => 
-            (a.price?.amount || a.pF || 0) - (b.price?.amount || b.pF || 0)
+            (a.price?.amount || a.fF || 0) - (b.price?.amount || b.fF || 0)
           );
           break;
         case 'priceDesc':
           sorted = sorted.sort((a, b) => 
-            (b.price?.amount || b.pF || 0) - (a.price?.amount || a.pF || 0)
+            (b.price?.amount || b.fF || 0) - (a.price?.amount || a.fF || 0)
           );
           break;
         case 'durationAsc':

@@ -383,7 +383,7 @@ const FlightBookingPage = () => {
         console.log('Domestic outbound price data:', {
           directPrice: flight.price,
           nestedPrice: flight.outbound?.price,
-          legacyPrice: flight.pF
+          legacyPrice: flight.fF
         });
         
         // If this is a combined structure (outbound+inbound), handle differently
@@ -409,7 +409,7 @@ const FlightBookingPage = () => {
         console.log('Domestic inbound price data:', {
           directPrice: flight.price,
           nestedPrice: flight.inbound?.price,
-          legacyPrice: flight.pF
+          legacyPrice: flight.fF
         });
       }
       
@@ -422,7 +422,7 @@ const FlightBookingPage = () => {
             hasInbound: !!selectedOutboundFlight.inbound,
             directPrice: selectedOutboundFlight.price,
             outboundPrice: selectedOutboundFlight.outbound?.price,
-            pF: selectedOutboundFlight.pF
+            fF: selectedOutboundFlight.fF
           } : 'No outbound flight selected',
           inbound: selectedInboundFlight ? {
             id: selectedInboundFlight.resultIndex || selectedInboundFlight.rI,
@@ -430,7 +430,7 @@ const FlightBookingPage = () => {
             hasInbound: !!selectedInboundFlight.inbound,
             directPrice: selectedInboundFlight.price,
             inboundPrice: selectedInboundFlight.inbound?.price,
-            pF: selectedInboundFlight.pF
+            fF: selectedInboundFlight.fF
           } : 'No inbound flight selected yet'
         });
       }, 100);
@@ -666,9 +666,9 @@ const FlightBookingPage = () => {
           else if (flight.inbound?.price?.amount !== undefined) {
             price = flight.inbound.price.amount;
           }
-          // Legacy pF format
-          else if (typeof flight.pF === 'number') {
-            price = flight.pF;
+          // Legacy fF format
+          else if (typeof flight.fF === 'number') {
+            price = flight.fF;
           }
           
           return price >= filters.price.min && price <= filters.price.max;
@@ -2132,7 +2132,7 @@ const FlightBookingPage = () => {
                                 </div>
                                 
                                 <div className="text-lg font-semibold text-blue-600">
-                                  {inboundOption.price?.currency || 'INR'} {(inboundOption.price?.amount || inboundOption.pF || 0).toLocaleString()}
+                                  {inboundOption.price?.currency || 'INR'} {(inboundOption.price?.amount || inboundOption.fF || 0).toLocaleString()}
                                 </div>
                               </div>
                             </div>
@@ -2196,7 +2196,7 @@ const FlightBookingPage = () => {
                                           
                                           <div className="flex items-center space-x-3">
                                             <div className="text-lg font-semibold text-blue-600">
-                                              {groupFlight.price?.currency || 'INR'} {(groupFlight.price?.amount || groupFlight.pF || 0).toLocaleString()}
+                                              {groupFlight.price?.currency || 'INR'} {(groupFlight.price?.amount || groupFlight.fF || 0).toLocaleString()}
                                             </div>
                                             
                                             <button

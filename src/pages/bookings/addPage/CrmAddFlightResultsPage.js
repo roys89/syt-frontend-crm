@@ -39,7 +39,7 @@ const CrmFlightResultCard = ({ flight, onSelect, isLoading }) => {
     const flightNumber = firstSegment.al?.fN || '';
     const fullFlightCode = `${airlineCode} ${flightNumber}`.trim();
 
-    const price = flight.pF ? flight.pF.toLocaleString('en-IN', { style: 'currency', currency: flight.cr || 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A';
+    const price = flight.fF ? flight.fF.toLocaleString('en-IN', { style: 'currency', currency: flight.cr || 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A';
 
     const departureTime = firstSegment.or?.dT ? new Date(firstSegment.or.dT).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
     const departureAirport = `${firstSegment.or?.aC || 'N/A'}${firstSegment.or?.tr ? ` (T${firstSegment.or.tr})` : ''}`;

@@ -50,26 +50,26 @@ const PassengerInfoModal = ({ isOpen, onClose, itineraryDetails, onSuccess }) =>
     }));
   };
 
-  const getPaxRules = (paxType) => {
-    // Get the correct rules based on whether it's a lead passenger or not
-    const rules = paxType === 'adult' && passengers.find(p => p.type === paxType && p.isLeadPax)
+  const getPaxRules = (passenger) => {
+    // Get the correct rules based on whether THIS passenger is the lead adult
+    const rulesSource = passenger.type === 'adult' && passenger.isLeadPax
       ? itineraryDetails?.paxRules?.leadPax
-      : itineraryDetails?.paxRules?.[paxType];
+      : itineraryDetails?.paxRules?.[passenger.type]; // Use the specific passenger's type for rules
 
-    if (!rules) return {};
+    if (!rulesSource) return {};
 
     // Map the API rules to our format
-    return Object.keys(rules).reduce((acc, field) => {
+    return Object.keys(rulesSource).reduce((acc, field) => {
       acc[field] = {
-        required: rules[field].isMandatoryIfVisible,
-        visible: rules[field].isVisible
+        required: rulesSource[field].isMandatoryIfVisible,
+        visible: rulesSource[field].isVisible
       };
       return acc;
     }, {});
   };
 
   const renderPassengerForm = (passenger) => {
-    const rules = getPaxRules(passenger.type);
+    const rules = getPaxRules(passenger);
     const passengerData = formData[passenger.id] || {};
 
     // Group fields by category
@@ -227,7 +227,7 @@ const PassengerInfoModal = ({ isOpen, onClose, itineraryDetails, onSuccess }) =>
 
     // --- Validation Logic --- 
     passengers.forEach(passenger => {
-      const rules = getPaxRules(passenger.type);
+      const rules = getPaxRules(passenger);
       const passengerData = formData[passenger.id] || {};
 
       Object.entries(rules).forEach(([field, rule]) => {

@@ -85,7 +85,7 @@ export const transformTCFlightSearchResponse = (response, flightStructureType = 
             resultIndex: flight.resultIndex || flight.rI,
             segments,
             price: {
-              amount: parseFloat(flight.price?.amount || flight.pF || 0),
+              amount: parseFloat(flight.price?.amount || flight.fF || 0),
               currency: flight.price?.currency || flight.cr || 'INR',
               baseFare: parseFloat(flight.price?.baseFare || flight.bF || 0),
               tax: parseFloat(flight.price?.tax || flight.tAS || 0)
@@ -138,7 +138,7 @@ export const transformTCFlightSearchResponse = (response, flightStructureType = 
                   return {
                     resultIndex: inboundFlight.resultIndex || inboundFlight.rI,
                     price: {
-                      amount: parseFloat(inboundFlight.price?.amount || inboundFlight.pF || 0),
+                      amount: parseFloat(inboundFlight.price?.amount || inboundFlight.fF || 0),
                       currency: inboundFlight.price?.currency || inboundFlight.cr || 'INR',
                       baseFare: parseFloat(inboundFlight.price?.baseFare || inboundFlight.bF || 0),
                       tax: parseFloat(inboundFlight.price?.tax || inboundFlight.tAS || 0)
@@ -165,7 +165,7 @@ export const transformTCFlightSearchResponse = (response, flightStructureType = 
             outboundSegments,
             inboundOptions,
             price: {
-              amount: parseFloat(flight.price?.amount || flight.pF || 0),
+              amount: parseFloat(flight.price?.amount || flight.fF || 0),
               currency: flight.price?.currency || flight.cr || 'INR',
               baseFare: parseFloat(flight.price?.baseFare || flight.bF || 0),
               tax: parseFloat(flight.price?.tax || flight.tAS || 0)
@@ -216,7 +216,7 @@ export const transformTCFlightSearchResponse = (response, flightStructureType = 
             outboundSegments,
             inboundSegments,
             price: {
-              amount: parseFloat(flight.price?.amount || flight.pF || 0),
+              amount: parseFloat(flight.price?.amount || flight.fF || 0),
               currency: flight.price?.currency || flight.cr || 'INR',
               baseFare: parseFloat(flight.price?.baseFare || flight.bF || 0),
               tax: parseFloat(flight.price?.tax || flight.tAS || 0)

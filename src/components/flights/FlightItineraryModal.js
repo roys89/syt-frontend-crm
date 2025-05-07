@@ -31,6 +31,32 @@ const FlightItineraryModal = ({
   const [ancillaryCost, setAncillaryCost] = useState(0);
   // ------------------------------------
 
+  // --- New Handler for Footer Button Click ---
+  const handleFooterButtonClick = () => {
+    if (isLoading) {
+      return; // Do nothing if already loading
+    }
+
+    if (!isAllocated) {
+      // If passengers are not allocated, open the passenger info modal
+      setShowPassengerInfo(true);
+    } else if (!ancillariesConfirmed) {
+      // If passengers are allocated but ancillaries aren't confirmed, open the ancillary modal
+      // Ensure passenger data exists before opening ancillary modal
+      if (passengerFormData) { // Check if we have data from initial success
+          setDataForAncillaryModal(passengerFormData); // Use the data from passenger step
+          setShowAncillaryModal(true);
+      } else {
+          // This case might indicate a logic error, but fallback to passenger modal
+          toast.error("Passenger details missing. Please add them again.");
+          setShowPassengerInfo(true);
+      }
+    } else {
+      // If both are done, proceed with the final booking
+      handleBookNow(); // Call the original booking handler
+    }
+  };
+
   const handleBookNow = async () => {
     // Ensure passengers are allocated AND ancillaries are confirmed before booking
     if (!isAllocated) {
@@ -240,11 +266,16 @@ const FlightItineraryModal = ({
   const handleAllocateAndRecheck = async (passengerDataWithSsr) => {
       setIsLoading(true);
       try {
-          const traceIdToUse = priceDetails?.traceIdDetails?.traceId || itineraryDetails?.data?.results?.traceId;
-          const itineraryCodeToUse = priceDetails?.itineraryCode || itineraryDetails?.data?.results?.itineraryCode;
+          const traceIdToUse = priceDetails?.results?.traceIdDetails?.traceId || itineraryDetails?.data?.results?.traceId;
+          const itineraryCodeToUse = priceDetails?.results?.itineraryCode || itineraryDetails?.data?.results?.itineraryCode;
 
           if (!traceIdToUse || !itineraryCodeToUse) {
-              throw new Error("Missing Trace ID or Itinerary Code for allocation.");
+              console.error("Missing Trace ID or Itinerary Code for allocation. Bailing out.");
+              toast.error("Critical error: Missing booking identifiers.");
+              setIsAllocated(false); // Ensure stays false
+              setAncillariesConfirmed(false); // Reset as process is broken
+              setIsLoading(false);
+              return; // Exit early
           }
 
           // Format for bookingArray structure expected by backend
@@ -264,12 +295,18 @@ const FlightItineraryModal = ({
 
           console.log("Allocate response:", allocateResponse);
           if (!allocateResponse.success) {
-              throw new Error(allocateResponse.message || 'Failed to allocate passengers');
+              // If allocation fails, it's a critical error. We should not proceed to recheck or set isAllocated to true.
+              toast.error(allocateResponse.message || 'Failed to allocate passengers. Please try again.');
+              setIsAllocated(false); // Explicitly ensure it's false
+              setAncillariesConfirmed(false); // Reset this too, as the process is broken
+              setIsLoading(false);
+              return; // Exit the function
           }
 
-          // Call rate recheck API using potentially updated traceId from allocation
-          const recheckTraceId = allocateResponse.data?.traceId || traceIdToUse;
-          const recheckItineraryCode = allocateResponse.data?.itineraryCode || itineraryCodeToUse;
+          // If allocation was successful, then proceed to recheck rate.
+          // Use potentially updated traceId/itineraryCode from allocation response.
+          const recheckTraceId = allocateResponse.data?.results?.traceId || traceIdToUse;
+          const recheckItineraryCode = allocateResponse.data?.results?.itineraryCode || itineraryCodeToUse;
 
           console.log(`Rechecking rate with TraceID: ${recheckTraceId}, ItineraryCode: ${recheckItineraryCode}`);
 
@@ -280,28 +317,44 @@ const FlightItineraryModal = ({
           });
 
            console.log("Recheck response:", recheckResponse);
+           // Even if recheck fails, allocation might have succeeded. 
+           // The price shown will be the last known price (either initial or from a previous successful recheck).
           if (!recheckResponse.success) {
-             // Handle recheck failure? Maybe allow booking anyway but show warning?
-             toast.error(recheckResponse.message || 'Failed to recheck rate after allocation, proceeding with previous price.');
-             // Keep existing priceDetails if recheck fails?
+             toast.error(recheckResponse.message || 'Failed to recheck rate. Booking will use the last confirmed price.');
+             // We still consider allocation successful at this point, 
+             // but we don't update priceDetails with a failed recheck response.
+             // If priceDetails was already set from a previous step, it remains.
+             // If recheckResponse.data is null/undefined, priceDetails won't be updated.
           } else {
-             // Update price details state with the latest info
-             setPriceDetails(recheckResponse.data);
-             // Show price change alert if needed
-             if (recheckResponse.data.isPriceChanged || recheckResponse.data.isBaggageChanged) {
-                 const priceDiff = (recheckResponse.data.totalAmount || 0) - (recheckResponse.data.previousTotalAmount || 0);
-                 const message = `Price/Baggage updated. ${priceDiff >= 0 ? 'Increase' : 'Decrease'} of ₹${Math.abs(priceDiff).toLocaleString()}. Previous: ₹${recheckResponse.data.previousTotalAmount?.toLocaleString()}, New: ₹${recheckResponse.data.totalAmount?.toLocaleString()}.`;
-                 toast.warning(message, { duration: 6000 }); // Longer duration for important info
-    }
+             // Recheck was successful, update priceDetails with the new information.
+             console.log("RECHECK RESPONSE DATA STRUCTURE:", JSON.stringify(recheckResponse.data, null, 2));
+             console.log("PRICE CHANGE FIELDS:", {
+                 isPriceChanged: recheckResponse.data.results?.isPriceChanged,
+                 isBaggageChanged: recheckResponse.data.results?.isBaggageChanged,
+                 totalAmount: recheckResponse.data.results?.totalAmount,
+                 previousTotalAmount: recheckResponse.data.results?.previousTotalAmount
+             });
+             setPriceDetails(recheckResponse.data); // Update with new price details
+             
+             if (recheckResponse.data.results?.isPriceChanged || recheckResponse.data.results?.isBaggageChanged) {
+                 const priceDiff = (recheckResponse.data.results?.totalAmount || 0) - (recheckResponse.data.results?.previousTotalAmount || 0);
+                 const message = `Price/Baggage updated. ${priceDiff >= 0 ? 'Increase' : 'Decrease'} of ₹${Math.abs(priceDiff).toLocaleString()}. Previous: ₹${recheckResponse.data.results?.previousTotalAmount?.toLocaleString()}, New: ₹${recheckResponse.data.results?.totalAmount?.toLocaleString()}.`;
+                 toast(message, { duration: 6000, icon: '🔔' });
+             }
           }
 
-          setIsAllocated(true); // Mark allocation as successful
+          // Since allocation was successful (we passed the check above), set these states.
+          setIsAllocated(true); 
+          // Ancillaries were confirmed before calling this function, or there were none.
+          // So, if allocation is true, ancillaries are also considered confirmed for the booking step.
+          setAncillariesConfirmed(true); 
 
       } catch (error) {
-          console.error('Error in passenger allocation/recheck process:', error);
-          toast.error(error.message || 'Failed to process passenger/ancillary information');
-          setIsAllocated(false); // Allocation failed
-          setAncillariesConfirmed(false); // Reset ancillary confirmation
+          // This catch block handles unexpected errors in the try block itself (e.g., network errors not caught by .success checks)
+          console.error('Critical error in passenger allocation/recheck process:', error);
+          toast.error(error.message || 'A critical error occurred. Please try again.');
+          setIsAllocated(false); 
+          setAncillariesConfirmed(false);
       } finally {
           setIsLoading(false);
       }
@@ -562,9 +615,9 @@ const FlightItineraryModal = ({
       {/* Content */}
       <div className="p-6">
         {/* Price change alert */}
-        {priceDetails && (priceDetails.isPriceChanged || priceDetails.isBaggageChanged) && (
+        {priceDetails && (priceDetails.results?.isPriceChanged || priceDetails.results?.isBaggageChanged) && (
           <div className={`mb-4 p-4 rounded-md ${ 
-            priceDetails.totalAmount > priceDetails.previousTotalAmount 
+            priceDetails.results?.totalAmount > priceDetails.results?.previousTotalAmount 
               ? 'bg-[#093923]/10 text-[#093923]' 
               : 'bg-[#22c35e]/10 text-[#22c35e]'
           }`}>
@@ -572,13 +625,13 @@ const FlightItineraryModal = ({
               <div>
                 <p className="font-medium">Price Update</p>
                 <p className="text-sm mt-1">
-                  Previous Total: ₹{priceDetails.previousTotalAmount.toLocaleString()}
+                  Previous Total: ₹{priceDetails.results?.previousTotalAmount.toLocaleString()}
                 </p>
                 <p className="text-sm">
-                  New Total: ₹{priceDetails.totalAmount.toLocaleString()}
+                  New Total: ₹{priceDetails.results?.totalAmount.toLocaleString()}
                 </p>
               </div>
-              {priceDetails.isBaggageChanged && (
+              {priceDetails.results?.isBaggageChanged && (
                 <div className="text-sm">
                   <p className="font-medium text-[#093923]">Baggage Policy Changed</p>
                   <p>Please review the updated baggage details</p>
@@ -818,7 +871,60 @@ const FlightItineraryModal = ({
 
       {/* Footer */}
       <div className="border-t border-gray-200 px-6 py-4">
-        <div className="flex justify-end space-x-4">
+        <div className="flex justify-between items-center space-x-4">
+          {/* Price/Baggage Change Indicator */}
+          <div className="flex-1 text-sm">
+            {priceDetails && priceDetails.results && (
+              (() => {
+                // Make this more robust by directly checking the values
+                const isPriceChanged = 
+                  priceDetails.results.isPriceChanged === true || 
+                  (priceDetails.results.totalAmount !== undefined && 
+                   priceDetails.results.previousTotalAmount !== undefined && 
+                   priceDetails.results.totalAmount !== priceDetails.results.previousTotalAmount);
+                
+                const isBaggageChanged = priceDetails.results.isBaggageChanged === true;
+                
+                // Always show price indicator if prices are available
+                return isPriceChanged ? (
+                  <div className={`flex items-center p-2 border rounded-md ${
+                    (isPriceChanged && priceDetails.results.totalAmount > priceDetails.results.previousTotalAmount)
+                      ? 'bg-red-50 border-red-200 text-red-700' 
+                      : isPriceChanged || isBaggageChanged
+                      ? 'bg-green-50 border-green-200 text-green-700'
+                      : 'bg-blue-50 border-blue-200 text-blue-700'
+                  }`}>
+                    <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span className="font-medium">
+                      {isPriceChanged && isBaggageChanged
+                        ? 'Price & Baggage Updated'
+                        : isPriceChanged
+                        ? 'Price Updated'
+                        : isBaggageChanged
+                        ? 'Baggage Policy Updated'
+                        : 'Price Changed'}
+                    </span>
+                    {priceDetails.results.totalAmount !== undefined && (
+                      <span className="ml-2">
+                        {priceDetails.results.previousTotalAmount !== undefined && (
+                          <>
+                            <span className="text-xs font-medium">Previous: </span>
+                            <span className="font-bold text-sm text-green-600">₹{parseFloat(priceDetails.results.previousTotalAmount).toLocaleString()}</span>
+                            <span className="text-xs mx-1">→</span>
+                          </>
+                        )}
+                        <span className="text-xs font-medium">Current: </span>
+                        <span className="font-bold text-sm text-red-600">₹{parseFloat(priceDetails.results.totalAmount).toLocaleString()}</span>
+                      </span>
+                    )}
+                  </div>
+                ) : null;
+              })()
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex space-x-4">
           <button
             onClick={onClose}
             className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -826,7 +932,7 @@ const FlightItineraryModal = ({
             Back
           </button>
           <button
-            onClick={handleBookNow}
+              onClick={handleFooterButtonClick} // Use the new handler
             disabled={isLoading}
             className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
           >
@@ -836,10 +942,12 @@ const FlightItineraryModal = ({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Booking...
+                  {/* Adjust loading text based on expected next action */}
+                   {!isAllocated ? 'Loading...' : (!ancillariesConfirmed ? 'Processing...' : 'Booking...')}
               </span>
             ) : !isAllocated ? 'Allocate Passenger' : (ancillariesConfirmed ? 'Book Now' : 'Confirm Seats & Extras')}
           </button>
+          </div>
         </div>
       </div>
 
