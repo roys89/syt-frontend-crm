@@ -107,10 +107,19 @@ const PassengerInfoModal = ({ isOpen, onClose, itineraryDetails, onSuccess }) =>
               required={rule.required}
             >
               <option value="">Select Title</option>
-              <option value="Mr">Mr</option>
-              <option value="Mrs">Mrs</option>
-              <option value="Ms">Ms</option>
-              <option value="Dr">Dr</option>
+              {passenger.type === 'child' ? (
+                <>
+                  <option value="Mr">Mr.</option>
+                  <option value="Ms">Miss</option> {/* Using Ms for Miss as common practice */}
+                </>
+              ) : (
+                <>
+                  <option value="Mr">Mr.</option>
+                  <option value="Mrs">Mrs.</option>
+                  <option value="Ms">Ms.</option>
+                  <option value="Dr">Dr.</option>
+                </>
+              )}
             </select>
           ) : field === 'dateOfBirth' || field === 'passportExpiry' || field === 'passportIssueDate' ? (
             <input

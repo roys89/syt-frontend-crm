@@ -175,6 +175,9 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
     // Hard set state values directly and ensure they're converted to boolean
     const panMandatory = Boolean(bookingFlags.isPanMandatory);
     const passportMandatory = Boolean(bookingFlags.isPassportMandatory);
+    
+    console.log('Setting PAN mandatory flag:', panMandatory, 'Source value:', bookingFlags.isPanMandatory);
+    console.log('Setting Passport mandatory flag:', passportMandatory);
 
     setIsPanMandatory(panMandatory);
     setIsPassportMandatory(passportMandatory);
@@ -257,6 +260,9 @@ const HotelItineraryModal = ({ hotel, itineraryData, onClose, onSubmit }) => {
               isPanMandatory: Boolean(response.data?.data?.results?.[0]?.isPanMandatoryForBooking),
               isPassportMandatory: Boolean(response.data?.data?.results?.[0]?.isPassportMandatoryForBooking)
           };
+          
+          console.log('Extracted booking flags from API response:', bookingFlags);
+          console.log('Raw isPanMandatory value:', response.data?.data?.results?.[0]?.isPanMandatoryForBooking);
 
           // --- Check for price change ---
           const priceChangeData = response.data?.data?.priceChangeData ||

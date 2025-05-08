@@ -125,11 +125,11 @@ const CrmChangeHotelsPage = () => {
     // --- NEW: Helper to get the sort object --- 
     const getCurrentSortObject = (sortValue) => {
         const sortMapping = {
-            'priceAsc': { finalRate: 'asc', label: 'Price: Low to High' },
-            'priceDesc': { finalRate: 'desc', label: 'Price: High to Low' },
-            'ratingDesc': { rating: 'desc', label: 'Rating: High to Low' },
-            'nameAsc': { name: 'asc', label: 'Name: A to Z' },
-            'relevance': { label: 'Relevance' }
+            'priceAsc': { finalRate: 'asc', label: 'Price: Low to High', id: 2, value: 1 },
+            'priceDesc': { finalRate: 'desc', label: 'Price: High to Low', id: 2, value: 2 },
+            'ratingDesc': { rating: 'desc', label: 'Rating: High to Low', id: 3, value: 2 },
+            'nameAsc': { name: 'asc', label: 'Name: A to Z', id: 4, value: 1 },
+            'relevance': { label: 'Relevance', id: 1, value: 1 }
         };
         return sortMapping[sortValue] || sortMapping['relevance']; // Default to relevance
     };
@@ -202,21 +202,16 @@ const CrmChangeHotelsPage = () => {
             let finalSortBy = {};
             const baseSortObject = sortBy || getCurrentSortObject(currentSort); // Use provided sortBy or current state
             if (baseSortObject) {
-                finalSortBy = { label: baseSortObject.label }; // Start with label
-                const sortKeyMapping = {
-                    'priceAsc': { finalRate: 'asc' }, 'priceDesc': { finalRate: 'desc' },
-                    'ratingDesc': { rating: 'desc' }, 'nameAsc': { name: 'asc' }, 'relevance': {}
-                };
-                const apiSortKeys = sortKeyMapping[currentSort] || sortKeyMapping['relevance'];
-                finalSortBy = { ...finalSortBy, ...apiSortKeys };
-
+                // Use the full sort object with id, value, and label
+                finalSortBy = { ...baseSortObject };
+                
+                // If we have a max price filter, add it to finalRate (overriding asc/desc value if present)
                 const activeMaxPrice = directMaxPrice !== null ? directMaxPrice : (isMaxPriceFilterActive ? maxPriceFilter : null);
                 if (activeMaxPrice !== null && typeof activeMaxPrice === 'number' && !isNaN(activeMaxPrice)) {
                     finalSortBy.finalRate = activeMaxPrice;
                 }
-                // Add default relevance id/value if needed (handled by backend service now)
             } else {
-                 finalSortBy = { label: 'Relevance' }; // Default
+                 finalSortBy = getCurrentSortObject('relevance'); // Default to relevance
                  const activeMaxPrice = directMaxPrice !== null ? directMaxPrice : (isMaxPriceFilterActive ? maxPriceFilter : null);
                  if (activeMaxPrice !== null && typeof activeMaxPrice === 'number' && !isNaN(activeMaxPrice)) {
                     finalSortBy.finalRate = activeMaxPrice;

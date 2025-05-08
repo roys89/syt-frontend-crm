@@ -915,7 +915,15 @@ const FlightBookingPage = () => {
 
   // Reset auto-loading when user applies a filter
   useEffect(() => {
-    if (activeFilters) {
+    // Only cancel if activeFilters is not null and has some actual filter criteria
+    const имеютсяАктивныеФильтры = activeFilters && 
+                               (activeFilters.price || 
+                                (activeFilters.airlines && activeFilters.airlines.length > 0) || 
+                                (activeFilters.stops && activeFilters.stops.length > 0) || 
+                                (activeFilters.departureTime && activeFilters.departureTime.length > 0) || 
+                                (activeFilters.arrivalTime && activeFilters.arrivalTime.length > 0));
+
+    if (имеютсяАктивныеФильтры) {
       cancelAutoLoading();
     }
   }, [activeFilters]);
@@ -970,7 +978,7 @@ const FlightBookingPage = () => {
         providerResponse, 
         passengerData: passengerData || [], // Ensure passengerData is an array
         bookingPriceDetails: bookingPriceDetails || { baseFare: 0, taxesAndFees: 0, totalFare: 0, currency: 'INR' }, // Provide default if missing
-        flightType 
+        flightType: itineraryDetails?.flightType // Use flightType from itineraryDetails (API response)
       }, originalItineraryData); 
     } else {
       console.error("!!! handleBookingSuccess called with invalid/missing response structure:", bookingConfirmationData);
@@ -1643,7 +1651,31 @@ const FlightBookingPage = () => {
                   <h3 className="text-lg font-semibold text-gray-900">Booking Confirmed</h3>
                   <div className="flex space-x-3">
                     <button
-                      onClick={() => setStep(1)} 
+                      onClick={() => {
+                        setStep(1);
+                        // Reset all booking and itinerary specific states
+                        setBookingDetails(null);
+                        setItineraryDetails(null);
+                        setSelectedFlight(null);
+                        setFareRules(null);
+                        setSavedBookingId(null);
+                        setBookingRefId(null);
+                        setFinalTotalAmount(null);
+                        setShowVoucherModal(false);
+                        setVoucherDetails(null);
+                        setPaymentForm({
+                          paymentMethod: '',
+                          transactionId: '',
+                          paymentStatus: 'Paid',
+                          paymentType: 'full',
+                          amountPaid: ''
+                        });
+                        setSelectedOutboundFlight(null);
+                        setSelectedInboundFlight(null);
+                        setTraceId(null);
+                        // Other search-related states will be reset by resetSearchState()
+                        // when a new search is performed.
+                      }} 
                       className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]"
                     >
                       {/* Reset to search form */}

@@ -400,11 +400,11 @@ const HotelBookingPage = () => {
   // --- NEW: Helper to get the sort object --- 
   const getCurrentSortObject = (sortValue) => {
       const sortMapping = {
-          'priceAsc': { finalRate: 'asc', label: 'Price: Low to High' },
-          'priceDesc': { finalRate: 'desc', label: 'Price: High to Low' },
-          'ratingDesc': { rating: 'desc', label: 'Rating: High to Low' },
-          'nameAsc': { name: 'asc', label: 'Name: A to Z' },
-          'relevance': { label: 'Relevance' }
+          'priceAsc': { finalRate: 'asc', label: 'Price: Low to High', id: 2, value: 1 },
+          'priceDesc': { finalRate: 'desc', label: 'Price: High to Low', id: 2, value: 2 },
+          'ratingDesc': { rating: 'desc', label: 'Rating: High to Low', id: 3, value: 2 },
+          'nameAsc': { name: 'asc', label: 'Name: A to Z', id: 4, value: 1 },
+          'relevance': { label: 'Relevance', id: 1, value: 1 }
       };
       return sortMapping[sortValue] || sortMapping['relevance'];
   };
@@ -584,30 +584,28 @@ const HotelBookingPage = () => {
                  searchData.filterBy = filters; // Use the processed filters passed in
             }
 
-            // Construct and add sortBy (including finalRate)
-            let finalSortBy = {};
-            const baseSortObject = sortBy || getCurrentSortObject(currentSort); // Use passed or current sort
+            // Get the complete sort object directly from getCurrentSortObject 
+            const baseSortObject = sortBy || getCurrentSortObject(currentSort);
+            
+            // Include the full sort object with proper finalRate handling
             if (baseSortObject) {
-                finalSortBy = { label: baseSortObject.label };
-                const sortKeyMapping = {
-                    'priceAsc': { finalRate: 'asc' }, 'priceDesc': { finalRate: 'desc' },
-                    'ratingDesc': { rating: 'desc' }, 'nameAsc': { name: 'asc' }, 'relevance': {}
-                };
-                const apiSortKeys = sortKeyMapping[currentSort] || sortKeyMapping['relevance'];
-                finalSortBy = { ...finalSortBy, ...apiSortKeys };
-
+                // Create a copy to avoid modifying the original
+                let finalSortBy = { ...baseSortObject };
+                
+                // Handle max price filter if needed - only for numeric finalRate values
                 const activeMaxPrice = directMaxPrice !== null ? directMaxPrice : (isMaxPriceFilterActive ? maxPriceFilter : null);
-                if (activeMaxPrice !== null && typeof activeMaxPrice === 'number' && !isNaN(activeMaxPrice)) {
+                if (activeMaxPrice !== null && 
+                    typeof activeMaxPrice === 'number' && 
+                    !isNaN(activeMaxPrice) && 
+                    typeof finalSortBy.finalRate !== 'string') {
                     finalSortBy.finalRate = activeMaxPrice;
                 }
+                
+                searchData.sortBy = finalSortBy;
             } else {
-                finalSortBy = { label: 'Relevance' };
-                const activeMaxPrice = directMaxPrice !== null ? directMaxPrice : (isMaxPriceFilterActive ? maxPriceFilter : null);
-                 if (activeMaxPrice !== null && typeof activeMaxPrice === 'number' && !isNaN(activeMaxPrice)) {
-                    finalSortBy.finalRate = activeMaxPrice;
-                }
+                // Default sort if nothing provided
+                searchData.sortBy = { label: 'Relevance', id: 1, value: 1 };
             }
-            searchData.sortBy = finalSortBy;
 
             console.log("HotelBookingPage: Sending Search Request:", JSON.stringify(searchData, null, 2));
 
@@ -727,7 +725,7 @@ const HotelBookingPage = () => {
         // Call fetchHotels (to be defined) with page 1 and new filters
         fetchHotels(1, processedFilters, currentSortObject, newMaxPrice);
 
-  }, [formData.checkIn, formData.checkOut, formData.rooms, fetchHotels, currentSort]);
+  }, [formData.checkIn, formData.checkOut, formData.rooms, fetchHotels, currentSort, getCurrentSortObject]);
 
   const handleSortChange = useCallback((sortValue) => {
       setCurrentSort(sortValue);
@@ -736,7 +734,7 @@ const HotelBookingPage = () => {
       setHasMore(true);
       // Call fetchHotels (to be defined) with page 1, current filters, new sort
       fetchHotels(1, serverFilters, newSortObject, maxPriceFilter);
-  }, [serverFilters, maxPriceFilter, fetchHotels]);
+  }, [serverFilters, maxPriceFilter, fetchHotels, getCurrentSortObject]);
 
   const handleFilterReset = useCallback(() => {
       const resetFilters = {
@@ -753,7 +751,7 @@ const HotelBookingPage = () => {
       const defaultSortObject = getCurrentSortObject('relevance');
       // Call fetchHotels (to be defined) with page 1, null filters, default sort
       fetchHotels(1, null, defaultSortObject, null);
-  }, [fetchHotels]);
+  }, [fetchHotels, getCurrentSortObject]);
   // --- END: Filter/Sort Handlers ---
 
   // Handle booking - Restore original definition
@@ -903,7 +901,7 @@ const HotelBookingPage = () => {
       setBookingDetails(bookingData); 
       
       // --- Extract guestDetails AND confirmedFinalRate --- 
-      const { guestDetails, confirmedFinalRate, ...bookingResponseData } = bookingData;
+      const { guestDetails, confirmedFinalRate, specialRequests, ...bookingResponseData } = bookingData;
       console.log("Received confirmedFinalRate in handleBookingSubmit:", confirmedFinalRate);
       // ---
       
@@ -943,6 +941,21 @@ const HotelBookingPage = () => {
           amountPaid: 0 
         };
         
+        // --- NEW: Extract hotel details from itineraryData ---
+        const hotelDetails = {
+          hotelName: selectedHotel?.name || '', 
+          hotelContactInfo: selectedHotel?.contact?.address ? 
+            `${selectedHotel.contact.address.line1 || ''}, ${selectedHotel.contact.address.city?.name || ''}, ${selectedHotel.contact.address.country?.name || ''}` : '',
+          checkIn: formData.checkIn,
+          checkOut: formData.checkOut,
+          roomsCount: formData.rooms.length,
+          totalDays: calculateNights(formData.checkIn, formData.checkOut),
+          hotelRating: selectedHotel?.starRating || '',
+          hotelLocation: selectedHotel?.cityName || formData.city?.fullName || '',
+          specialRequests: specialRequests || ''
+        };
+        // ---
+        
         // Prepare complete data for CRM
         const crmBookingData = {
           bookingRefId,
@@ -954,7 +967,8 @@ const HotelBookingPage = () => {
           providerBookingResponse: bookingResponseData, 
           paymentDetails, // Use updated paymentDetails
           guestDetails, 
-          notes: ''
+          hotelDetails, // Add hotel details to payload
+          notes: specialRequests || '' // Include special requests as notes
         };
         
         console.log('CRM booking data payload:', crmBookingData);
@@ -1188,23 +1202,212 @@ const HotelBookingPage = () => {
           </div>
         </div>
         
-        <div className="flex justify-end">
-          <button 
-            onClick={handleGetVoucher}
-            disabled={isLoadingVoucher}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
-          >
-            {isLoadingVoucher ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Loading...
-              </>
-            ) : 'View Voucher'}
-          </button>
-        </div>
+        {/* Payment Details Section - NEW */}
+        {savedBookingId && (
+          <div className="border-b border-gray-200 pb-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4">Payment Details</h3>
+            <form onSubmit={handleUpdatePayment} className="space-y-4">
+              {/* Payment Summary */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Booking Reference</p>
+                    <p className="font-medium">{bookingRefId || savedBookingId}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Total Amount</p>
+                    <p className="font-medium text-[#093923]">
+                      ₹ {finalTotalAmount ? finalTotalAmount.toLocaleString() : '0'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700">Payment Method <span className="text-red-500">*</span></label>
+                  <select
+                    id="paymentMethod"
+                    name="paymentMethod"
+                    value={paymentForm.paymentMethod}
+                    onChange={handlePaymentFormChange}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#093923] focus:ring-[#093923] py-2 px-3"
+                    required
+                  >
+                    <option value="">Select Payment Method</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Credit Card">Credit Card</option>
+                    <option value="Debit Card">Debit Card</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Net Banking">Net Banking</option>
+                    <option value="Wallet">Wallet</option>
+                    <option value="Corporate Account">Corporate Account</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="transactionId" className="block text-sm font-medium text-gray-700">Transaction ID <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    id="transactionId"
+                    name="transactionId"
+                    value={paymentForm.transactionId}
+                    onChange={handlePaymentFormChange}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#093923] focus:ring-[#093923] py-2 px-3"
+                    placeholder="Enter transaction reference"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="paymentStatus" className="block text-sm font-medium text-gray-700">Payment Status <span className="text-red-500">*</span></label>
+                  <select
+                    id="paymentStatus"
+                    name="paymentStatus"
+                    value={paymentForm.paymentStatus}
+                    onChange={handlePaymentFormChange}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#093923] focus:ring-[#093923] py-2 px-3"
+                    required
+                  >
+                    <option value="Paid">Paid</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Failed">Failed</option>
+                    <option value="Refunded">Refunded</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="paymentType" className="block text-sm font-medium text-gray-700">Payment Type <span className="text-red-500">*</span></label>
+                  <div className="flex space-x-4">
+                    <div className="flex items-center">
+                      <input
+                        id="paymentTypeFull"
+                        name="paymentType"
+                        type="radio"
+                        value="full"
+                        checked={paymentForm.paymentType === 'full'}
+                        onChange={handlePaymentFormChange}
+                        className="h-4 w-4 text-[#093923] focus:ring-[#093923] border-gray-300"
+                      />
+                      <label htmlFor="paymentTypeFull" className="ml-2 block text-sm text-gray-700">
+                        Full Payment
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="paymentTypePartial"
+                        name="paymentType"
+                        type="radio"
+                        value="partial"
+                        checked={paymentForm.paymentType === 'partial'}
+                        onChange={handlePaymentFormChange}
+                        className="h-4 w-4 text-[#093923] focus:ring-[#093923] border-gray-300"
+                      />
+                      <label htmlFor="paymentTypePartial" className="ml-2 block text-sm text-gray-700">
+                        Partial Payment
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                {paymentForm.paymentType === 'partial' && (
+                  <div className="space-y-2 col-span-2">
+                    <label htmlFor="amountPaid" className="block text-sm font-medium text-gray-700">Paid Amount <span className="text-red-500">*</span></label>
+                    <div className="relative rounded-md shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">₹</span>
+                      </div>
+                      <input
+                        type="number"
+                        id="amountPaid"
+                        name="amountPaid"
+                        value={paymentForm.amountPaid}
+                        onChange={handlePaymentFormChange}
+                        className="block w-full pl-7 rounded-md border-gray-300 shadow-sm focus:border-[#093923] focus:ring-[#093923] py-2 px-3"
+                        placeholder="Enter paid amount"
+                        required={paymentForm.paymentType === 'partial'}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Total amount: ₹{finalTotalAmount ? finalTotalAmount.toLocaleString() : '0'}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-4 flex justify-between items-center">
+                <button
+                  type="button" 
+                  onClick={() => setStep(1)}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]"
+                >
+                  New Search
+                </button>
+                
+                <button 
+                  type="button"
+                  onClick={handleGetVoucher}
+                  disabled={isLoadingVoucher}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
+                >
+                  {isLoadingVoucher ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading...
+                    </>
+                  ) : 'View Voucher'}
+                </button>
+                
+                <button
+                  type="submit"
+                  disabled={isUpdatingPayment}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
+                >
+                  {isUpdatingPayment ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Updating...
+                    </>
+                  ) : (
+                    'Update Payment Details'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+        {/* End Payment Details Section */}
+        
+        {/* Action Buttons - Only show when payment details section is not displayed */}
+        {!savedBookingId && (
+          <div className="flex justify-between items-center">
+            <button
+              onClick={() => setStep(1)}
+              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]"
+            >
+              New Search
+            </button>
+            
+            <button 
+              onClick={handleGetVoucher}
+              disabled={isLoadingVoucher}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#093923] hover:bg-[#093923]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923] disabled:opacity-50"
+            >
+              {isLoadingVoucher ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Loading...
+                </>
+              ) : 'View Voucher'}
+            </button>
+          </div>
+        )}
+        {/* End Action Buttons */}
       </div>
     );
   };
@@ -1793,16 +1996,25 @@ const HotelBookingPage = () => {
       {/* Booking Complete Step */}
       {step === 4 && (
         <div>
-          {renderBookingDetails()}
-          
-          <div className="mt-8 flex justify-between">
-            <button
-              onClick={() => setStep(1)}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#093923]"
-            >
-              New Search
-            </button>
+          {/* Success Message Banner - NEW */}
+          <div className="bg-[#22c35e]/10 border border-[#22c35e]/30 rounded-lg p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-[#22c35e]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
           </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-[#22c35e]/90">Booking Successful</h3>
+                <div className="mt-2 text-sm text-[#22c35e]/80">
+                  <p>Your hotel booking has been confirmed. Please update the payment details below.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* End Success Message Banner */}
+          
+          {renderBookingDetails()}
         </div>
       )}
 

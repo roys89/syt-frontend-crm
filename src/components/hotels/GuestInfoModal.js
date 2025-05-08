@@ -11,12 +11,19 @@ const showError = (message) => {
 const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit, itineraryCode, traceId, isPanMandatory, isPassportMandatory }) => {
   const [guestInfo, setGuestInfo] = useState({});
   const [errors, setErrors] = useState({});
-  const [leadGuest, setLeadGuest] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState('idle'); // 'idle', 'submitting', 'rechecking', 'price-changed', 'ready-to-book', 'booking', 'completed'
   const [priceChangeData, setPriceChangeData] = useState(null);
   const [allocationResponse, setAllocationResponse] = useState(null);
   const [bookingDetails, setBookingDetails] = useState(null);
+  
+  // New state for common contact information
+  const [commonContactInfo, setCommonContactInfo] = useState({
+    email: '',
+    isdCode: '91',
+    contactNumber: '',
+    specialRequests: '' // Added common special requests field
+  });
   
   // --- NEW STATE for confirmed final rate ---
   const [confirmedFinalRate, setConfirmedFinalRate] = useState(null);
@@ -48,13 +55,15 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
             title: "",
             firstName: "",
             lastName: "",
-            email: "",
-            isdCode: "91",
-            contactNumber: "",
-            panCardNumber: "",
-            passportNumber: "",
-            passportExpiry: "",
-            specialRequests: ""
+            // Passport fields only added if needed
+            ...(isPassportMandatory ? {
+              passportNumber: "",
+              passportExpiry: "",
+            } : {}),
+            // PAN Card only for first adult of first room if needed
+            ...(index === 0 && i === 0 && isPanMandatory ? {
+              panCardNumber: "",
+            } : {})
           });
         }
         
@@ -64,13 +73,11 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
           title: "Mr",
           firstName: "",
           lastName: "",
-          email: "",
-          isdCode: "91",
-          contactNumber: "",
-          panCardNumber: "",
-          passportNumber: "",
-          passportExpiry: "",
-          specialRequests: ""
+          // Passport fields only added if needed
+          ...(isPassportMandatory ? {
+            passportNumber: "",
+            passportExpiry: "",
+          } : {})
         }));
         
         initialState[roomKey] = {
@@ -81,9 +88,16 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
       
       // Set the initial state
       setGuestInfo(initialState);
-      setLeadGuest(null);
+      
+      // Reset common contact info
+      setCommonContactInfo({
+        email: '',
+        isdCode: '91',
+        contactNumber: '',
+        specialRequests: '' // Reset common special requests
+      });
     }
-  }, [isOpen, selectedRoomsAndRates]);
+  }, [isOpen, selectedRoomsAndRates, isPanMandatory, isPassportMandatory]);
 
   // Function to update a specific field for a specific guest
   const updateGuestField = (roomKey, guestType, guestIndex, field, value) => {
@@ -122,26 +136,17 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
     });
   };
 
-  // Handle lead guest selection
-  const handleLeadGuestChange = (roomKey, adultIndex, isChecked) => {
-    if (isChecked) {
-      console.log(`Setting lead guest: roomKey=${roomKey}, adultIndex=${adultIndex}`);
-      setLeadGuest({ roomKey, adultIndex });
-    } else {
-      setLeadGuest(null);
-    }
+  // Function to update common contact information
+  const updateCommonContactInfo = (field, value) => {
+    setCommonContactInfo(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
-  const isLeadGuest = (roomKey, adultIndex) => {
-    if (!leadGuest) return false;
-    
-    // Check if the room keys match exactly (including index)
-    const exactMatch = leadGuest.roomKey === roomKey && leadGuest.adultIndex === adultIndex;
-    
-    // If there's an exact match, return true
-    if (exactMatch) return true;
-    
-    return false;
+  // Helper to check if a guest is the lead (first adult of room)
+  const isLeadGuest = (roomIndex, adultIndex) => {
+    return adultIndex === 0; // First adult of any room is lead
   };
 
   const validateForm = () => {
@@ -149,141 +154,105 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
     let isValid = true;
 
     console.log("Validating form with data:", guestInfo);
-    console.log("Lead guest:", leadGuest);
+    console.log("Common contact info:", commonContactInfo);
     
     if (!selectedRoomsAndRates || selectedRoomsAndRates.length === 0) {
       console.error("No rooms to validate");
       return false;
     }
 
-    // Check if a lead guest is selected
-    if (!leadGuest) {
-      newErrors['lead-guest'] = 'Please select a lead guest';
+    // Validate common contact fields
+    if (!commonContactInfo.email) {
+      newErrors['common-email'] = 'Email is required';
+      isValid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(commonContactInfo.email)) {
+      newErrors['common-email'] = 'Invalid email format';
+      isValid = false;
+    }
+    
+    if (!commonContactInfo.isdCode) {
+      newErrors['common-isdCode'] = 'ISD Code is required';
+      isValid = false;
+    }
+    
+    if (!commonContactInfo.contactNumber) {
+      newErrors['common-contactNumber'] = 'Contact Number is required';
+      isValid = false;
+    } else if (!/^\d{10}$/.test(commonContactInfo.contactNumber)) {
+      newErrors['common-contactNumber'] = 'Phone number must be 10 digits';
       isValid = false;
     }
 
     // Iterate through each room and validate all guests
-    Object.entries(guestInfo).forEach(([roomKey, roomGuests]) => {
+    Object.entries(guestInfo).forEach(([roomKey, roomGuests], roomIndex) => {
       console.log(`Validating room ${roomKey}:`, roomGuests);
       
       // Validate adults
       if (!roomGuests.adults) return;
       
-      roomGuests.adults.forEach((guest, index) => {
+      roomGuests.adults.forEach((guest, adultIndex) => {
         // Required fields for all adults
-        const requiredFields = ['title', 'firstName', 'lastName', 'email', 'isdCode', 'contactNumber'];
+        const requiredFields = ['title', 'firstName', 'lastName'];
         requiredFields.forEach(field => {
           if (!guest[field]) {
-            newErrors[`${roomKey}-adults-${index}-${field}`] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
+            newErrors[`${roomKey}-adults-${adultIndex}-${field}`] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
             isValid = false;
           }
         });
 
-        // Email format validation
-        if (guest.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest.email)) {
-          newErrors[`${roomKey}-adults-${index}-email`] = 'Invalid email format';
-          isValid = false;
-        }
-
-        // Phone number validation
-        if (guest.contactNumber && !/^\d{10}$/.test(guest.contactNumber)) {
-          newErrors[`${roomKey}-adults-${index}-contactNumber`] = 'Phone number must be 10 digits';
-          isValid = false;
-        }
-
-        // --- Updated PAN Card Validation --- 
-        if (isPanMandatory && !guest.panCardNumber) {
-            newErrors[`${roomKey}-adults-${index}-panCardNumber`] = 'PAN Card Number is required';
+        // PAN Card validation - only for first adult of first room if mandatory
+        if (roomIndex === 0 && adultIndex === 0 && isPanMandatory) {
+          if (!guest.panCardNumber) {
+            newErrors[`${roomKey}-adults-${adultIndex}-panCardNumber`] = 'PAN Card Number is required';
             isValid = false;
-        } else if (guest.panCardNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(guest.panCardNumber)) {
-          // Validate format only if present (and not mandatory but entered, or mandatory)
-          newErrors[`${roomKey}-adults-${index}-panCardNumber`] = 'Invalid PAN card number format';
-          isValid = false;
+          } else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(guest.panCardNumber)) {
+            newErrors[`${roomKey}-adults-${adultIndex}-panCardNumber`] = 'Invalid PAN card number format';
+            isValid = false;
+          }
         }
-        // ---
 
-        // --- Updated Passport Validation --- 
+        // Passport validation - only if mandatory
         if (isPassportMandatory) {
-            if (!guest.passportNumber) {
-                newErrors[`${roomKey}-adults-${index}-passportNumber`] = 'Passport Number is required';
-                isValid = false;
-            }
-            if (!guest.passportExpiry) {
-                 newErrors[`${roomKey}-adults-${index}-passportExpiry`] = 'Passport Expiry Date is required';
-                 isValid = false;
-            }
-        } else {
-             // Only validate format if fields are present and not mandatory
-             if (guest.passportNumber && !/^[A-Z0-9]+$/.test(guest.passportNumber)) { // Basic format check, adjust regex as needed
-                newErrors[`${roomKey}-adults-${index}-passportNumber`] = 'Invalid Passport Number format';
-                isValid = false;
-            }
-             // Add expiry date format validation if needed when optional
-            if (guest.passportExpiry /* && !isValidDateFormat(guest.passportExpiry) */) {
-                // Example: Add date format validation if needed
-            }
+          if (!guest.passportNumber) {
+            newErrors[`${roomKey}-adults-${adultIndex}-passportNumber`] = 'Passport Number is required';
+            isValid = false;
+          }
+          if (!guest.passportExpiry) {
+            newErrors[`${roomKey}-adults-${adultIndex}-passportExpiry`] = 'Passport Expiry Date is required';
+            isValid = false;
+          }
         }
-        // ---
       });
 
       // Validate children (if any)
       if (roomGuests.children && roomGuests.children.length > 0) {
-        roomGuests.children.forEach((child, index) => {
+        roomGuests.children.forEach((child, childIndex) => {
           if (!child) return;
           
           // Required fields for children
-          const requiredFields = ['title', 'firstName', 'lastName', 'email', 'isdCode', 'contactNumber', 'age'];
+          const requiredFields = ['title', 'firstName', 'lastName', 'age'];
           requiredFields.forEach(field => {
             if (!child[field]) {
-              newErrors[`${roomKey}-children-${index}-${field}`] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
+              newErrors[`${roomKey}-children-${childIndex}-${field}`] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
               isValid = false;
             }
           });
 
-          // Email format validation for children
-          if (child.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(child.email)) {
-            newErrors[`${roomKey}-children-${index}-email`] = 'Invalid email format';
-            isValid = false;
+          // Passport validation for children - only if mandatory
+          if (isPassportMandatory) {
+            if (!child.passportNumber) {
+              newErrors[`${roomKey}-children-${childIndex}-passportNumber`] = 'Passport Number is required';
+              isValid = false;
+            }
+            if (!child.passportExpiry) {
+              newErrors[`${roomKey}-children-${childIndex}-passportExpiry`] = 'Passport Expiry Date is required';
+              isValid = false;
+            }
           }
-
-          // Phone number validation for children
-          if (child.contactNumber && !/^\d{10}$/.test(child.contactNumber)) {
-            newErrors[`${roomKey}-children-${index}-contactNumber`] = 'Phone number must be 10 digits';
-            isValid = false;
-          }
-
-          // --- Child PAN Validation ---
-           if (isPanMandatory && !child.panCardNumber) {
-             newErrors[`${roomKey}-children-${index}-panCardNumber`] = 'PAN Card Number is required';
-             isValid = false;
-          } else if (child.panCardNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(child.panCardNumber)) {
-            newErrors[`${roomKey}-children-${index}-panCardNumber`] = 'Invalid PAN card number format';
-            isValid = false;
-          }
-          // ---
-
-          // --- Child Passport Validation ---
-           if (isPassportMandatory) {
-              if (!child.passportNumber) {
-                  newErrors[`${roomKey}-children-${index}-passportNumber`] = 'Passport Number is required';
-                  isValid = false;
-              }
-              if (!child.passportExpiry) {
-                   newErrors[`${roomKey}-children-${index}-passportExpiry`] = 'Passport Expiry Date is required';
-                   isValid = false;
-              }
-          } else {
-             // Optional: Add format validation if entered when not mandatory
-             if (child.passportNumber && !/^[A-Z0-9]+$/.test(child.passportNumber)) {
-                 newErrors[`${roomKey}-children-${index}-passportNumber`] = 'Invalid Passport Number format';
-                 isValid = false;
-              }
-          }
-          // ---
 
           // Age validation for children (1-17)
           if (child.age && (parseInt(child.age) < 1 || parseInt(child.age) > 17)) {
-            newErrors[`${roomKey}-children-${index}-age`] = 'Child age must be between 1 and 17';
+            newErrors[`${roomKey}-children-${childIndex}-age`] = 'Child age must be between 1 and 17';
             isValid = false;
           }
         });
@@ -310,12 +279,13 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
       setIsSubmitting(true);
       setSubmitStatus('submitting');
       console.log("Starting guest submission with guest info:", guestInfo);
+      console.log("Common contact info:", commonContactInfo);
       
       // Transform guest information into the required API format
-      const roomsAllocations = selectedRoomsAndRates.map((roomRate, index) => {
+      const roomsAllocations = selectedRoomsAndRates.map((roomRate, roomIndex) => {
         const roomId = roomRate.room.id;
         const rateId = roomRate.rate.id;
-        const roomKey = `${roomId}-${rateId}-${index}`;
+        const roomKey = `${roomId}-${rateId}-${roomIndex}`;
         
         console.log(`Processing room ${roomKey}:`, roomRate);
         console.log(`Room guest info:`, guestInfo[roomKey]);
@@ -336,19 +306,23 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
               return;
             }
             
-            console.log(`Adding adult guest:`, adult);
+            // Check if this adult is the lead guest (first adult of the room)
+            const isLead = adultIndex === 0;
+            
+            console.log(`Adding adult guest:`, adult, `isLead: ${isLead}`);
             validGuests.push({
               title: adult.title || 'Mr',
               firstName: adult.firstName,
               lastName: adult.lastName,
-              isLeadGuest: isLeadGuest(roomKey, adultIndex),
-              email: adult.email,
-              isdCode: adult.isdCode || '91',
-              contactNumber: adult.contactNumber,
-              panCardNumber: adult.panCardNumber || undefined,
-              passportNumber: adult.passportNumber || undefined,
-              passportExpiry: adult.passportExpiry || undefined,
-              specialRequests: adult.specialRequests || '',
+              isLeadGuest: isLead,
+              email: commonContactInfo.email,
+              isdCode: commonContactInfo.isdCode || '91',
+              contactNumber: commonContactInfo.contactNumber,
+              // Only include PAN for lead guest of first room if it's mandatory and provided
+              panCardNumber: (roomIndex === 0 && adultIndex === 0 && isPanMandatory) ? adult.panCardNumber : undefined,
+              // Only include passport info if it's mandatory
+              passportNumber: isPassportMandatory ? adult.passportNumber : undefined,
+              passportExpiry: isPassportMandatory ? adult.passportExpiry : undefined,
               type: 'adult'
             });
           });
@@ -368,14 +342,13 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
               firstName: child.firstName,
               lastName: child.lastName,
               isLeadGuest: false,
-              email: child.email,
-              isdCode: child.isdCode || '91',
-              contactNumber: child.contactNumber,
-              panCardNumber: child.panCardNumber || undefined,
-              passportNumber: child.passportNumber || undefined,
-              passportExpiry: child.passportExpiry || undefined,
+              email: commonContactInfo.email,
+              isdCode: commonContactInfo.isdCode || '91',
+              contactNumber: commonContactInfo.contactNumber,
+              // Only include passport info if it's mandatory
+              passportNumber: isPassportMandatory ? child.passportNumber : undefined,
+              passportExpiry: isPassportMandatory ? child.passportExpiry : undefined,
               age: child.age,
-              specialRequests: child.specialRequests || '',
               type: 'child'
             });
           });
@@ -386,11 +359,12 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
           return null;
         }
 
-        // Return the room allocation structure
+        // Return the room allocation structure with specialRequests: "NA" for each room
         return {
           roomId,
           rateId,
-          guests: validGuests
+          guests: validGuests,
+          specialRequests: "NA" // Add default "NA" special requests for each room
         };
       }).filter(Boolean);
       
@@ -403,7 +377,7 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
         bookingArray: [
           {
             traceId,
-            roomsAllocations
+            roomsAllocations,
           }
         ]
       };
@@ -501,7 +475,8 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
       setSubmitStatus('booking');
       const bookingResponse = await bookingService.bookHotel({
         traceId, // Use original traceId passed as prop
-        itineraryCode // Use original itineraryCode passed as prop
+        itineraryCode, // Use original itineraryCode passed as prop
+        specialRequests: commonContactInfo.specialRequests || '' // Include special requests here as well
       });
 
       if (bookingResponse.success) {
@@ -516,20 +491,28 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
             const adultGuests = (room.adults || []).map((adult, index) => ({
               ...adult,
               type: 'adult',
-              isLeadGuest: isLeadGuest(adult.roomKey, index)
+              // Common contact info added for all
+              email: commonContactInfo.email,
+              isdCode: commonContactInfo.isdCode,
+              contactNumber: commonContactInfo.contactNumber
             }));
             
             // Collect all children
             const childGuests = (room.children || []).map((child) => ({
               ...child,
               type: 'child',
-              isLeadGuest: false
+              isLeadGuest: false,
+              // Common contact info added for all
+              email: commonContactInfo.email,
+              isdCode: commonContactInfo.isdCode,
+              contactNumber: commonContactInfo.contactNumber
             }));
             
             // Combine and return
             return [...allGuests, ...adultGuests, ...childGuests];
           }, []),
-          confirmedFinalRate: finalRateToUse // Pass the confirmed rate
+          confirmedFinalRate: finalRateToUse, // Pass the confirmed rate
+          specialRequests: commonContactInfo.specialRequests || '' // Pass special requests in final data
         });
         // --- End pass confirmed rate ---
         
@@ -618,223 +601,151 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
                 </div>
 
                 {/* Adult Guests */}
-                {Array.from({ length: adults }).map((_, adultIndex) => (
-                  <div key={`${roomKey}-adult-${adultIndex}`} className="bg-white rounded-lg border border-gray-200 p-6 mb-4 last:mb-0">
-                    <div className="flex justify-between items-center mb-4">
-                      <h4 className="text-md font-medium text-gray-900">
-                        Adult Guest {adultIndex + 1}
-                      </h4>
+                {Array.from({ length: adults }).map((_, adultIndex) => {
+                  // Determine if this adult is the lead guest (first adult of any room)
+                  const isLead = adultIndex === 0;
+                  
+                  return (
+                    <div key={`${roomKey}-adult-${adultIndex}`} className="bg-white rounded-lg border border-gray-200 p-6 mb-4 last:mb-0">
+                      <div className="flex justify-between items-center mb-4">
+                        <h4 className="text-md font-medium text-gray-900">
+                          {isLead ? (
+                            <span className="flex items-center">
+                              <span className="mr-2 bg-[#093923] text-white text-xs py-1 px-2 rounded-full">Lead</span>
+                              Adult Guest {adultIndex + 1}
+                            </span>
+                          ) : (
+                            `Adult Guest ${adultIndex + 1}`
+                          )}
+                        </h4>
+                      </div>
                       
-                      {/* Lead Guest Checkbox */}
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id={`lead-guest-${roomKey}-${adultIndex}`}
-                          checked={isLeadGuest(roomKey, adultIndex)}
-                          onChange={(e) => handleLeadGuestChange(roomKey, adultIndex, e.target.checked)}
-                          disabled={leadGuest !== null && !isLeadGuest(roomKey, adultIndex)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor={`lead-guest-${roomKey}-${adultIndex}`} className="ml-2 text-sm text-gray-700">
-                          Lead Guest
-                        </label>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Title */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Title
-                        </label>
-                        <select
-                          value={guestInfo[roomKey]?.adults[adultIndex]?.title || ''}
-                          onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'title', e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            errors[`${roomKey}-adults-${adultIndex}-title`] ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                        >
-                          <option value="">Select Title</option>
-                          <option value="Mr">Mr</option>
-                          <option value="Mrs">Mrs</option>
-                          <option value="Ms">Ms</option>
-                          <option value="Dr">Dr</option>
-                        </select>
-                        {errors[`${roomKey}-adults-${adultIndex}-title`] && (
-                          <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-title`]}</p>
-                        )}
-                      </div>
-
-                      {/* First Name */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          First Name
-                        </label>
-                        <input
-                          type="text"
-                          value={guestInfo[roomKey]?.adults[adultIndex]?.firstName || ''}
-                          onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'firstName', e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            errors[`${roomKey}-adults-${adultIndex}-firstName`] ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          placeholder="Enter first name"
-                        />
-                        {errors[`${roomKey}-adults-${adultIndex}-firstName`] && (
-                          <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-firstName`]}</p>
-                        )}
-                      </div>
-
-                      {/* Last Name */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Last Name
-                        </label>
-                        <input
-                          type="text"
-                          value={guestInfo[roomKey]?.adults[adultIndex]?.lastName || ''}
-                          onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'lastName', e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            errors[`${roomKey}-adults-${adultIndex}-lastName`] ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          placeholder="Enter last name"
-                        />
-                        {errors[`${roomKey}-adults-${adultIndex}-lastName`] && (
-                          <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-lastName`]}</p>
-                        )}
-                      </div>
-
-                      {/* Email */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email
-                        </label>
-                        <input
-                          type="email"
-                          value={guestInfo[roomKey]?.adults[adultIndex]?.email || ''}
-                          onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'email', e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            errors[`${roomKey}-adults-${adultIndex}-email`] ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          placeholder="Enter email address"
-                        />
-                        {errors[`${roomKey}-adults-${adultIndex}-email`] && (
-                          <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-email`]}</p>
-                        )}
-                      </div>
-
-                      {/* Contact Information */}
-                      <div className="md:col-span-2">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              ISD Code
-                            </label>
-                            <input
-                              type="text"
-                              value={guestInfo[roomKey]?.adults[adultIndex]?.isdCode || '91'}
-                              onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'isdCode', e.target.value)}
-                              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                errors[`${roomKey}-adults-${adultIndex}-isdCode`] ? 'border-red-500' : 'border-gray-300'
-                              }`}
-                            />
-                            {errors[`${roomKey}-adults-${adultIndex}-isdCode`] && (
-                              <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-isdCode`]}</p>
-                            )}
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Contact Number
-                            </label>
-                            <input
-                              type="tel"
-                              value={guestInfo[roomKey]?.adults[adultIndex]?.contactNumber || ''}
-                              onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'contactNumber', e.target.value)}
-                              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                errors[`${roomKey}-adults-${adultIndex}-contactNumber`] ? 'border-red-500' : 'border-gray-300'
-                              }`}
-                              placeholder="Enter 10-digit number"
-                            />
-                            {errors[`${roomKey}-adults-${adultIndex}-contactNumber`] && (
-                              <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-contactNumber`]}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* --- PAN Card (Always Rendered) --- */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          PAN Card Number {isPanMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
-                        </label>
-                        <input
-                          type="text"
-                          value={guestInfo[roomKey]?.adults[adultIndex]?.panCardNumber || ''}
-                          onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'panCardNumber', e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            errors[`${roomKey}-adults-${adultIndex}-panCardNumber`] ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          placeholder="Enter PAN card number"
-                        />
-                        {errors[`${roomKey}-adults-${adultIndex}-panCardNumber`] && (
-                          <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-panCardNumber`]}</p>
-                        )}
-                      </div>
-
-                      {/* --- Passport Fields (Always Rendered) --- */}
-                      <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Title */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Passport Number {isPassportMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
+                            Title
+                          </label>
+                          <select
+                            value={guestInfo[roomKey]?.adults[adultIndex]?.title || ''}
+                            onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'title', e.target.value)}
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                              errors[`${roomKey}-adults-${adultIndex}-title`] ? 'border-red-500' : 'border-gray-300'
+                            }`}
+                          >
+                            <option value="">Select Title</option>
+                            <option value="Mr">Mr</option>
+                            <option value="Mrs">Mrs</option>
+                            <option value="Ms">Ms</option>
+                            <option value="Dr">Dr</option>
+                          </select>
+                          {errors[`${roomKey}-adults-${adultIndex}-title`] && (
+                            <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-title`]}</p>
+                          )}
+                        </div>
+
+                        {/* First Name */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            First Name
                           </label>
                           <input
                             type="text"
-                            value={guestInfo[roomKey]?.adults[adultIndex]?.passportNumber || ''}
-                            onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'passportNumber', e.target.value)}
+                            value={guestInfo[roomKey]?.adults[adultIndex]?.firstName || ''}
+                            onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'firstName', e.target.value)}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                              errors[`${roomKey}-adults-${adultIndex}-passportNumber`] ? 'border-red-500' : 'border-gray-300'
+                              errors[`${roomKey}-adults-${adultIndex}-firstName`] ? 'border-red-500' : 'border-gray-300'
                             }`}
-                            placeholder="Enter passport number"
+                            placeholder="Enter first name"
                           />
-                          {errors[`${roomKey}-adults-${adultIndex}-passportNumber`] && (
-                            <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-passportNumber`]}</p>
+                          {errors[`${roomKey}-adults-${adultIndex}-firstName`] && (
+                            <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-firstName`]}</p>
                           )}
                         </div>
 
+                        {/* Last Name */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Passport Expiry Date {isPassportMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
+                            Last Name
                           </label>
                           <input
-                            type="date"
-                            value={guestInfo[roomKey]?.adults[adultIndex]?.passportExpiry || ''}
-                            onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'passportExpiry', e.target.value)}
+                            type="text"
+                            value={guestInfo[roomKey]?.adults[adultIndex]?.lastName || ''}
+                            onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'lastName', e.target.value)}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                              errors[`${roomKey}-adults-${adultIndex}-passportExpiry`] ? 'border-red-500' : 'border-gray-300'
+                              errors[`${roomKey}-adults-${adultIndex}-lastName`] ? 'border-red-500' : 'border-gray-300'
                             }`}
+                            placeholder="Enter last name"
                           />
-                          {errors[`${roomKey}-adults-${adultIndex}-passportExpiry`] && (
-                            <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-passportExpiry`]}</p>
+                          {errors[`${roomKey}-adults-${adultIndex}-lastName`] && (
+                            <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-lastName`]}</p>
                           )}
                         </div>
-                      </>
-                      {/* --- End Passport Fields --- */}
 
-                      {/* Special Requests for each adult */}
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Special Requests
-                        </label>
-                        <textarea
-                          value={guestInfo[roomKey]?.adults[adultIndex]?.specialRequests || ''}
-                          onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'specialRequests', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter any special requests for this guest"
-                          rows={2}
-                        ></textarea>
+                        {/* PAN Card (Only for Lead Guest of first room if isPanMandatory) */}
+                        {isLead && roomIndex === 0 && isPanMandatory && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              PAN Card Number <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={guestInfo[roomKey]?.adults[adultIndex]?.panCardNumber || ''}
+                              onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'panCardNumber', e.target.value)}
+                              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                errors[`${roomKey}-adults-${adultIndex}-panCardNumber`] ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                              placeholder="Enter PAN card number"
+                            />
+                            {errors[`${roomKey}-adults-${adultIndex}-panCardNumber`] && (
+                              <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-panCardNumber`]}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Passport Fields (Only if isPassportMandatory) */}
+                        {isPassportMandatory && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Passport Number <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={guestInfo[roomKey]?.adults[adultIndex]?.passportNumber || ''}
+                                onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'passportNumber', e.target.value)}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                  errors[`${roomKey}-adults-${adultIndex}-passportNumber`] ? 'border-red-500' : 'border-gray-300'
+                                }`}
+                                placeholder="Enter passport number"
+                              />
+                              {errors[`${roomKey}-adults-${adultIndex}-passportNumber`] && (
+                                <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-passportNumber`]}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Passport Expiry Date <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="date"
+                                value={guestInfo[roomKey]?.adults[adultIndex]?.passportExpiry || ''}
+                                onChange={(e) => updateGuestField(roomKey, 'adults', adultIndex, 'passportExpiry', e.target.value)}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                  errors[`${roomKey}-adults-${adultIndex}-passportExpiry`] ? 'border-red-500' : 'border-gray-300'
+                                }`}
+                              />
+                              {errors[`${roomKey}-adults-${adultIndex}-passportExpiry`] && (
+                                <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-adults-${adultIndex}-passportExpiry`]}</p>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Child Guests */}
                 {childAges.length > 0 && (
@@ -910,136 +821,45 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
                             )}
                           </div>
 
-                          {/* Email */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Email
-                            </label>
-                            <input
-                              type="email"
-                              value={guestInfo[roomKey]?.children[childIndex]?.email || ''}
-                              onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'email', e.target.value)}
-                              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                errors[`${roomKey}-children-${childIndex}-email`] ? 'border-red-500' : 'border-gray-300'
-                              }`}
-                              placeholder="Enter email address"
-                            />
-                            {errors[`${roomKey}-children-${childIndex}-email`] && (
-                              <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-email`]}</p>
-                            )}
-                          </div>
-
-                          {/* Contact Information */}
-                          <div className="md:col-span-2">
-                            <div className="grid grid-cols-2 gap-4">
+                          {/* Child Passport (Only if isPassportMandatory) */}
+                          {isPassportMandatory && (
+                            <>
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  ISD Code
+                                  Passport Number <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                   type="text"
-                                  value={guestInfo[roomKey]?.children[childIndex]?.isdCode || '91'}
-                                  onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'isdCode', e.target.value)}
+                                  value={guestInfo[roomKey]?.children[childIndex]?.passportNumber || ''}
+                                  onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'passportNumber', e.target.value)}
                                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                    errors[`${roomKey}-children-${childIndex}-isdCode`] ? 'border-red-500' : 'border-gray-300'
+                                    errors[`${roomKey}-children-${childIndex}-passportNumber`] ? 'border-red-500' : 'border-gray-300'
                                   }`}
+                                  placeholder="Enter passport number"
                                 />
-                                {errors[`${roomKey}-children-${childIndex}-isdCode`] && (
-                                  <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-isdCode`]}</p>
+                                {errors[`${roomKey}-children-${childIndex}-passportNumber`] && (
+                                  <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-passportNumber`]}</p>
                                 )}
                               </div>
+
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Contact Number
+                                  Passport Expiry Date <span className="text-red-500">*</span>
                                 </label>
                                 <input
-                                  type="tel"
-                                  value={guestInfo[roomKey]?.children[childIndex]?.contactNumber || ''}
-                                  onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'contactNumber', e.target.value)}
+                                  type="date"
+                                  value={guestInfo[roomKey]?.children[childIndex]?.passportExpiry || ''}
+                                  onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'passportExpiry', e.target.value)}
                                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                    errors[`${roomKey}-children-${childIndex}-contactNumber`] ? 'border-red-500' : 'border-gray-300'
+                                    errors[`${roomKey}-children-${childIndex}-passportExpiry`] ? 'border-red-500' : 'border-gray-300'
                                   }`}
-                                  placeholder="Enter 10-digit number"
                                 />
-                                {errors[`${roomKey}-children-${childIndex}-contactNumber`] && (
-                                  <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-contactNumber`]}</p>
+                                {errors[`${roomKey}-children-${childIndex}-passportExpiry`] && (
+                                  <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-passportExpiry`]}</p>
                                 )}
                               </div>
-                            </div>
-                          </div>
-
-                          {/* --- Child PAN (Always Rendered) --- */}
-                          <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                PAN Card Number {isPanMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
-                             </label>
-                            <input
-                              type="text"
-                              value={guestInfo[roomKey]?.children[childIndex]?.panCardNumber || ''}
-                              onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'panCardNumber', e.target.value)}
-                              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                errors[`${roomKey}-children-${childIndex}-panCardNumber`] ? 'border-red-500' : 'border-gray-300'
-                              }`}
-                              placeholder="Enter PAN card number"
-                            />
-                            {errors[`${roomKey}-children-${childIndex}-panCardNumber`] && (
-                              <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-panCardNumber`]}</p>
-                            )}
-                          </div>
-                          {/* --- End Child PAN --- */}
-
-                          {/* --- Child Passport (Always Rendered) --- */}
-                          <>
-                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Passport Number {isPassportMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
-                              </label>
-                              <input
-                                type="text"
-                                value={guestInfo[roomKey]?.children[childIndex]?.passportNumber || ''}
-                                onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'passportNumber', e.target.value)}
-                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                  errors[`${roomKey}-children-${childIndex}-passportNumber`] ? 'border-red-500' : 'border-gray-300'
-                                }`}
-                                placeholder="Enter passport number"
-                              />
-                              {errors[`${roomKey}-children-${childIndex}-passportNumber`] && (
-                                <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-passportNumber`]}</p>
-                              )}
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Passport Expiry Date {isPassportMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
-                              </label>
-                              <input
-                                type="date"
-                                value={guestInfo[roomKey]?.children[childIndex]?.passportExpiry || ''}
-                                onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'passportExpiry', e.target.value)}
-                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                  errors[`${roomKey}-children-${childIndex}-passportExpiry`] ? 'border-red-500' : 'border-gray-300'
-                                }`}
-                              />
-                              {errors[`${roomKey}-children-${childIndex}-passportExpiry`] && (
-                                <p className="mt-1 text-sm text-red-600">{errors[`${roomKey}-children-${childIndex}-passportExpiry`]}</p>
-                              )}
-                            </div>
-                          </>
-                          {/* --- End Child Passport --- */}
-
-                          {/* Child Special Requests */}
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Special Requests
-                            </label>
-                            <textarea
-                              value={guestInfo[roomKey]?.children[childIndex]?.specialRequests || ''}
-                              onChange={(e) => updateGuestField(roomKey, 'children', childIndex, 'specialRequests', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              placeholder="Enter any special requests for this guest"
-                              rows={2}
-                            ></textarea>
-                          </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1048,6 +868,87 @@ const GuestInfoModal = ({ isOpen, onClose, selectedRoomsAndRates = [], onSubmit,
               </div>
             );
           })}
+
+          {/* Common Contact Information Section - at the end of the form */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              This information will be used for all guests in the booking.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Email */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={commonContactInfo.email}
+                  onChange={(e) => updateCommonContactInfo('email', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors['common-email'] ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter email address"
+                />
+                {errors['common-email'] && (
+                  <p className="mt-1 text-sm text-red-600">{errors['common-email']}</p>
+                )}
+              </div>
+              
+              {/* ISD Code */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ISD Code <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={commonContactInfo.isdCode}
+                  onChange={(e) => updateCommonContactInfo('isdCode', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors['common-isdCode'] ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter ISD code (e.g. 91 for India)"
+                />
+                {errors['common-isdCode'] && (
+                  <p className="mt-1 text-sm text-red-600">{errors['common-isdCode']}</p>
+                )}
+              </div>
+              
+              {/* Contact Number */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={commonContactInfo.contactNumber}
+                  onChange={(e) => updateCommonContactInfo('contactNumber', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors['common-contactNumber'] ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter 10-digit number"
+                />
+                {errors['common-contactNumber'] && (
+                  <p className="mt-1 text-sm text-red-600">{errors['common-contactNumber']}</p>
+                )}
+              </div>
+              
+              {/* Special Requests - Now at the common level */}
+              <div className="md:col-span-2 mt-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Special Requests
+                </label>
+                <textarea
+                  value={commonContactInfo.specialRequests}
+                  onChange={(e) => updateCommonContactInfo('specialRequests', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter any special requests for the booking"
+                  rows={3}
+                ></textarea>
+              </div>
+            </div>
+          </div>
 
           <div className="mt-6">
             {/* Price Change Display (after recheck) */}

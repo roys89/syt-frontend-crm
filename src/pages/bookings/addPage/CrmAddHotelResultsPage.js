@@ -405,39 +405,29 @@ const CrmAddHotelResultsPage = () => {
             // Modify sortBy structure to include finalRate if it exists
             let finalSortBy = {};
             if (sortBy) {
-                 finalSortBy = { ...sortBy }; // Copy base sort object (contains only label now)
-                 
-                 // --- NEW: Add API-specific sort key based on currentSort state ---
-                 const sortKeyMapping = {
-                     'priceAsc': { finalRate: 'asc' },
-                     'priceDesc': { finalRate: 'desc' },
-                     'ratingDesc': { rating: 'desc' },
-                     'nameAsc': { name: 'asc' },
-                     'relevance': {} // Relevance doesn't need specific keys other than finalRate
-                 };
-                 const apiSortKeys = sortKeyMapping[currentSort] || sortKeyMapping['relevance'];
-                 finalSortBy = { label: finalSortBy.label, ...apiSortKeys }; // ONLY keep label and add API keys
-                 
-                 // --- MODIFIED: Check both isMaxPriceFilterActive flag and directMaxPrice
-                 const activeMaxPrice = directMaxPrice !== null ? directMaxPrice : 
-                                       (isMaxPriceFilterActive ? maxPriceFilter : null);
-                 if (activeMaxPrice !== null && typeof activeMaxPrice === 'number' && !isNaN(activeMaxPrice)) {
-                     finalSortBy.finalRate = activeMaxPrice;
-                     console.log(`AddHotelResultsPage: Including finalRate ${activeMaxPrice} in sortBy`, finalSortBy);
-                 }
-             } else {
-                 // Default relevance: only include label
-                 finalSortBy = { label: 'Relevance' };
-                 
-                 // Only include finalRate in the request if explicit max price is set
-                 const activeMaxPrice = directMaxPrice !== null ? directMaxPrice : 
+                // Use the full sort object directly with id, value and label
+                finalSortBy = { ...sortBy };
+                
+                // Add max price if available
+                const activeMaxPrice = directMaxPrice !== null ? directMaxPrice : 
                                       (isMaxPriceFilterActive ? maxPriceFilter : null);
-                 if (activeMaxPrice !== null && typeof activeMaxPrice === 'number' && !isNaN(activeMaxPrice)) {
-                     finalSortBy.finalRate = activeMaxPrice;
-                     console.log(`AddHotelResultsPage: Including finalRate ${activeMaxPrice} in sortBy (default)`, finalSortBy);
-                 }
-             }
-             requestBody.sortBy = finalSortBy; // Assign the fully constructed object
+                if (activeMaxPrice !== null && typeof activeMaxPrice === 'number' && !isNaN(activeMaxPrice)) {
+                    finalSortBy.finalRate = activeMaxPrice;
+                    console.log(`AddHotelResultsPage: Including finalRate ${activeMaxPrice} in sortBy`, finalSortBy);
+                }
+            } else {
+                // Default to relevance
+                finalSortBy = getCurrentSortObject('relevance');
+                
+                // Only include finalRate in the request if explicit max price is set
+                const activeMaxPrice = directMaxPrice !== null ? directMaxPrice : 
+                                      (isMaxPriceFilterActive ? maxPriceFilter : null);
+                if (activeMaxPrice !== null && typeof activeMaxPrice === 'number' && !isNaN(activeMaxPrice)) {
+                    finalSortBy.finalRate = activeMaxPrice;
+                    console.log(`AddHotelResultsPage: Including finalRate ${activeMaxPrice} in sortBy (default)`, finalSortBy);
+                }
+            }
+            requestBody.sortBy = finalSortBy; // Assign the fully constructed object
 
             console.log(`AddHotelResultsPage: Search Request:`, JSON.stringify(requestBody, null, 2));
 
@@ -751,11 +741,11 @@ const CrmAddHotelResultsPage = () => {
     const getCurrentSortObject = (sortValue) => {
         // Map UI sort values to API sort format
         const sortMapping = {
-            'priceAsc': { finalRate: 'asc', label: 'Price: Low to High' },
-            'priceDesc': { finalRate: 'desc', label: 'Price: High to Low' },
-            'ratingDesc': { rating: 'desc', label: 'Rating: High to Low' },
-            'nameAsc': { name: 'asc', label: 'Name: A to Z' },
-            'relevance': { label: 'Relevance' } // Add relevance
+            'priceAsc': { finalRate: 'asc', label: 'Price: Low to High', id: 2, value: 1 },
+            'priceDesc': { finalRate: 'desc', label: 'Price: High to Low', id: 2, value: 2 },
+            'ratingDesc': { rating: 'desc', label: 'Rating: High to Low', id: 3, value: 2 },
+            'nameAsc': { name: 'asc', label: 'Name: A to Z', id: 4, value: 1 },
+            'relevance': { label: 'Relevance', id: 1, value: 1 }
         };
         return sortMapping[sortValue] || sortMapping['relevance']; // Default to relevance
     };

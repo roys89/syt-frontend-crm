@@ -48,16 +48,6 @@ const formatTimeSimple = (timeString) => { // Expects HH:MM (24hr)
 };
 // --- END Helper Functions ---
 
-// --- Map booking status (from live data) --- 
-const mapBookingStatus = (status) => {
-  switch (status) {
-    case 0: return 'Confirmed'; // Based on example "Detail found!"
-    case 1: return 'Pending'; // Assuming 1 means pending
-    case 2: return 'Cancelled'; // Assuming 2 means cancelled
-    case 3: return 'Failed'; // Assuming 3 means failed
-    default: return 'Unknown';
-  }
-};
 
 // --- Map payment status (from live data) ---
 const mapPaymentStatus = (status) => {
@@ -73,7 +63,7 @@ const mapPaymentStatus = (status) => {
 // Updated to handle LIVE data structure from getTransferBookingDetails
 // voucherData is expected to be the INNERMOST `data` object 
 // (i.e., response.data.data)
-const PdfTransferVoucherContent = ({ voucherData, providerBookingRef }) => {
+const PdfTransferVoucherContent = ({ voucherData, providerBookingRef, bookingStatus = 'Unknown' }) => {
     if (!voucherData || typeof voucherData !== 'object') {
         console.error("[PDF Content] Invalid or missing voucherData (expected innermost data object):", voucherData);
         return <div className="p-4 text-red-500 text-xs">Error: Invalid data for PDF rendering.</div>;
@@ -86,14 +76,14 @@ const PdfTransferVoucherContent = ({ voucherData, providerBookingRef }) => {
         total = 0,
         currency = 'INR',
         payment_status = null, // Numeric status
-        booking_status = null, // Numeric status
         booking_date = null,
         booking_time = null,
         passengers = 0,
         from = 'N/A', // Pickup address
         to = 'N/A', // Dropoff address
         created_date = null, // Use this instead of createdAt
-        vehicle = {} // Nested vehicle object
+        vehicle = {}, // Nested vehicle object
+        operator_details = null // Add operator details
     } = voucherData;
 
     const { 
@@ -101,9 +91,11 @@ const PdfTransferVoucherContent = ({ voucherData, providerBookingRef }) => {
         capacity: vehicle_capacity = 'N/A' 
     } = vehicle;
     
-    // Map numeric statuses to strings
-    const displayBookingStatus = mapBookingStatus(booking_status);
+    // Only map payment status, use passed bookingStatus for booking status
     const displayPaymentStatus = mapPaymentStatus(payment_status);
+    
+    // Get operator phone if available
+    const operatorPhone = operator_details?.phone || 'Not assigned';
 
     return (
         <div className="p-6 font-sans text-gray-800 bg-white w-[210mm] min-h-[297mm] text-[10px]">
@@ -126,7 +118,7 @@ const PdfTransferVoucherContent = ({ voucherData, providerBookingRef }) => {
                 <div className="text-[9px] text-right">
                     {/* Use providerBookingRef passed from modal */}
                     <p>Booking Ref: <span className="font-semibold">{providerBookingRef || 'N/A'}</span></p> 
-                    <p>Status: <span className={`font-semibold ${displayBookingStatus === 'Confirmed' ? 'text-[#13804e]' : 'text-orange-600'}`}>{displayBookingStatus}</span></p>
+                    <p>Status: <span className={`font-semibold ${bookingStatus === 'Confirmed' ? 'text-[#13804e]' : 'text-orange-600'}`}>{bookingStatus}</span></p>
                     <p>Booked On: <span className="font-semibold">{formatDateSimple(created_date)}</span></p>
                 </div>
             </div>
@@ -140,8 +132,7 @@ const PdfTransferVoucherContent = ({ voucherData, providerBookingRef }) => {
                         <p><strong>Date:</strong> {formatDateSimple(booking_date)}</p>
                         {/* booking_time includes seconds, formatTimeSimple expects HH:MM */}
                         <p><strong>Time:</strong> {formatTimeSimple(booking_time?.substring(0, 5))}</p> 
-                        {/* Flight number not directly available in live data example, maybe in notes? */}
-                        {/* Consider adding if available elsewhere or removing */} 
+                        <p><strong>Driver Contact:</strong> {operatorPhone}</p>
                     </div>
                 </div>
                 <div className="col-span-1">
@@ -267,7 +258,11 @@ const TransferBookingVoucherModal = ({ isOpen, onClose, transferVoucherDetails, 
             // Render the PDF content component in the hidden container
             root = createRoot(container);
             // Pass the INNERMOST data and providerRefId to the PDF content
-            await root.render(<PdfTransferVoucherContent voucherData={detailsForPdf} providerBookingRef={providerIdForFilename} />); 
+            await root.render(<PdfTransferVoucherContent 
+                voucherData={detailsForPdf} 
+                providerBookingRef={providerIdForFilename}
+                bookingStatus={transferVoucherDetails?.status ? 'Confirmed' : 'Unknown'} 
+            />); 
             await new Promise(resolve => setTimeout(resolve, 500)); // Wait for render
 
             // Capture with html2canvas
@@ -341,9 +336,11 @@ const TransferBookingVoucherModal = ({ isOpen, onClose, transferVoucherDetails, 
         );
     }
     
-    // Map statuses for preview using INNERMOST data
-    const previewBookingStatus = mapBookingStatus(liveDataForPreview.booking_status);
+    // Get booking status directly from transferVoucherDetails.status
+    const bookingStatus = transferVoucherDetails?.status ? 'Confirmed' : 'Unknown';
     const previewPaymentStatus = mapPaymentStatus(liveDataForPreview.payment_status);
+    // Get operator phone if available
+    const operatorPhone = liveDataForPreview.operator_details?.phone || 'Not assigned';
 
     // --- Main Modal Structure --- 
     return (
@@ -392,6 +389,7 @@ const TransferBookingVoucherModal = ({ isOpen, onClose, transferVoucherDetails, 
                             <p><strong>Date:</strong> {formatDateSimple(liveDataForPreview.booking_date)}</p>
                             <p><strong>Time:</strong> {formatTimeSimple(liveDataForPreview.booking_time?.substring(0, 5))}</p>
                             <p><strong>Vehicle:</strong> {liveDataForPreview.vehicle?.class} ({liveDataForPreview.vehicle?.capacity} passengers)</p>
+                            <p><strong>Driver Contact:</strong> {operatorPhone}</p>
                          </div>
                          
                           <div className="p-4 mb-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -406,7 +404,7 @@ const TransferBookingVoucherModal = ({ isOpen, onClose, transferVoucherDetails, 
                             <h3 className="font-semibold text-base mb-2 text-gray-800">Payment & Status</h3>
                             <p><strong>Total Fare:</strong> {formatCurrencySimple(liveDataForPreview.total, liveDataForPreview.currency)}</p>
                             <p><strong>Payment Status:</strong> <span className={`font-medium ${previewPaymentStatus === 'Paid' ? 'text-green-600' : 'text-orange-500'}`}>{previewPaymentStatus}</span></p>
-                            <p><strong>Booking Status:</strong> <span className={`font-medium ${previewBookingStatus === 'Confirmed' ? 'text-green-600' : 'text-orange-500'}`}>{previewBookingStatus}</span></p>
+                            <p><strong>Booking Status:</strong> <span className={`font-medium ${bookingStatus === 'Confirmed' ? 'text-green-600' : 'text-orange-500'}`}>{bookingStatus}</span></p>
                          </div>
 
                           <div className="p-4 mb-4 bg-yellow-50 rounded-lg border border-yellow-200 text-xs">

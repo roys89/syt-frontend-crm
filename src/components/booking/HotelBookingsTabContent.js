@@ -69,11 +69,21 @@ const HotelBookingsTabContent = () => {
 
   // Render hotel-specific details (moved and adapted)
   const renderHotelBookingDetails = (item) => {
-    const hotelName = item.providerBookingResponse?.results?.[0]?.data?.[0]?.hotelDetails?.name || 'Hotel Details Unavailable';
+    // Use the new hotelDetails structure
+    const hotelName = item.hotelDetails?.hotelName || item.providerBookingResponse?.results?.[0]?.data?.[0]?.hotelDetails?.name || 'Hotel Details Unavailable';
+    const hotelLocation = item.hotelDetails?.hotelLocation || '';
+    const hotelRating = item.hotelDetails?.hotelRating ? `${item.hotelDetails.hotelRating}★` : '';
+    const roomsCount = item.hotelDetails?.roomsCount || '-';
+    
     return (
       <div>
-        <div className="font-medium text-gray-900 truncate w-40" title={hotelName}>{hotelName}</div>
-        <div className="text-xs text-gray-500">Hotel Booking</div>
+        <div className="font-medium text-gray-900 truncate w-40" title={hotelName}>
+          {hotelName} {hotelRating && <span className="text-yellow-500 text-xs">{hotelRating}</span>}
+        </div>
+        <div className="text-xs text-gray-500 truncate w-40" title={hotelLocation}>{hotelLocation}</div>
+        <div className="text-xs text-gray-500">
+          {roomsCount} {parseInt(roomsCount) === 1 ? 'room' : 'rooms'}
+        </div>
       </div>
     );
   };
@@ -84,9 +94,10 @@ const HotelBookingsTabContent = () => {
     if (isLoadingHotelVoucher) return; 
 
     const bookingCode = item.bookingRefId;
-    // Attempt to get check-in/city from common locations, might need adjustment based on final CRM structure
-    const checkInDate = item.checkIn || item.providerBookingResponse?.results?.[0]?.data?.[0]?.checkIn;
-    const cityName = item.providerBookingResponse?.results?.[0]?.data?.[0]?.hotelDetails?.address?.city?.name;
+    // Use the new hotelDetails structure first, fall back to previous paths
+    const checkInDate = item.hotelDetails?.checkIn || item.checkIn || item.providerBookingResponse?.results?.[0]?.data?.[0]?.checkIn;
+    const cityName = item.hotelDetails?.hotelLocation?.split(',')[0] || 
+                    item.providerBookingResponse?.results?.[0]?.data?.[0]?.hotelDetails?.address?.city?.name;
 
     if (!bookingCode) {
       toast.error('Booking reference ID not found for this hotel booking.');
@@ -218,6 +229,12 @@ const HotelBookingsTabContent = () => {
                 Hotel Details
               </th>
               <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                Check-in
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
+                Check-out
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
                 Booking Ref ID
               </th>
                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-[#093923]">
@@ -267,6 +284,14 @@ const HotelBookingsTabContent = () => {
                   {/* Hotel Details */}
                   <td className="px-3 py-4 text-sm text-[#093923]/80">
                     {renderHotelBookingDetails(item)}
+                  </td>
+                  {/* Check-in */}
+                  <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                    {formatDate(item.hotelDetails?.checkIn)}
+                  </td>
+                  {/* Check-out */}
+                  <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">
+                    {formatDate(item.hotelDetails?.checkOut)}
                   </td>
                   {/* Booking Ref ID */}
                   <td className="px-3 py-4 text-sm text-[#093923]/80 whitespace-nowrap">

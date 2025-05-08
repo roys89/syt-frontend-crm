@@ -224,6 +224,7 @@ const FlightItineraryModal = ({
         isLeadPax: passengerFormData ? (passengerFormData[paxId]?.isLeadPax || paxId === '1') : paxId === '1',
         ssr: { seat: [], baggage: [], meal: [] } // Empty SSR
       }));
+      setConfirmedAncillaries(finalPassengerData); // Ensure confirmedAncillaries is set
       handleAllocateAndRecheck(finalPassengerData); 
       setAncillariesConfirmed(true); // Mark as confirmed (no ancillaries needed)
     }
